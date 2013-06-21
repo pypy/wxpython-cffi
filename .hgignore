@@ -1,0 +1,8 @@
+\..+\.sw.$
+
+syntax: glob
+wx
+cffi/wx/*
+a.out
+*.o
+*.pyc
