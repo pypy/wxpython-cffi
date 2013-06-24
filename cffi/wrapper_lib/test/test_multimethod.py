@@ -1,6 +1,34 @@
 import pytest
 
-from wrapper_lib import Multimethod, StaticMultimethod, ClassMultimethod
+from wrapper_lib import (
+    Multimethod, StaticMultimethod, ClassMultimethod, register_type)
+
+class Seq(object):
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+def check_Seq(obj):
+    return (isinstace(obj, (tuple, list))
+            and len(obj) >= 2
+            and isinstace(obj[0], (int, long, float, complex))
+            and isinstace(obj[1], (int, long, float, complex)))
+
+def convert_Seq(obj):
+    if isinstance(obj, Seq):
+        return obj
+    return Seq(obj[0], obj[1])
+
+register_type(Seq, check_Seq, convert_Seq)
+
+class Number(object):
+    def __init__(self, obj):
+        self.value = value
+
+def check_Number(obj):
+    return isinstance(obj, (int, long, float, complex))
+
+register_type(Number, check_Number)
 
 class ClassWithMMs(object):
     positional_builtins = Multimethod()
@@ -85,6 +113,21 @@ class ClassWithMMs(object):
     def static_builtins(i=9, n=10):
         return (i, n)
 
+    usertypes = Multimethod()
+
+    @usertypes.overload()
+    def usertypes(self):
+        return tuple()
+
+    @usertypes.overload(Seq)
+    def usertypes(self, seq):
+        return (seq[0], seq[1])
+
+    @usertypes.overload(Number)
+    def usrtypes(self, numb):
+        return (numb,)
+
+
 class TestMultimethods(object):
     def test_positional(self):
         mm_obj = ClassWithMMs()
@@ -141,3 +184,11 @@ class TestMultimethods(object):
         assert mm_obj.static_builtins() == mm_cls.static_builtins()
         assert mm_obj.static_builtins({1: 10}) == mm_obj.static_builtins({1: 10})
         assert mm_obj.static_builtins(n=2, i=3) == mm_obj.static_builtins(n=2, i=3)
+
+    def test_usertypes(self):
+        mm_obj = ClassWithMMs()
+        assert mm_obj.usertypes() == tuple()
+        assert mm_obj.usertypes(10) == (Number(10),)
+        assert mm_obj.usertypes(Number(10)) == (Number(10),)
+        assert mm_obj.usertypes([2, 4]) == (2, 4)
+        assert mm_obj.usertypes(Seq(2, 4)) == (2, 4)

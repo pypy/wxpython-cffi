@@ -1,3 +1,12 @@
+type_registry = {}
+
+def register_type(type, check, conversion=None):
+    if not callable(check):
+        raise TypeError('')
+    if conversion is not None and not callable(conversion):
+        raise TypeError('')
+    type_registry[type] = (check, conversion)
+
 class Multimethod(object):
     def __init__(self):
         self.overloads = []
