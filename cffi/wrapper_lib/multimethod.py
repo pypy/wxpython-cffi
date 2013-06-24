@@ -1,3 +1,4 @@
+import __builtin__
 type_registry = {}
 
 def register_type(type, check, conversion=None):
@@ -22,13 +23,16 @@ class Multimethod(object):
         for overload in self.overloads:
             match = overload.check_match(args, kwargs)
             if match is True:
-                return overload.func
+                return overload
             errmsgs.append(match)
-        raise TypeError('arguments did not match any overloaded call: %s' %
+        else:
+            raise TypeError('arguments did not match any overloaded call: %s' %
                             errmsgs)
 
     def __call__(self, *args, **kwargs):
-        return self.resolve_overload(args, kwargs)(*args, **kwargs)
+        overload = self.resolve_overload(args, kwargs)
+        args, kwargs = overload.convert_args(args, kwargs)
+        return overload.func(*args, **kwargs)
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -49,7 +53,9 @@ class MultimethodPartial(object):
         self.instance = instance
 
     def __call__(self, *args, **kwargs):
-        return self.resolve(args, kwargs)(self.instance, *args, **kwargs)
+        overload = self.resolve(args, kwargs)
+        args, kwargs = overload.convert_args(args, kwargs)
+        return overload.func(self.instance, *args, **kwargs)
 
 class Overload(object):
     def __init__(self, func, args, kwargs):
@@ -86,16 +92,46 @@ class Overload(object):
 
         for i, arg_value in enumerate(args):
             arg_type, arg_name = self.args[i]
+            check = type_registry.get(arg_type, (__builtin__.isinstance,))[0]
             if arg_name in kwargs:
                 return ("argument '%s' has already been given as a positional "
                         "argument" % arg_name)
-            if not isinstance(arg_value, arg_type):
+            if not check(arg_value, arg_type):
                 return "argument %d has unexptected type '%s'" % (i, arg_type)
 
         for arg_name in kwargs:
             if arg_name not in self.kwargs:
                 return "'%s' is not a valid keyword argument" % arg_name
-            if not isinstance(kwargs[arg_name], self.kwargs[arg_name]):
+
+            arg_type = self.kwargs[arg_name]
+            check = type_registry.get(arg_type, (__builtin__.isinstance,))[0]
+            if not check(kwargs[arg_name], arg_type):
                 return ("argument '%s' has unexpected type '%s'" %
-                        (arg_name, self.kwargs[arg_name]))
+                        (arg_name, arg_type))
         return True
+
+    def convert_args(self, args, kwargs):
+        new_args = list(args)
+        new_kwargs = dict(kwargs)
+        for i, arg_value in enumerate(args):
+            arg_type, arg_name = self.args[i]
+            convert = type_registry.get(arg_type, (None, None))[1]
+            if not isinstance(arg_value, arg_type):
+                # only try to convert arg_value if it isn't already the correct
+                # type
+                if convert is None:
+                    # call the constructor if no conversion function was given
+                    new_args[i] = arg_type(arg_value)
+                else:
+                    new_args[i] = convert(arg_value)
+
+        for arg_name, arg_value in kwargs.iteritems():
+            arg_type = self.kwargs[arg_name]
+            convert = type_registry.get(arg_type, (None, None))[1]
+            if not isinstance(arg_value, arg_type):
+                if convert is None:
+                    new_args[i] = arg_type(arg_value)
+                else:
+                    new_args[i] = convert(arg_value)
+
+        return (tuple(new_args), new_kwargs)
