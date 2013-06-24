@@ -8,11 +8,12 @@ class Seq(object):
         self.x = x
         self.y = y
 
-def check_Seq(obj):
-    return (isinstace(obj, (tuple, list))
+def check_Seq(obj, type):
+    return (isinstance(obj, (tuple, list))
             and len(obj) >= 2
-            and isinstace(obj[0], (int, long, float, complex))
-            and isinstace(obj[1], (int, long, float, complex)))
+            and isinstance(obj[0], (int, long, float, complex))
+            and isinstance(obj[1], (int, long, float, complex))
+            or isinstance(obj, Seq))
 
 def convert_Seq(obj):
     if isinstance(obj, Seq):
@@ -22,11 +23,14 @@ def convert_Seq(obj):
 register_type(Seq, check_Seq, convert_Seq)
 
 class Number(object):
-    def __init__(self, obj):
+    def __init__(self, value):
         self.value = value
 
-def check_Number(obj):
-    return isinstance(obj, (int, long, float, complex))
+    def __eq__(self, other):
+        return self.value == other.value
+
+def check_Number(obj, type):
+    return isinstance(obj, (int, long, float, complex, Number))
 
 register_type(Number, check_Number)
 
@@ -121,7 +125,7 @@ class ClassWithMMs(object):
 
     @usertypes.overload(Seq)
     def usertypes(self, seq):
-        return (seq[0], seq[1])
+        return (seq.x, seq.y)
 
     @usertypes.overload(Number)
     def usrtypes(self, numb):
