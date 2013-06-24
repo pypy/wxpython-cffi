@@ -1,4 +1,3 @@
-import __builtin__
 type_registry = {}
 
 def register_type(type, check, conversion=None):
@@ -92,20 +91,22 @@ class Overload(object):
 
         for i, arg_value in enumerate(args):
             arg_type, arg_name = self.args[i]
-            check = type_registry.get(arg_type, (__builtin__.isinstance,))[0]
+            check = type_registry.get(arg_type, (None,))[0]
             if arg_name in kwargs:
                 return ("argument '%s' has already been given as a positional "
                         "argument" % arg_name)
-            if not check(arg_value, arg_type):
+            if (not isinstance(arg_value, arg_type) and
+                (check is None or not check(arg_value, arg_type))):
                 return "argument %d has unexptected type '%s'" % (i, arg_type)
 
-        for arg_name in kwargs:
+        for arg_name, arg_value in kwargs.iteritems():
             if arg_name not in self.kwargs:
                 return "'%s' is not a valid keyword argument" % arg_name
 
             arg_type = self.kwargs[arg_name]
-            check = type_registry.get(arg_type, (__builtin__.isinstance,))[0]
-            if not check(kwargs[arg_name], arg_type):
+            check = type_registry.get(arg_type, (None,))[0]
+            if (not isinstance(arg_value, arg_type) and
+                (check is None or not check(arg_value, arg_type))):
                 return ("argument '%s' has unexpected type '%s'" %
                         (arg_name, arg_type))
         return True

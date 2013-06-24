@@ -12,8 +12,7 @@ def check_Seq(obj, type):
     return (isinstance(obj, (tuple, list))
             and len(obj) >= 2
             and isinstance(obj[0], (int, long, float, complex))
-            and isinstance(obj[1], (int, long, float, complex))
-            or isinstance(obj, Seq))
+            and isinstance(obj[1], (int, long, float, complex)))
 
 def convert_Seq(obj):
     if isinstance(obj, Seq):
@@ -30,7 +29,7 @@ class Number(object):
         return self.value == other.value
 
 def check_Number(obj, type):
-    return isinstance(obj, (int, long, float, complex, Number))
+    return isinstance(obj, (int, long, float, complex))
 
 register_type(Number, check_Number)
 
