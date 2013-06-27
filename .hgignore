@@ -6,3 +6,4 @@ cffi/wx/*
 a.out
 *.o
 *.pyc
+__pycache__/*
