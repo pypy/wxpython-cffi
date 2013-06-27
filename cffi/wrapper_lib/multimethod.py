@@ -1,6 +1,17 @@
 type_registry = {}
 
 def register_type(type, check, conversion=None):
+    """
+    Register a custom check function and optional conversion function to handle
+    a given type when resolving overloads.
+
+    The check function should have the form check(obj, type) and should return
+    a boolan. It will be called to verify that ``obj`` can be converted to
+    ``type``.
+
+    The conversion function should have the form conversion(obj) and should
+    return an instance of ``type``.
+    """
     if not callable(check):
         raise TypeError('')
     if conversion is not None and not callable(conversion):
@@ -12,6 +23,11 @@ class Multimethod(object):
         self.overloads = []
 
     def overload(self, *args, **kwargs):
+        """
+        Add a new overload to the multimethod.
+
+        Args
+        """
         def closure(func):
             self.overloads.append(Overload(func, args, kwargs))
             return self
@@ -112,6 +128,10 @@ class Overload(object):
         return True
 
     def convert_args(self, args, kwargs):
+        """
+        Convert the arguments passed to the types specified in the signature
+        if necessary.
+        """
         new_args = list(args)
         new_kwargs = dict(kwargs)
         for i, arg_value in enumerate(args):
