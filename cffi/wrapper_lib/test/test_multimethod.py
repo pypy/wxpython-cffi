@@ -169,10 +169,17 @@ class TestMultimethods(object):
         assert mm_obj.mixed_builtins(two=(2,), one=(1,)) == (1, 2)
 
     def test_instace_methods(self):
+        mm_cls = ClassWithMMs
         mm_obj = ClassWithMMs()
         assert mm_obj.instance_builtins() == (mm_obj,)
         assert mm_obj.instance_builtins({1: 10}) == (mm_obj, {1: 10})
         assert mm_obj.instance_builtins(n=2, i=3) == (mm_obj, 3, 2)
+
+        assert mm_obj.instance_builtins() == mm_cls.instance_builtins(mm_obj)
+        assert (mm_obj.instance_builtins({1: 10}) ==
+                mm_cls.instance_builtins(mm_obj, {1: 10}))
+        assert (mm_obj.instance_builtins(n=2, i=3) ==
+                mm_cls.instance_builtins(mm_obj, n=2, i=3))
 
     def test_class_methods(self):
         mm_cls = ClassWithMMs

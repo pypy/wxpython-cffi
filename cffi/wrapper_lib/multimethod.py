@@ -50,8 +50,6 @@ class Multimethod(object):
         return overload.func(*args, **kwargs)
 
     def __get__(self, instance, owner):
-        if instance is None:
-            return self
         return MultimethodPartial(self.resolve_overload, instance)
 
 class StaticMultimethod(Multimethod):
@@ -68,9 +66,15 @@ class MultimethodPartial(object):
         self.instance = instance
 
     def __call__(self, *args, **kwargs):
+        if self.instance is None:
+            instance = args[0]
+            args = args[1:]
+        else:
+            instance = self.instance
         overload = self.resolve(args, kwargs)
         args, kwargs = overload.convert_args(args, kwargs)
-        return overload.func(self.instance, *args, **kwargs)
+
+        return overload.func(instance, *args, **kwargs)
 
 class Overload(object):
     def __init__(self, func, args, kwargs):
