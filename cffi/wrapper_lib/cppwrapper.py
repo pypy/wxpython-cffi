@@ -144,7 +144,7 @@ def _detach_from_parent(obj):
         return
 
     parent = obj._parent()
-    if parent is None or obj._prev_sibling() is None:
+    if parent is None or obj._prev_sibling is None:
         # The parent has been garbage collected, but this object is still
         # attached to it, which shouldn't be possible. Maybe an exception
         # should be thrown?

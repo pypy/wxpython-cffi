@@ -223,6 +223,24 @@ class TestPyObjectLifetimes(object):
         assert cwk1() is None
         assert cwk2() is None
 
+    def test_change_parent(self):
+        parent1 = NoDtorObj()
+        parent2 = NoDtorObj()
+        child = NoDtorObj()
+        wk = weakref.ref(child)
+
+        give_ownership(child, parent1)
+        give_ownership(child, parent2)
+
+        del parent1
+        del child
+        collect_all_wrappers()
+        assert wk() is not None
+
+        del parent2
+        collect_all_wrappers()
+        assert wk() is None
+
 class TestObjectLookup(object):
     def test_object_recall(self):
         obj = NoDtorObj()
