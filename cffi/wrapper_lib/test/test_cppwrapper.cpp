@@ -84,10 +84,8 @@ int DtorObj::non_virtual_meth(int i)
     return i;
 }
 
-#include <cstdio>
 extern "C" typedef int(*FPTR_DtorObj_88_virtual_meth)(void*, int);
 int DtorObj::virtual_meth(int i)
 {
-    printf("%p\n", DtorObj_vtable[METHIDX_DtorObj_88_virtual_meth]);
     return ((FPTR_DtorObj_88_virtual_meth)DtorObj_vtable[METHIDX_DtorObj_88_virtual_meth])(this, i);
 }

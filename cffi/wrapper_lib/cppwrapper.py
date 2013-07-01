@@ -1,13 +1,24 @@
-from registry import object_registry
+import weakref
+
 
 class CppWrapper(object):
     _ffi = None
     _lib = None
     _vtable = None
 
-    def __init__(self, cpp_obj, py_owned=False):
+    def __init__(self, cpp_obj, py_owned=True):
         self._cpp_obj = cpp_obj if cpp_obj is not None else self._ffi.NULL
         self._py_owned = py_owned
+        remember_ptr(self, self._cpp_obj, py_owned)
+
+        self._parent = None
+        self._child = None
+        self._next_sibling = None
+        self._prev_sibling = None
+
+    def __del__(self):
+        if not self._py_owned:
+            forget_ptr(self._cpp_obj)
 
     @classmethod
     def _from_ptr(cls, ptr):
@@ -17,7 +28,12 @@ class CppWrapper(object):
 
 
 def global_dtor(ptr):
-    pass
+    if not ptr in object_registry:
+        #TODO: raise an exception? This is called via a cffi callback, so the
+        #      exception wouldn't propagate to regular python code
+        return
+
+    forget_ptr(ptr)
 
 def wrapper_class(ffi, lib, vtable=None, virtual_methods=None):
     if ((vtable is None and virtual_methods is not None) or
@@ -54,3 +70,130 @@ def virtual_method(idx):
         func._virtual_method = idx
         return func
     return closure
+
+
+
+object_registry = {}
+
+#TODO: remove dead weakrefs from the map, probably with a callback
+def obj_from_ptr(ptr, klass=CppWrapper):
+    obj = object_registry.get(ptr, None)
+    if isinstance(obj, weakref.ref):
+        obj = obj()
+
+    if obj is None:
+        obj = klass._from_ptr(ptr)
+        object_registry[ptr] = obj
+        return obj
+
+    if not isinstance(obj, klass):
+        # If obj isn't an instance of klass but has the same location, one of
+        # two things are likely to have happened:
+        # 1. The old object was deleted and this is a new object at that same
+        #    location
+        # 2. The original entry was for superclass of the actual class of obj
+        # We'll assume the former case because we don't really have a solution
+        # to the latter. That is to say, we'll replace the old object with a
+        # new one with the correct class
+        old_parent = obj._parent
+
+        obj = klass._from_ptr(ptr)
+
+        if old_parent is not None:
+            _detach_from_parent(obj)
+            object_registry[ptr] = weakref.ref(obj)
+            _attach_to_parent(obj, old_parent())
+        else:
+            object_registry[ptr] = weakref.ref(obj)
+        return obj
+    return obj
+
+def remember_ptr(obj, ptr, weak=False):
+    ref = obj if not weak else weakref.ref(obj)
+    object_registry[ptr] = ref
+
+def forget_ptr(ptr):
+    if object_registry is not None and ptr in object_registry:
+        obj = object_registry[ptr]
+        del object_registry[ptr]
+
+        if isinstance(obj, weakref.ref):
+            obj = obj()
+        if obj is not None:
+            _detach_children(obj)
+
+def take_ownership(obj):
+    obj._py_owned = True
+    ref = object_registry[obj._cpp_obj]
+    if not isinstance(ref, weakref.ref):
+        object_registry[obj._cpp_obj] = weakref.ref(obj)
+    _detach_from_parent(obj)
+
+def give_ownership(obj, parent=None):
+    obj._py_owned = False
+
+    ref = object_registry[obj._cpp_obj]
+
+    _detach_from_parent(obj)
+    if parent is not None:
+        _attach_to_parent(obj, parent)
+
+        # If parent is not None, we want a weakref; the parent will hold
+        # the strong ref that keeps obj alive
+        if not isinstance(ref, weakref.ref):
+            object_registry[obj._cpp_obj] = weakref.ref(obj)
+    else:
+        # If parent is None, we want a strong ref; object_registry is
+        # responsible for keeping obj alive
+        if isinstance(ref, weakref.ref):
+            object_registry[obj._cpp_obj] = obj
+
+
+def _detach_from_parent(obj):
+    if obj._parent is None:
+        # No parent to detach from
+        return
+
+    parent = obj._parent()
+    if parent is None or obj._prev_sibling() is None:
+        # The parent has been garbage collected, but this object is still
+        # attached to it, which shouldn't be possible. Maybe an exception
+        # should be thrown?
+        return
+
+    if parent._child is obj:
+        parent._child = obj._next_sibling
+    else:
+        # If obj isn't the first child, it has a previous sibling
+        obj._prev_sibling()._next_sibling = obj._next_sibling
+    if obj._next_sibling is not None:
+        obj._next_sibling = obj._prev_sibling
+
+    obj._parent = None
+    obj._prev_sibling = None
+    obj._next_sibling = None
+
+def _detach_children(obj):
+    child = obj._child
+    while child is not None:
+        next = child._next_sibling
+        child._prev_sibling = None
+        child._next_sibling = None
+        child = next
+
+    obj._child = None
+
+def _attach_to_parent(obj, parent):
+    # obj shouldn't already be attached to a parent when this is called
+
+    if parent._child is None:
+        obj._parent = weakref.ref(parent)
+    else:
+        # Don't create a new weakref object if we don't have too
+        obj._parent = parent._child._parent
+
+        # obj is being inserted at the front of the list
+        parent._child._prev_sibling = weakref.ref(obj)
+
+    obj._next_sibling = parent._child
+    parent._child = obj

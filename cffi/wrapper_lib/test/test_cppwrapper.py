@@ -5,7 +5,8 @@ import weakref
 from os import path
 
 from wrapper_lib import (
-    CppWrapper, wrapper_class, virtual_method, object_registry)
+    wrapper_class, virtual_method, CppWrapper, obj_from_ptr, forget_ptr,
+    take_ownership, give_ownership)
 
 ffi = cffi.FFI()
 ffi.cdef('''
@@ -53,7 +54,12 @@ class NoDtorObj(CppWrapper):
         CppWrapper.__init__(self, cpp_obj)
 
     def __del__(self):
-        clib.NoDtorObj_88__op_delete(self._cpp_obj)
+        if self._py_owned:
+            clib.NoDtorObj_88__op_delete(self._cpp_obj)
+        CppWrapper.__del__(self)
+
+class NoDtorObjSubClass(NoDtorObj):
+    pass
 
 METHIDX_DtorObj_88_virtual_meth = 1
 DtorObj_vtable = [
@@ -70,7 +76,9 @@ class DtorObj(CppWrapper):
         CppWrapper.__init__(self, cpp_obj)
 
     def __del__(self):
-        clib.DtorObj_88__op_delete(self._cpp_obj)
+        if self._py_owned:
+            clib.DtorObj_88__op_delete(self._cpp_obj)
+        CppWrapper.__del__(self)
 
     def non_virtual_meth(self, i):
         return clib.DtorObj_88_non_virtual_meth(self._cpp_obj, i)
@@ -80,11 +88,8 @@ class DtorObj(CppWrapper):
 
     @virtual_method(METHIDX_DtorObj_88_virtual_meth)
     def _virtual_virtul_meth(ptr, i):
-        self = object_registry.obj_from_ptr(ptr, DtorObj)
+        self = obj_from_ptr(ptr, DtorObj)
         return self.virtual_meth(i)
-
-    #def call_dtor(self):
-        #clib.DtorObj_88__op_delete(
 
 class TestMethodCalls(object):
     def test_nonvirtual_method(self):
@@ -104,25 +109,15 @@ class TestMethodCalls(object):
         assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
 
 class TestCppObjectLifetimes(object):
-    def test_cpp_owned_no_dtor(self):
+    def test_cpp_owned(self):
         collect_all_wrappers()
         deleted_count = clib.deleted_count
         obj = NoDtorObj()
-        object_registry.give_ownership(obj)
+        give_ownership(obj)
         del obj
         collect_all_wrappers()
 
         assert deleted_count == clib.deleted_count
-
-    def test_cpp_owned_dtor(self):
-        collect_all_wrappers()
-        deleted_count = clib.deleted_count
-        obj = DtorObj()
-        object_registry.give_ownership(obj)
-        del obj
-        collect_all_wrappers()
-
-        assert deleted_count + 1 == clib.deleted_count
 
     def test_py_owned(self):
         collect_all_wrappers()
@@ -144,22 +139,18 @@ class TestPyObjectLifetimes(object):
     def test_no_parent_cpp_owned(self):
         obj = DtorObj()
         wk = weakref.ref(obj)
-        object_registry.give_ownership(obj, None)
+        give_ownership(obj, None)
 
         del obj
         collect_all_wrappers()
         assert wk() is not None
-
-        wk().__del__
-        collect_all_wrappers()
-        assert wk() is None
 
     def test_py_owned_parent_dies(self):
         # Only test C++ owned child objects; Python owned objects don't have
         # parents
         parent = NoDtorObj()
         child = NoDtorObj()
-        object_registry.give_ownership(child, parent)
+        give_ownership(child, parent)
 
         pwk = weakref.ref(parent)
         cwk = weakref.ref(child)
@@ -170,12 +161,26 @@ class TestPyObjectLifetimes(object):
         assert pwk() is None
         assert cwk() is None
 
+    def test_cpp_owned_dtor_called(self):
+        collect_all_wrappers()
+        deleted_count = clib.deleted_count
+        obj = DtorObj()
+        give_ownership(obj)
+        wk = weakref.ref(obj)
+        ptr = obj._cpp_obj
+        del obj
+
+        clib.DtorObj_88__op_delete(ptr)
+        collect_all_wrappers()
+        assert deleted_count + 1 == clib.deleted_count
+        assert wk() is None
+
     def test_cpp_owned_parent_dies(self):
         parent = DtorObj()
         child = NoDtorObj()
 
-        object_registry.give_ownership(parent, None)
-        object_registry.give_ownership(child, parent)
+        give_ownership(parent, None)
+        give_ownership(child, parent)
 
         pwk = weakref.ref(parent)
         cwk = weakref.ref(child)
@@ -196,9 +201,9 @@ class TestPyObjectLifetimes(object):
         child1 = NoDtorObj()
         child2 = NoDtorObj()
 
-        object_registry.give_ownership(parent, None)
-        object_registry.give_ownership(child1, parent)
-        object_registry.give_ownership(child2, parent)
+        give_ownership(parent, None)
+        give_ownership(child1, parent)
+        give_ownership(child2, parent)
 
         pwk = weakref.ref(parent)
         cwk1 = weakref.ref(child1)
@@ -219,4 +224,35 @@ class TestPyObjectLifetimes(object):
         assert cwk2() is None
 
 class TestObjectLookup(object):
-    pass
+    def test_object_recall(self):
+        obj = NoDtorObj()
+        ptr = obj._cpp_obj
+        obj2 = obj_from_ptr(obj._cpp_obj, NoDtorObj)
+
+        assert obj is obj2
+
+    def test_object_recall_from_superclass(self):
+        obj = NoDtorObj()
+        ptr = obj._cpp_obj
+        obj2 = obj_from_ptr(obj._cpp_obj, CppWrapper)
+
+        assert obj is obj2
+
+    def test_object_recall_from_subclass(self):
+        obj = NoDtorObj()
+        ptr = obj._cpp_obj
+        obj2 = obj_from_ptr(obj._cpp_obj, NoDtorObjSubClass)
+        obj3 = obj_from_ptr(obj._cpp_obj, NoDtorObj)
+
+        assert obj is not obj2
+        assert obj2 is obj3
+
+    def test_object_recall_override(self):
+        obj = DtorObj()
+        ptr = obj._cpp_obj
+
+        assert obj_from_ptr(ptr) is obj
+
+        dup = obj_from_ptr(ptr, NoDtorObj)
+        assert dup is not obj
+        assert obj_from_ptr(ptr) is dup
