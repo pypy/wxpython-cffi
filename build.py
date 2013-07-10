@@ -24,7 +24,7 @@ else:
     from urllib.request import urlopen
 
 from distutils.dep_util import newer, newer_group
-from buildtools.config  import Config, msg, opj, posixjoin, loadETG, etg2sip, findCmd, \
+from buildtools.config  import Config, msg, opj, posixjoin, loadETG, etg2outfile, findCmd, \
                                phoenixDir, wxDir, copyIfNewer, copyFile, \
                                macFixDependencyInstallName, macSetLoaderNames, \
                                getSvnRev, runcmd, textfile_open, getSipFiles, \
@@ -343,6 +343,8 @@ def makeOptionParser():
         ("python",         ("",    "The python executable to build for.")),
         ("debug",          (False, "Build wxPython with debug symbols")),
         ("keep_hash_lines",(False, "Don't remove the '#line N' lines from the SIP generated code")),
+        ("generator",      ('sip', "The binding generator to use. Available "
+                                   "genrators: sip, cffi, sqlite")),
         ("osx_cocoa",      (True,  "Build the OSX Cocoa port on Mac (default)")),
         ("osx_carbon",     (False, "Build the OSX Carbon port on Mac (unsupported)")),
         ("mac_framework",  (False, "Build wxWidgets as a Mac framework.")),
@@ -667,7 +669,15 @@ def cmd_etg(options, args):
     pwd = pushDir(cfg.ROOT_DIR)
 
     # TODO: Better support for selecting etg cmd-line flags...
-    flags = '--sip'
+    flags = ''
+    if options.generator == 'sip':
+        flags = '--sip'
+    elif options.generator == 'cffi':
+        flags = '--cffi'
+    elif options.generator == 'sqlite':
+        flags = '--sqlite'
+    else:
+        raise Exception('Invalid generator selection')
     if options.nodoc:
         flags += ' --nodoc'
 
@@ -679,7 +689,7 @@ def cmd_etg(options, args):
         etgfiles.insert(0, core_file)
 
     for script in etgfiles:
-        sipfile = etg2sip(script)
+        outfile = etg2outfile(options.generator, script)
         deps = [script]
         ns = loadETG(script)
         if hasattr(ns, 'ETGFILES'):
@@ -690,7 +700,7 @@ def cmd_etg(options, args):
             deps += ns.OTHERDEPS
         
         # run the script only if any dependencies are newer
-        if newer_group(deps, sipfile):
+        if newer_group(deps, outfile):
             runcmd('"%s" %s %s' % (PYTHON, script, flags))
 
     

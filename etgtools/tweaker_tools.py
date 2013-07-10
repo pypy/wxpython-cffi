@@ -533,6 +533,12 @@ def getWrapperGenerator():
     elif '--sip' in sys.argv:
         from etgtools import sip_generator
         gClass = sip_generator.SipWrapperGenerator
+    elif '--cffi'  in sys.argv:
+        from etgtools import cffi_generator
+        gClass = cffi_generator.CffiWrapperGenerator
+    elif '--sqlite'  in sys.argv:
+        from etgtools import sqlite_generator
+        gClass = sqlite_generator.SqliteWrapperGenerator
     else:
         # The default is sip
         from etgtools import sip_generator

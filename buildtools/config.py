@@ -613,6 +613,21 @@ def etg2sip(etgfile):
 
     sipfile = posixjoin(cfg.SIPGEN, sipfile)
     return sipfile
+
+def etg2cffi(etgfile):
+    raise NotImplementedError()
+
+def etg2sqlite(etgfile):
+    cfg = Config()
+    return opj(cfg.ROOT_DIR, 'wxpython.sqlite')
+
+def etg2outfile(generator, etgfile):
+    if generator == 'sip':
+        return etg2sip(etgfile)
+    elif generator == 'cffi':
+        return etg2cffi(etgfile)
+    elif generator == 'sqlite':
+        return etg2sqlite(etgfile)
  
 
 def _getSbfValue(etg, keyName):
