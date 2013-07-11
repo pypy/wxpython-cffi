@@ -615,19 +615,17 @@ def etg2sip(etgfile):
     return sipfile
 
 def etg2cffi(etgfile):
-    raise NotImplementedError()
-
-def etg2sqlite(etgfile):
     cfg = Config()
-    return opj(cfg.ROOT_DIR, 'wxpython.sqlite')
+    outfile = os.path.splitext(os.path.basename(etgfile))[0] + '.def'
+
+    outfile = posixjoin(cfg.ROOT_DIR, 'cffi', 'def_gen', outfile)
+    return outfile
 
 def etg2outfile(generator, etgfile):
     if generator == 'sip':
         return etg2sip(etgfile)
     elif generator == 'cffi':
         return etg2cffi(etgfile)
-    elif generator == 'sqlite':
-        return etg2sqlite(etgfile)
  
 
 def _getSbfValue(etg, keyName):

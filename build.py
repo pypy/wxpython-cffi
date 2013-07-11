@@ -197,7 +197,7 @@ def setPythonVersion(args):
             else:
                 PYTHON = args[idx+1]
                 del args[idx:idx+2]
-            PYVER = runcmd('"%s" -c "import sys; print(sys.version[:3]"' % PYTHON,
+            PYVER = runcmd('"%s" -c "import sys; print(sys.version[:3])"' % PYTHON,
                            getOutput=True, echoCmd=False)
             PYSHORTVER = PYVER[0] + PYVER[2]
             break
@@ -344,7 +344,7 @@ def makeOptionParser():
         ("debug",          (False, "Build wxPython with debug symbols")),
         ("keep_hash_lines",(False, "Don't remove the '#line N' lines from the SIP generated code")),
         ("generator",      ('sip', "The binding generator to use. Available "
-                                   "genrators: sip, cffi, sqlite")),
+                                   "generators: sip, cffi")),
         ("osx_cocoa",      (True,  "Build the OSX Cocoa port on Mac (default)")),
         ("osx_carbon",     (False, "Build the OSX Carbon port on Mac (unsupported)")),
         ("mac_framework",  (False, "Build wxWidgets as a Mac framework.")),
@@ -674,8 +674,6 @@ def cmd_etg(options, args):
         flags = '--sip'
     elif options.generator == 'cffi':
         flags = '--cffi'
-    elif options.generator == 'sqlite':
-        flags = '--sqlite'
     else:
         raise Exception('Invalid generator selection')
     if options.nodoc:

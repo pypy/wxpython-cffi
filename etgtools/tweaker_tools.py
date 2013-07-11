@@ -570,7 +570,7 @@ def runGenerators(module):
     
     # Toss in the PI generator too
     from etgtools import pi_generator
-    generators.append(pi_generator.PiWrapperGenerator())    
+    generators.append(pi_generator.PiWrapperGenerator())
     
     # And finally add the documentation generator
     generators.append(getDocsGenerator())
