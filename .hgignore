@@ -7,3 +7,4 @@ a.out
 *.o
 *.pyc
 __pycache__/*
+cffi/def_gen/*

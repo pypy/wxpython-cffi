@@ -9,7 +9,7 @@ from buildtools.config import Config
 cfg = Config(noWxConfig=True)
 
 class CffiWrapperGenerator(generators.WrapperGeneratorBase):
-    def generate(self, module, destFile=None):
+    def generate(self, module):
         outfile = module.name + '.def'
         outfile = os.path.join(cfg.ROOT_DIR, 'cffi', 'def_gen', outfile)
 
