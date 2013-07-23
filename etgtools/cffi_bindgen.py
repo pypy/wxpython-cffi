@@ -17,6 +17,7 @@ STATIC_MODULES = ('wxpy_api', 'arrayholder', 'filename', 'treeitemdata',
 
 SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
+FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
 BASIC_CTYPES = ('int', 'short', 'long', 'long long', 'float', 'double', 'char')
 
@@ -55,11 +56,11 @@ class CffiModuleGenerator(object):
 
         methodMap = {
             extractors.ClassDef         : self.processClass,
-            
+            extractors.FunctionDef      : self.processFunction,
+            extractors.CppMethodDef     : self.processCppMethod,
         }
         """
             extractors.DefineDef        : self.generateDefine,
-            extractors.FunctionDef      : self.generateFunction,
             extractors.EnumDef          : self.generateEnum,
             extractors.GlobalVarDef     : self.generateGlobalVar,
             extractors.TypedefDef       : self.generateTypedef,
@@ -67,7 +68,6 @@ class CffiModuleGenerator(object):
             extractors.PyCodeDef        : self.generatePyCode,
             extractors.PyFunctionDef    : self.generatePyFunction,
             extractors.PyClassDef       : self.generatePyClass,
-            extractors.CppMethodDef     : self.generateCppMethod,
             extractors.CppMethodDef_sip : self.generateCppMethod_sip,
             }
         """
@@ -150,8 +150,6 @@ class CffiModuleGenerator(object):
             klass.cppClass.append("};")
 
 
-
-        # Process the class's methods first
         dispatch = {
             extractors.MemberVarDef     : self.processMemberVar,
             extractors.PropertyDef      : self.processProperty,
@@ -172,6 +170,54 @@ class CffiModuleGenerator(object):
             f(item)
 
 
+    def processFunction(self, func, overload=''):
+        if overload == '':
+            for i, m in enumerate(func.overloads):
+                if m.ignored:
+                    continue
+                self.processFunction(m, '_%d' % i)
+        func.pyImpl = []
+        func.cppImpl = []
+        if func.cppCode is not None and func.cppCode[1] == 'sip':
+            # Don't actually do anything if this function has sip-specfic
+            # custom code
+            return
+
+        func.cName = FUNC_PREFIX + func.name
+
+        cArgs = self.createArgsString(func, parens=False, cTypes=True)
+        cdefArgs = self.createArgsString(func, parens=False, voidPtrs=True,
+                                         cTypes=True)
+        cCallArgs = self.createArgsString(func, includeTypes=False,
+                                          cTypes=True)
+
+        cReturnType = func.type
+        if cReturnType[-1] == '*':
+            cdefReturnType = 'void *'
+        else:
+            cdefReturnType = cReturnType
+
+        retStmt = 'return ' if func.type != 'void' else ''
+
+        func.cdef = '%s %s(%s);' % (cdefReturnType, func.cName, cdefArgs)
+        self.cdefs.append(func.cdef)
+
+        if func.cppCode is None:
+            func.cppImpl.append(nci("""\
+            //%s
+            extern "C" %s %s(%s)
+            {
+                %s%s%s;
+            }""" % (func.cdef, cReturnType, func.cName, cArgs,
+                    retStmt, func.name, cCallArgs)))
+        else:
+            func.cppImpl.append(nci("""\
+            //%s
+            extern "C" %s %s(%s)
+            {""" % (func.cdef, cReturnType, func.cName, cArgs)))
+            func.cppImpl.append(func.cppCode[0])
+            func.cppImpl.append( "}")
+
     def processMethod(self, method, overload=''):
         if overload == '':
             for i, m in enumerate(method.overloads):
@@ -181,6 +227,10 @@ class CffiModuleGenerator(object):
                 self.processMethod(m, '_%d' % i)
         method.pyImpl = []
         method.cppImpl = []
+        if method.cppCode is not None and method.cppCode[1] == 'sip':
+            # Don't actually do anything if this method has sip-specfic
+            # custom code
+            return
 
         if method.isCtor:
             cReturnType = method.klass.cppClassName + ' *'
@@ -236,6 +286,7 @@ class CffiModuleGenerator(object):
         extern "C" %s %s(%s)
         {""" % (method.cdef, cReturnType, method.cName, cArgs)))
 
+        # TODO: this if chain is wrong
         if method.cppCode is not None and method.cppCode[1] != 'sip':
             # Allow custom body code (ie a CppMethodDef)
             method.cppImpl.append(method.cppCode[0])
@@ -248,7 +299,6 @@ class CffiModuleGenerator(object):
             method.cppImpl.append('    %s%s%s%s;' % (retStmt, callObj,
                                                      callName, cCallArgs))
         method.cppImpl.append('}')
-
 
         if (method.protection == 'protected' and not method.isDtor
             and not method.isCtor):
@@ -278,8 +328,8 @@ class CffiModuleGenerator(object):
 
         method.cppCode = (method.body, 'function')
 
-        # CppMethodDefs don't have ParamDefs, just a arg string. Build the list
-        # of ParamDefs to make the CppMethodDefs more MethodDefs
+        # CppMethodDefs have no ParamDefs, just an arg string. Build the list
+        # of ParamDefs to make the CppMethodDefs more lke MethodDefs
         lastP = method.argsString.rfind(')')
         args = method.argsString[:lastP].strip('()').split(',')
         for arg in args:
@@ -294,7 +344,12 @@ class CffiModuleGenerator(object):
             type = type.strip()
             method.items.append(extractors.ParamDef(name=name, type=type))
 
-        self.processMethod(method)
+        # Some CppMethodDefs are not inside classes, but are global functions
+        # instead.
+        if hasattr(method, 'klass') and method.klass is not None:
+            self.processMethod(method)
+        else:
+            self.processFunction(method)
 
     def processMemberVar(self, var):
         pass
@@ -368,8 +423,8 @@ class CffiModuleGenerator(object):
             self.processParam(param)
             param.type = original
         else:
-            print param.type, ' - ', strippedType
-            import pdb; pdb.set_trace()
+            raise Exception('Unexpected typedef for a parameter type (%s)' % 
+                            param.type)
 
         param.processed = True
 
@@ -386,6 +441,8 @@ class CffiModuleGenerator(object):
                 if not cTypes:
                     type = param.type
                 elif voidPtrs and param.cType[-1] == '*':
+                    # TODO: we do not want to void a pointer if its a pointer
+                    #       to a ctype (for example int*)
                     type = 'void *'
                 else:
                     type = param.cType
