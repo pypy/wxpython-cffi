@@ -21,9 +21,12 @@ FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
 BASIC_CTYPES = ('int', 'short', 'long', 'long long', 'float', 'double', 'char')
 
+def load_module(self, module_name):
+    pass
+
 class CffiModuleGenerator(object):
-    def __init__(self, module_path):
-        with open(module_path, 'rb') as f:
+    def __init__(self, module_name, path_pattern):
+        with open(path_pattern % module_name, 'rb') as f:
             self.module = pickle.load(f)
         self.name = self.module.name
         self.completed = False
@@ -32,7 +35,8 @@ class CffiModuleGenerator(object):
             # We need to ignore the hand written sip modules for now
             if mod in STATIC_MODULES:
                 continue
-            with open(os.path.join(DEF_DIR, mod + '.def'), 'rb') as f:
+            #with open(os.path.join(DEF_DIR, mod + '.def'), 'rb') as f:
+            with open(path_pattern % mod, 'rb') as f:
                 mod = pickle.load(f)
                 for attr in ('headerCode', 'cppCode', 'initializerCode',
                              'preInitializerCode', 'postInitializerCode',
@@ -71,7 +75,7 @@ class CffiModuleGenerator(object):
             extractors.CppMethodDef_sip : self.generateCppMethod_sip,
             }
         """
-        
+
         for item in self.module:
             if item.ignored:
                 continue
@@ -79,8 +83,41 @@ class CffiModuleGenerator(object):
                 function = methodMap[type(item)]
                 function(item)
 
-    def write(self):
-        pass
+        # TODO: sort items so that classes and global variables are defined
+        #       by the time we need to reference them
+
+    def write_files(self, pyfile, cppfile, verify_args=''):
+        for attr in ('headerCode', 'cppCode', 'initializerCode',
+                     'preInitializerCode', 'postInitializerCode'):
+            for line in getattr(self.module, attr):
+                print >> cppfile, line
+
+        print >> pyfile, nci("""\
+        import cffi
+        import wrapper_lib""")
+
+        for module in self.module.imports:
+            print >> pyfile, "import %s" % module
+
+        print >> pyfile, nci("""\
+        ffi = cffi.FFI()
+        cdefs = (
+        """)
+
+        for line in self.cdefs:
+            print >> pyfile, "'''%s'''" % line
+        print >> pyfile, nci("""\
+        )
+        ffi.cdef(cdefs)
+        clib = ffi.verify(cdefs, %s)
+        del cdefs""" % verify_args)
+        # TODO: figure out verify parameters
+
+        for item in self.module:
+            for line in getattr(item, 'pyImpl', []):
+                print >> pyfile, line
+            for line in getattr(item, 'cppImpl', []):
+                print >> cppfile, line
 
     def processClass(self, klass):
         klass.cppClass = []
@@ -204,17 +241,15 @@ class CffiModuleGenerator(object):
 
         if func.cppCode is None:
             func.cppImpl.append(nci("""\
-            //%s
             extern "C" %s %s(%s)
             {
                 %s%s%s;
-            }""" % (func.cdef, cReturnType, func.cName, cArgs,
+            }""" % (cReturnType, func.cName, cArgs,
                     retStmt, func.name, cCallArgs)))
         else:
             func.cppImpl.append(nci("""\
-            //%s
             extern "C" %s %s(%s)
-            {""" % (func.cdef, cReturnType, func.cName, cArgs)))
+            {""" % (cReturnType, func.cName, cArgs)))
             func.cppImpl.append(func.cppCode[0])
             func.cppImpl.append( "}")
 
@@ -282,9 +317,8 @@ class CffiModuleGenerator(object):
         self.cdefs.append(method.cdef)
 
         method.cppImpl.append(nci("""\
-        //%s
         extern "C" %s %s(%s)
-        {""" % (method.cdef, cReturnType, method.cName, cArgs)))
+        {""" % (cReturnType, method.cName, cArgs)))
 
         # TODO: this if chain is wrong
         if method.cppCode is not None and method.cppCode[1] != 'sip':
@@ -323,7 +357,6 @@ class CffiModuleGenerator(object):
     def processCppMethod(self, method):
         # Temporarily ignore methods if they are likely sip or CPython specific
         if 'sip' in method.body or 'Py' in method.body:
-            print method.name
             return
 
         method.cppCode = (method.body, 'function')
@@ -423,7 +456,7 @@ class CffiModuleGenerator(object):
             self.processParam(param)
             param.type = original
         else:
-            raise Exception('Unexpected typedef for a parameter type (%s)' % 
+            raise Exception('Unexpected typedef for a parameter type (%s)' %
                             param.type)
 
         param.processed = True
@@ -473,11 +506,15 @@ class CffiModuleGenerator(object):
 
 if __name__ == '__main__':
     generators = {}
-    def_glob =  os.path.join(DEF_DIR, '_*.def')
-    for module_path in glob.iglob(def_glob):
-        gen = CffiModuleGenerator(module_path)
+    path_pattern = os.path.join(DEF_DIR, '%s.def')
+    def_glob =  path_pattern % '_*'
+    for mod_path in glob.iglob(def_glob):
+        mod_name = os.path.splitext(os.path.basename(mod_path))[0]
+        gen = CffiModuleGenerator(mod_name, path_pattern)
         generators[gen.name] = gen
 
     for gen in generators.values():
         gen.generate(generators)
-        gen.write()
+        pyfile = cStringIO.StringIO()
+        cppfile = cStringIO.StringIO()
+        gen.write_files(pyfile, cppfile)
