@@ -1,5 +1,6 @@
 import os
 import glob
+import types
 import pickle
 import cStringIO
 
@@ -19,10 +20,82 @@ SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
 FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
-BASIC_CTYPES = ('int', 'short', 'long', 'long long', 'float', 'double', 'char')
+BASIC_CTYPES = ('int', 'short', 'long', 'long long', 'float', 'double', 'char',
+                'unsigned', 'void')
 
-def load_module(self, module_name):
-    pass
+class TypeInfo(object):
+    _cache = {}
+    def __init__(self, typeName, findItem):
+        if typeName == '' or typeName is None:
+            typeName = 'void'
+        self.name = typeName
+        self.isRef = False
+        self.isPtr = False
+
+        # Loop until we find either a typedef that isn't a TypedefDef or we
+        # find that their isn't any typedef for this type
+        while True:
+            self.isRef = (self.isRef or '&' in typeName)
+            self.isPtr = (self.isPtr or '*' in typeName)
+            typeName = (typeName.replace('::', '.').replace('const ', '')
+                                .strip(' *&'))
+            typedef = findItem(typeName) if typeName != '' else None
+            if isinstance(typedef, extractors.TypedefDef):
+                typeName = typedef.type
+            else:
+                break
+
+        if not isinstance(typedef, (extractors.EnumDef, extractors.ClassDef,
+                                    types.NoneType)):
+            raise Exception("Unexpected typedef '%s' found for type '%s'" %
+                            (str(type(typedef)), self.name))
+        self.typedef = typedef
+
+        # Note that typeName here is stripped of const, *, and &
+        # `unsigned` is only a valid modifier on basic C types, so it stands to
+        # reason that if its present this is a basic C type
+        self.isCBasic = (typeName in BASIC_CTYPES or 'unsigned ' in typeName)
+
+        if self.isCBasic == (self.typedef is not None):
+            raise Exception("Type '%s' neither is a C basic type nor has a "
+                             "typedef" % self.name)
+
+        # Type for the extern "C" wrapper function. Needs to handle all wrapped
+        # classes (classes with a ClassDef) as pointers and all enums as ints.
+        # Additionally, references always need to be handled as pointers
+        if isinstance(typedef, extractors.EnumDef):
+            self.cType = 'int'
+        elif isinstance(typedef, extractors.ClassDef):
+            self.cType = typedef.name
+        else:
+            self.cType = typeName
+        if self.isRef or self.isPtr or isinstance(typedef, extractors.ClassDef):
+            self.cType += ' *'
+
+        # Type for the cdef that will be called by cffi. Same rules as cType,
+        # but must also treat all pointers to wrapped classes as `void *`
+        if isinstance(typedef, extractors.EnumDef):
+            self.cdefType = 'int'
+        elif isinstance(typedef, extractors.ClassDef):
+            self.cdefType = 'void'
+        else:
+            self.cdefType = typeName
+        if self.isRef or self.isPtr or isinstance(self.typedef,
+                                                  extractors.ClassDef):
+            self.cdefType += ' *'
+
+        # We need to dereference the pointer if our c type is a pointer but the
+        # the type original type is not
+        self.deref = self.cType[-1] == '*' and self.isPtr
+
+    @classmethod
+    def new(cls, typeName, findItem):
+        if typeName not in cls._cache:
+            typeInfo = TypeInfo(typeName, findItem)
+            cls._cache[typeName] = typeInfo
+            return typeInfo
+        return cls._cache[typeName]
+
 
 class CffiModuleGenerator(object):
     def __init__(self, module_name, path_pattern):
@@ -35,7 +108,6 @@ class CffiModuleGenerator(object):
             # We need to ignore the hand written sip modules for now
             if mod in STATIC_MODULES:
                 continue
-            #with open(os.path.join(DEF_DIR, mod + '.def'), 'rb') as f:
             with open(path_pattern % mod, 'rb') as f:
                 mod = pickle.load(f)
                 for attr in ('headerCode', 'cppCode', 'initializerCode',
@@ -55,6 +127,13 @@ class CffiModuleGenerator(object):
         for import_name in self.module.imports:
             self.imports.append(generators[import_name])
             generators[import_name].generate(generators)
+
+        # This is kind of a hack. We need to make sure that bools are handled
+        # appropriately, but I'm not comfortable making a special case in
+        # TypeInfo for them, so we'll simply make sure that a typedef for bool
+        # is always available
+        if self.findItem('bool') == None:
+            self.module.addItem(extractors.TypedefDef(name='bool', type='int'))
 
         self.cdefs = []
 
@@ -148,12 +227,14 @@ class CffiModuleGenerator(object):
             public:"""
             % {'className': klass.name, 'subClassName': klass.cppClassName}))
 
-            # Print all Ctors
+            # Process all Ctors
             for meth in klass:
                 if (not isinstance(meth, extractors.MethodDef) or meth.ignored
                     or not meth.isCtor):
                     continue
                 for m in meth.all():
+                    if m.ignored:
+                        continue
                     argsString = self.createArgsString(m)
                     meth_def = "    %s %s%s;" % (m.type, klass.cppClassName,
                                                  argsString)
@@ -208,11 +289,14 @@ class CffiModuleGenerator(object):
 
 
     def processFunction(self, func, overload=''):
+        assert not func.ignored
+        # TODO: Add support for overloaded functions on the Python side
         if overload == '':
             for i, m in enumerate(func.overloads):
                 if m.ignored:
                     continue
                 self.processFunction(m, '_%d' % i)
+        self.getTypeInfo(func)
         func.pyImpl = []
         func.cppImpl = []
         if func.cppCode is not None and func.cppCode[1] == 'sip':
@@ -223,20 +307,13 @@ class CffiModuleGenerator(object):
         func.cName = FUNC_PREFIX + func.name
 
         cArgs = self.createArgsString(func, parens=False, cTypes=True)
-        cdefArgs = self.createArgsString(func, parens=False, voidPtrs=True,
-                                         cTypes=True)
+        cdefArgs = self.createArgsString(func, parens=False, cdefTypes=True)
         cCallArgs = self.createArgsString(func, includeTypes=False,
                                           cTypes=True)
 
-        cReturnType = func.type
-        if cReturnType[-1] == '*':
-            cdefReturnType = 'void *'
-        else:
-            cdefReturnType = cReturnType
+        retStmt = 'return ' if func.type.name != 'void' else ''
 
-        retStmt = 'return ' if func.type != 'void' else ''
-
-        func.cdef = '%s %s(%s);' % (cdefReturnType, func.cName, cdefArgs)
+        func.cdef = '%s %s(%s);' % (func.type.cdefType, func.cName, cdefArgs)
         self.cdefs.append(func.cdef)
 
         if func.cppCode is None:
@@ -244,16 +321,24 @@ class CffiModuleGenerator(object):
             extern "C" %s %s(%s)
             {
                 %s%s%s;
-            }""" % (cReturnType, func.cName, cArgs,
+            }""" % (func.type.cType, func.cName, cArgs,
                     retStmt, func.name, cCallArgs)))
         else:
             func.cppImpl.append(nci("""\
             extern "C" %s %s(%s)
-            {""" % (cReturnType, func.cName, cArgs)))
+            {""" % (func.type.cType, func.cName, cArgs)))
             func.cppImpl.append(func.cppCode[0])
             func.cppImpl.append( "}")
 
+        func.pyImpl.append("def %s(%s):" % (func.pyName, func.pyArgsString))
+
+        if func.type == 'void':
+            func.pyImpl.append("    clib.%s(%s)" % (func.cName, ''))
+        else:
+            func.pyImpl.append("    cdata = clib.%s(%s)" % (func.cName, ''))
+
     def processMethod(self, method, overload=''):
+        assert not method.ignored
         if overload == '':
             for i, m in enumerate(method.overloads):
                 if m.ignored:
@@ -268,17 +353,11 @@ class CffiModuleGenerator(object):
             return
 
         if method.isCtor:
-            cReturnType = method.klass.cppClassName + ' *'
-        elif method.isDtor:
-            cReturnType = 'void'
-        else:
-            cReturnType = method.type.replace('&', '*')
-
-        if cReturnType[-1] == '*':
-            cdefReturnType = 'void *'
-        else:
-            cdefReturnType = cReturnType
-
+            # Even though this function may actually return a pointer to the
+            # subclass of the wrapped type, we'll use base class as the return
+            # type so the TypeInfo code can be simpler
+            method.type = method.klass.name + ' *'
+        self.getTypeInfo(method)
 
         if not method.isDtor:
             method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, method.klass.name, method.name, overload)
@@ -287,8 +366,7 @@ class CffiModuleGenerator(object):
 
         cArgs = self.createArgsString(method, parens=False, cTypes=True)
         cppArgs = method.argsString.replace('=0', '')
-        cdefArgs = self.createArgsString(method, parens=False, voidPtrs=True,
-                                         cTypes=True)
+        cdefArgs = self.createArgsString(method, parens=False, cdefTypes=True)
         cCallArgs = self.createArgsString(method, includeTypes=False,
                                           cTypes=True)
         cppCallArgs = self.createArgsString(method, includeTypes=False)
@@ -313,12 +391,13 @@ class CffiModuleGenerator(object):
         else:
             callName = method.name
 
-        method.cdef = '%s %s(%s);' % (cdefReturnType, method.cName, cdefArgs)
+        method.cdef = '%s %s(%s);' % (method.type.cdefType, method.cName,
+                                      cdefArgs)
         self.cdefs.append(method.cdef)
 
         method.cppImpl.append(nci("""\
         extern "C" %s %s(%s)
-        {""" % (cReturnType, method.cName, cArgs)))
+        {""" % (method.type.cdefType, method.cName, cArgs)))
 
         # TODO: this if chain is wrong
         if method.cppCode is not None and method.cppCode[1] != 'sip':
@@ -396,100 +475,37 @@ class CffiModuleGenerator(object):
     def processPyMethod(self, method):
         pass
 
-    def processParam(self, param):
-        """
-        Figure out what the appropriate C-type to use and whether we need to
-        dereference it, and lookup if there is any conversion code.
-        """
-        if getattr(param, 'processed', False):
-            return
-
-        # Assume no special conversion
-        param.pyConvertTo = param.cppConvertTo = None
-        param.pyConvertFrom = param.cppConvertFrom = None
-
-        typeName = param.type
-        strippedType = (typeName.replace('::', '.').replace('const ', '')
-                                .replace('unsigned ', '').strip(' *&'))
-        typedef = self.findItem(strippedType) if strippedType != '' else None
-
-        if typedef is None:
-            if 'wxString' in typeName:
-                param.cType = 'wxChar*'
-                param.deref = False
-            elif typeName in ('wxCoord', 'wxEventType', 'bool'):
-                param.cType = 'int'
-                param.deref = False
-            elif typeName in BASIC_CTYPES or 'unsigned' in typeName:
-                param.cType = param.type
-                param.deref = False
-            else:
-                print "WARNING: unhandlable typedef", param.type
-                # Until we have MappedTypes setup, treat this like a ClassDef
-                if typeName[-1] == '*':
-                    param.cType = typeName
-                    param.deref = False
-                elif typeName[-1] == '&':
-                    param.cType = typeName.replace('&', '*')
-                    param.deref =  True
-                else:
-                    param.cType = typeName + '*'
-                    param.deref = True
-        elif isinstance(typedef, extractors.EnumDef):
-            param.cType = 'int'
-            param.deref = False
-        elif isinstance(typedef, extractors.ClassDef):
-            # TODO: allow for MappedTypes?
-            # for now enusre that we use pointers to handle all classes
-            if typeName[-1] == '*':
-                param.cType = typeName
-                param.deref = False
-            elif typeName[-1] == '&':
-                param.cType = typeName.replace('&', '*')
-                param.deref =  True
-            else:
-                param.cType = typeName + '*'
-                param.deref = True
-        elif isinstance(typedef, extractors.TypedefDef):
-            original = param.type
-            param.type = typedef.type
-            self.processParam(param)
-            param.type = original
-        else:
-            raise Exception('Unexpected typedef for a parameter type (%s)' %
-                            param.type)
-
-        param.processed = True
+    def getTypeInfo(self, item):
+        if isinstance(item.type, (str, types.NoneType)):
+            item.type = TypeInfo(item.type, self.findItem)
 
     def createArgsString(self, func, includeTypes=True, parens=True,
-                              voidPtrs=False, cTypes=False):
-        argsString = [] if not parens else ['(']
-        for i, param in enumerate([i for i in func.items if not i.ignored]):
-            if i != 0:
-                argsString.append(', ')
+                              cdefTypes=False, cTypes=False):
+        assert not cdefTypes or not cTypes
 
-            self.processParam(param)
+        args = []
+        for param in [i for i in func.items if not i.ignored]:
+            self.getTypeInfo(param)
 
             if includeTypes:
-                if not cTypes:
-                    type = param.type
-                elif voidPtrs and param.cType[-1] == '*':
-                    # TODO: we do not want to void a pointer if its a pointer
-                    #       to a ctype (for example int*)
-                    type = 'void *'
-                else:
-                    type = param.cType
+                if cTypes:
+                    arg = param.type.cType
+                elif cdefTypes:
+                    arg = param.type.cdefType
+                else: # C++ types
+                    arg = param.type.name
+                arg += ' '
+            elif param.type.deref:
+                arg = '*'
+            else:
+                arg = ''
+            arg += param.name
+            args.append(arg)
 
-                argsString.append(type)
-                argsString.append(' ')
-            elif cTypes and param.deref:
-                argsString.append('*')
-
-            argsString.append(param.name)
-
+        argsString = ' ,'.join(args)
         if parens:
-            argsString.append(')')
-        return ''.join(argsString)
+            argsString = '(%s)' % argsString
+        return argsString
 
     def findItem(self, name):
         item = self.module.findItem(name)
