@@ -20,8 +20,20 @@ SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
 FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
-BASIC_CTYPES = ('int', 'short', 'long', 'long long', 'float', 'double', 'char',
-                'unsigned', 'void')
+
+# C basic types -> Python conversion functions
+BASIC_CTYPES = {
+    'int': 'int',
+    'short': 'int',
+    'long': 'int',
+    'long long': 'int',
+    'unsigned': 'int',
+    'float': 'float',
+    'double': 'float',
+    'char': 'ffi.string',
+    'bool': 'bool',
+    'void': None
+}
 
 class TypeInfo(object):
     _cache = {}
@@ -62,8 +74,10 @@ class TypeInfo(object):
 
         # Type for the extern "C" wrapper function. Needs to handle all wrapped
         # classes (classes with a ClassDef) as pointers and all enums as ints.
-        # Additionally, references always need to be handled as pointers
-        if isinstance(typedef, extractors.EnumDef):
+        # bools also need to be handled as ints since their actual size is an
+        # implementation detail.  Additionally, references always need to be
+        # handled as pointers.
+        if isinstance(typedef, extractors.EnumDef) or typeName == 'bool':
             self.cType = 'int'
         elif isinstance(typedef, extractors.ClassDef):
             self.cType = typedef.name
@@ -74,7 +88,7 @@ class TypeInfo(object):
 
         # Type for the cdef that will be called by cffi. Same rules as cType,
         # but must also treat all pointers to wrapped classes as `void *`
-        if isinstance(typedef, extractors.EnumDef):
+        if isinstance(typedef, extractors.EnumDef) or typeName == 'bool':
             self.cdefType = 'int'
         elif isinstance(typedef, extractors.ClassDef):
             self.cdefType = 'void'
@@ -127,13 +141,6 @@ class CffiModuleGenerator(object):
         for import_name in self.module.imports:
             self.imports.append(generators[import_name])
             generators[import_name].generate(generators)
-
-        # This is kind of a hack. We need to make sure that bools are handled
-        # appropriately, but I'm not comfortable making a special case in
-        # TypeInfo for them, so we'll simply make sure that a typedef for bool
-        # is always available
-        if self.findItem('bool') == None:
-            self.module.addItem(extractors.TypedefDef(name='bool', type='int'))
 
         self.cdefs = []
 
