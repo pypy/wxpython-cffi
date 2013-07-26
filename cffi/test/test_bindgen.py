@@ -19,7 +19,12 @@ class TestBindGen(object):
         module = extractors.ModuleDef('bindgen_test', '_core', '_core')
         module.addHeaderCode('#include <test_bindgen.h>')
         module.addItem(extractors.FunctionDef(
-            type='int', argsString='()', name='simple_global_func', items=[]))
+            type='int', argsString='()', name='simple_global_func',
+            pyName='simple_global_func'))
+        module.addItem(extractors.FunctionDef(
+            type='float', argsString='(int i, double j)',
+            name='global_func_with_args', pyName='global_func_with_args',
+            items=[extractors.ParamDef(type='int', name='i'), extractors.ParamDef(type='double', name='j')]))
 
         mod_path = self.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
@@ -50,3 +55,7 @@ class TestBindGen(object):
 
     def test_simple_global_func(self):
         assert self.mod.simple_global_func() == 10
+
+    def test_global_func_with_args(self):
+        assert self.mod.global_func_with_args(10, 2.0) == 20
+        assert self.mod.global_func_with_args(12, .25) == 3
