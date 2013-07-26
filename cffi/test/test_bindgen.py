@@ -24,7 +24,12 @@ class TestBindGen(object):
         module.addItem(extractors.FunctionDef(
             type='float', argsString='(int i, double j)',
             name='global_func_with_args', pyName='global_func_with_args',
-            items=[extractors.ParamDef(type='int', name='i'), extractors.ParamDef(type='double', name='j')]))
+            items=[extractors.ParamDef(type='int', name='i'),
+                   extractors.ParamDef(type='double', name='j')]))
+        module.addItem(extractors.FunctionDef(
+            type='double', argsString='()',
+            name='custom_code_func', pyName='custom_code_func',
+            cppCode="return custom_code_global_func() - 1;"))
 
         mod_path = self.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
@@ -59,3 +64,7 @@ class TestBindGen(object):
     def test_global_func_with_args(self):
         assert self.mod.global_func_with_args(10, 2.0) == 20
         assert self.mod.global_func_with_args(12, .25) == 3
+        assert self.mod.global_func_with_args(14, .25) == (14 * .25)
+
+    def test_custom_code_func(self):
+        assert self.mod.custom_code_func() == 1

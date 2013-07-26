@@ -20,6 +20,7 @@ SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
 FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
+CPPCODE_WRAPPER_SUFIX = "_cppwrapper"
 
 # C basic types -> Python conversion functions
 BASIC_CTYPES = {
@@ -306,10 +307,12 @@ class CffiModuleGenerator(object):
                 if m.ignored:
                     continue
                 self.processFunction(m, '_%d' % i)
-        self.getTypeInfo(func)
-        self.createArgsStrings(func)
         func.pyImpl = []
         func.cppImpl = []
+
+        self.getTypeInfo(func)
+        self.createArgsStrings(func)
+
         if func.cppCode is not None and func.cppCode[1] == 'sip':
             # Don't actually do anything if this function has sip-specfic
             # custom code
@@ -317,6 +320,9 @@ class CffiModuleGenerator(object):
 
         func.cName = FUNC_PREFIX + func.name
         retStmt = 'return ' if func.type.name != 'void' else ''
+
+        if func.cppCode is not None:
+            wrapperName = self.createCppCodeWrapper(func)
 
         func.cdef = '%s %s%s;' % (func.type.cdefType, func.cName, func.cdefArgs)
         self.cdefs.append(func.cdef)
@@ -331,9 +337,10 @@ class CffiModuleGenerator(object):
         else:
             func.cppImpl.append(nci("""\
             extern "C" %s %s%s
-            {""" % (func.type.cType, func.cName, func.cArgs)))
-            func.cppImpl.append(func.cppCode[0])
-            func.cppImpl.append( "}")
+            {
+                %s%s%s;
+            }""" % (func.type.cType, func.cName, func.cArgs,
+                    retStmt, wrapperName, func.cCallArgs)))
 
         func.pyImpl.append("def %s%s:" % (func.pyName, func.pyArgs))
 
@@ -366,6 +373,9 @@ class CffiModuleGenerator(object):
         self.getTypeInfo(method)
         self.createArgsStrings(method)
 
+        if func.cppCode is not None:
+            wrapperName = self.createCppCodeWrapper(func)
+
         if not method.isDtor:
             method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, method.klass.name, method.name, overload)
         else:
@@ -393,7 +403,8 @@ class CffiModuleGenerator(object):
         # TODO: this if chain is wrong
         if method.cppCode is not None and method.cppCode[1] != 'sip':
             # Allow custom body code (ie a CppMethodDef)
-            method.cppImpl.append(method.cppCode[0])
+            method.cppImpl.append('    %s%s%s' %
+                                  (retStmt, wrapperName, method.cCallArgs))
         elif method.isDtor:
             method.cppImpl.append('    delete self;')
         elif method.isCtor:
@@ -480,6 +491,7 @@ class CffiModuleGenerator(object):
         For simplicity's sake, we'll create all 7 in anyway case
         """
         if hasattr(func, 'cArgs'):
+            # This function has had its args strings created
             return
 
         # XXX Should this be a global? It'd certainly be more visible
@@ -500,8 +512,7 @@ class CffiModuleGenerator(object):
         func.cppArgs = []
         func.cppCallArgs = []
 
-        if (isinstance(func, extractors.MethodDef) and not func.isCtor and
-            not func.isStatic):
+        if hasattr(func, 'klass') and not func.isCtor and not func.isStatic:
             func.cArgs.append('%s *self', func.klass.cppClassName)
             func.cdefArgs.append('void *self')
 
@@ -565,6 +576,24 @@ class CffiModuleGenerator(object):
             params.append(arg)
 
         return params
+
+    def createCppCodeWrapper(self, func):
+        """
+        To handle custom code on C++ we need to create an extra function to
+        wrap the custom code. This new function is then what's called by the
+        extern "C" function. Part of the reason this is necessary is because
+        the custom code expects to deal with the original C++ types of the
+        function and not the types the extern "C" function uses.
+        """
+        wrapperName = func.cName + CPPCODE_WRAPPER_SUFIX
+        func.cppImpl.append(nci("""\
+        %s %s%s
+        {
+        """ % (func.type.name, wrapperName, func.cppArgs)))
+        func.cppImpl.append(func.cppCode)
+        func.cppImpl.append("}")
+
+        return wrapperName
 
     def findItem(self, name):
         item = self.module.findItem(name)
