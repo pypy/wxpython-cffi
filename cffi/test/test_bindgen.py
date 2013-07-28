@@ -8,6 +8,8 @@ import pytest
 # modules
 sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
+from etgtools.extractors import (
+    ModuleDef, ClassDef, MethodDef, FunctionDef, ParamDef)
 
 class TestBindGen(object):
     def setup(self):
@@ -16,20 +18,28 @@ class TestBindGen(object):
         self.mod = self.build_module()
 
     def create_generator(self):
-        module = extractors.ModuleDef('bindgen_test', '_core', '_core')
+        module = ModuleDef('bindgen_test', '_core', '_core')
         module.addHeaderCode('#include <test_bindgen.h>')
-        module.addItem(extractors.FunctionDef(
+        module.addItem(FunctionDef(
             type='int', argsString='()', name='simple_global_func',
             pyName='simple_global_func'))
-        module.addItem(extractors.FunctionDef(
+        module.addItem(FunctionDef(
             type='float', argsString='(int i, double j)',
             name='global_func_with_args', pyName='global_func_with_args',
-            items=[extractors.ParamDef(type='int', name='i'),
-                   extractors.ParamDef(type='double', name='j')]))
-        module.addItem(extractors.FunctionDef(
+            items=[ParamDef(type='int', name='i'),
+                   ParamDef(type='double', name='j')]))
+        module.addItem(FunctionDef(
             type='double', argsString='()',
             name='custom_code_func', pyName='custom_code_func',
             cppCode="return custom_code_global_func() - 1;"))
+
+        c = ClassDef(name='SimpleClass')
+        c.addItem(MethodDef(
+            type='int', argsString='(double f)',
+            name='simple_method', pyName='simple_method',
+            items=[ParamDef(type='double', name='f')]))
+
+        module.addItem(c)
 
         mod_path = self.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
@@ -68,3 +78,10 @@ class TestBindGen(object):
 
     def test_custom_code_func(self):
         assert self.mod.custom_code_func() == 1
+
+    def test_simple_class_init(self):
+        self.mod.SimpleClass()
+
+    def test_simple_method(self):
+        c = self.mod.SimpleClass()
+        assert c.simple_method(5.5) == 5

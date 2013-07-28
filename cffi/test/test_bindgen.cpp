@@ -1,9 +1,4 @@
-/*
- * What do we need to test?
- *  - Simple global functions
- *  - Global functions with custom code
- *  - CppMethodDef global functions
- */
+#include "test_bindgen.h"
 
 int simple_global_func()
 {
@@ -18,4 +13,9 @@ float global_func_with_args(int i, double j)
 double custom_code_global_func()
 {
     return 2.0;
+}
+
+int SimpleClass::simple_method(double f)
+{
+    return f;
 }
