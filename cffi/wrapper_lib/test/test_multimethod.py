@@ -130,6 +130,19 @@ class ClassWithMMs(object):
     def usrtypes(self, numb):
         return (numb,)
 
+    outofbody = Multimethod(True)
+
+@ClassWithMMs.outofbody.overload(i=int, n=int)
+def outofbody(self, i=9, n=10):
+    return i * n
+
+@ClassWithMMs.outofbody.overload(i=int, n=float)
+def outofbody(self, i=9, n=10):
+    return i / n
+
+del outofbody
+ClassWithMMs.outofbody.finish()
+
 
 class TestMultimethods(object):
     def test_positional(self):
@@ -202,3 +215,8 @@ class TestMultimethods(object):
         assert mm_obj.usertypes(Number(10)) == (Number(10),)
         assert mm_obj.usertypes([2, 4]) == (2, 4)
         assert mm_obj.usertypes(Seq(2, 4)) == (2, 4)
+
+    def test_outofbody(self):
+        mm_obj = ClassWithMMs()
+        assert mm_obj.outofbody(i=1, n=2) == 2
+        assert mm_obj.outofbody(i=11, n=.5) == 22

@@ -19,8 +19,12 @@ def register_type(type, check, conversion=None):
     type_registry[type] = (check, conversion)
 
 class Multimethod(object):
-    def __init__(self):
+    def __init__(self, outofbody_overloads=False):
         self.overloads = []
+        if outofbody_overloads:
+            self.get = self.get_self
+        else:
+            self.get = self.get_partial
 
     def overload(self, *args, **kwargs):
         """
@@ -32,6 +36,13 @@ class Multimethod(object):
             self.overloads.append(Overload(func, args, kwargs))
             return self
         return closure
+
+    def finish(self):
+        """
+        Stop accepting overloads from outside the class body and instead return
+        a partial when accessed.
+        """
+        self.get = self.get_partial
 
     def resolve_overload(self, args, kwargs):
         errmsgs = []
@@ -49,15 +60,21 @@ class Multimethod(object):
         args, kwargs = overload.convert_args(args, kwargs)
         return overload.func(*args, **kwargs)
 
-    def __get__(self, instance, owner):
+    def get_self(self, instance, owner):
+        return self
+
+    def get_partial(self, instance, owner):
         return MultimethodPartial(self.resolve_overload, instance)
 
-class StaticMultimethod(Multimethod):
     def __get__(self, instance, owner):
+        return self.get(instance, owner)
+
+class StaticMultimethod(Multimethod):
+    def get_partial(self, instance, owner):
         return self
 
 class ClassMultimethod(Multimethod):
-    def __get__(self, instance, owner):
+    def get_partial(self, instance, owner):
         return MultimethodPartial(self.resolve_overload, owner)
 
 class MultimethodPartial(object):
