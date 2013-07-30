@@ -20,5 +20,20 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
             if not hasattr(item, 'pyDocstring'):
                 item.pyDocstring = ''
 
+        self.stripIgnoredItems(module)
+
         with open(outfile, 'wb') as f:
             pickle.dump(module, f, 2)
+
+    def stripIgnoredItems(self, item):
+        """
+        Strip any ignored items; they aren't useful to the module generator and
+        just waste space.
+        """
+        delCount = 0
+        for i, e in enumerate(item.items[:]):
+            if e.ignored:
+                del item.items[i - delCount]
+                delCount += 1
+            else:
+                self.stripIgnoredItems(e)

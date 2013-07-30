@@ -111,6 +111,10 @@ class TypeInfo(object):
             return typeInfo
         return cls._cache[typeName]
 
+class MethodDefOverload(extractors.MethodDef):
+    def __init__(self, original):
+        self.__dict__ = original.__dict__
+
 class CffiModuleGenerator(object):
     def __init__(self, module_name, path_pattern):
         with open(path_pattern % module_name, 'rb') as f:
@@ -144,6 +148,9 @@ class CffiModuleGenerator(object):
 
         self.cdefs = []
 
+        defaults = self.findDefaults(self.module)
+        # TODO: findItem the defaults and get their pyNames
+
         methodMap = {
             extractors.ClassDef         : self.processClass,
             extractors.FunctionDef      : self.processFunction,
@@ -162,13 +169,10 @@ class CffiModuleGenerator(object):
             }
         """
 
-        self.module.indent = 0
         for item in self.module:
-            if item.ignored:
-                continue
             if type(item) in methodMap:
                 function = methodMap[type(item)]
-                function(item)
+                function(item, 0)
 
         # TODO: sort items so that classes and global variables are defined
         #       by the time we need to reference them
@@ -198,89 +202,54 @@ class CffiModuleGenerator(object):
         ffi.cdef(cdefs)
         clib = ffi.verify(cdefs, %s)
         del cdefs""" % verify_args)
-        self.writeItem(self.module, 0, pyfile, cppfile)
+        self.writeItem(self.module, pyfile, cppfile)
 
-    def writeItem(self, item, indent,  pyfile, cppfile):
+    def writeItem(self, item, pyfile, cppfile):
         for line in getattr(item, 'pyImpl', []):
-            for l in line.splitlines():
-                print >> pyfile, ' ' * indent + l
+            print >> pyfile, line
         for line in getattr(item, 'cppImpl', []):
             print >> cppfile, line
         for i in item:
-            self.writeItem(i, indent + item.indent, pyfile, cppfile)
+            self.writeItem(i, pyfile, cppfile)
 
-    def processClass(self, klass):
-        klass.indent = 4
+    def findDefaults(self, item, defaults=set()):
+        for i in item:
+            if isinstance(i, extractors.ParamDef) and i.default != '':
+                defaults.add(i.default)
+            else:
+                self.findDefaults(i, defaults)
+
+        return defaults
+
+    def processClass(self, klass, indent):
+        assert not klass.ignored
         klass.cppImpl = []
         klass.pyImpl = []
 
-        virtualMethods = [i for i in klass
-                            if isinstance(i, extractors.MethodDef)
-                               and not i.isDtor and i.isVirtual
-                               and not i.ignored]
-        protectedMethods = [i for i in klass
-                              if isinstance(i, extractors.MethodDef)
-                                 and i.protection == 'protected'
-                                 and not i.isVirtual and not i.ignored]
 
-        dtor = klass.findItem('~' + klass.name)
-        klass.hasVirtDtor = dtor is not None and not dtor.ignored and dtor.isVirtual
-        klass.hasSubClass = (len(protectedMethods) > 0
-                            or len(virtualMethods) > 0 or klass.hasVirtDtor)
+        #dtor = klass.findItem('~' + klass.name)
+        #klass.hasVirtDtor = dtor is not None and dtor.isVirtual
+        #klass.hasSubClass = (len(protectedMethods) > 0
+        #                    or len(virtualMethods) > 0 or klass.hasVirtDtor)
+        # Create a subclass of the C++ type if we have any virtual or
+        # protected methods
+        klass.hasSubClass = len([i for i in klass
+                                   if isinstance(i, extractors.MethodDef) and
+                                      (i.protection == 'protected' or
+                                       i.isVirtual)]) > 0
         klass.cppClassName = (klass.name if not klass.hasSubClass
                                          else SUBCLASS_PREFIX + klass.name)
 
-        ctors = [ctor for m in klass for ctor in m.all()
-                      if isinstance(m, extractors.MethodDef) and m.isCtor and
-                         not m.ignored]
+        # While we process the class's items, we'll build a list of the virtual
+        # and protected methods' declarations to place in the subclass's body
+        klass.virtualMethods = []
+        klass.protectedMethods = []
 
-        if klass.hasSubClass:
-            # Create a subclass of the C++ type if we have any virtual or
-            # protected methods
-            klass.cppImpl.append(nci("""\
-            class %(subClassName)s : public %(className)s
-            {
-            public:"""
-            % {'className': klass.name, 'subClassName': klass.cppClassName}))
-
-            # Process all Ctors
-            for ctor in ctors:
-                # Even though this function may actually return a pointer
-                # to the subclass of the wrapped type, we'll use base class
-                # as the return type so the TypeInfo code can be simpler
-                method.type = method.klass.name + ' *'
-                self.createArgsStrings(m)
-                meth_def = "    %s %s%s;" % (m.type, klass.cppClassName,
-                                                m.cppArgs)
-                klass.cppImpl.append(meth_def)
-
-            if klass.hasVirtDtor:
-                klass.cppImpl.append("     virtual ~%s();" % klass.cppClassName)
-
-            if len(virtualMethods) > 0:
-                klass.cppImpl.append(nci("""\
-                protected:
-                    //Reimplement every virtual method"""))
-            for vmeth in virtualMethods:
-                for m in vmeth.all():
-                    self.createArgsStrings(m)
-                    meth_def = "    virtual %s %s%s;" % (m.type, m.name,
-                                                         m.cppArgs)
-                    klass.cppImpl.append(meth_def)
-
-            if len(protectedMethods) > 0:
-                klass.cppImpl.append(nci("""\
-                public:
-                    //Reimplement every protected method"""))
-            for pmeth in protectedMethods:
-                for m in pmeth.all():
-                    self.createArgsStrings(m)
-                    meth_def = "    %s unprotected_%s%s;" % (m.type, m.name,
-                                                             m.cppArgs)
-                    klass.cppImpl.append(meth_def)
-
-            klass.cppImpl.append("};")
-
+        # In theory we should be able to just do `klass.findItem(klass.name is
+        # not None` to check if a ctor exists, but there's no guarantee that a
+        # ctor added by the tweaker will have its name set correctly
+        ctors = [ctor for m in klass if isinstance(m, extractors.MethodDef) and
+                                        m.isCtor]
         if len(ctors) == 0:
             # If the class doesn't have a ctor specified, we need to add a
             # default ctor
@@ -315,21 +284,52 @@ class CffiModuleGenerator(object):
             #extractors.WigCode          : self.processWigCode,
         }
         for item in klass:
-            if not type(item) in dispatch or item.ignored:
+            if not type(item) in dispatch:
                 continue
             item.klass = klass
             f = dispatch[type(item)]
-            f(item)
+            f(item, indent + 4)
 
 
-    def processFunction(self, func, overload=''):
+        if klass.hasSubClass:
+            klass.cppImpl.append(nci("""\
+            class %(subClassName)s : public %(className)s
+            {
+            public:"""
+            % {'className': klass.name, 'subClassName': klass.cppClassName}))
+
+            # Process all Ctors
+            for ctor in ctors:
+                meth_def = "    %s %s%s;" % (m.type, klass.cppClassName,
+                                                m.cppArgs)
+                klass.cppImpl.append(meth_def)
+
+            if len(virtualMethods) > 0:
+                klass.cppImpl.append(nci("""\
+                protected:
+                    //Reimplement every virtual method"""))
+            for vmeth in virtualMethods:
+                for m in vmeth.all():
+                    klass.cppImpl.append(vmeth)
+
+            if len(protectedMethods) > 0:
+                klass.cppImpl.append(nci("""\
+                public:
+                    //Reimplement every protected method"""))
+            for pmeth in protectedMethods:
+                for m in pmeth.all():
+                    klass.cppImpl.append(pmeth)
+
+            klass.cppImpl.append("};")
+
+
+
+    def processFunction(self, func, indent, overload=''):
         assert not func.ignored
         # TODO: Add support for overloaded functions on the Python side
         if overload == '':
-            for i, m in enumerate([m for m in func.overloads
-                                     if not m.ignored]):
+            for i, m in enumerate(func.overloads):
                 self.processFunction(m, '_%d' % i)
-        func.indent = 0
         func.pyImpl = []
         func.cppImpl = []
 
@@ -342,8 +342,12 @@ class CffiModuleGenerator(object):
             return
 
         func.cName = FUNC_PREFIX + func.name
-        retStmt = 'return ' if func.type.name != 'void' else ''
+        func.retStmt = 'return ' if func.type.name != 'void' else ''
 
+        # Figure out the name of the C++ function that we want to call from our
+        # extern C wrapper. By default it is the C++ function we're wrapping,
+        # but if we have custom code, it needs to be the name of the wrapper
+        # where we're putting the custom code.
         callName = func.name
         if func.cppCode is not None:
             callName = self.createCppCodeWrapper(func)
@@ -358,7 +362,7 @@ class CffiModuleGenerator(object):
         {
             %s%s%s;
         }""" % (func.type.cType, func.cName, func.cArgs,
-                retStmt, callName, func.cCallArgs)))
+                func.retStmt, callName, func.cCallArgs)))
 
         func.pyImpl.append("def %s%s:" % (func.pyName, func.pyArgs))
 
@@ -374,15 +378,13 @@ class CffiModuleGenerator(object):
                 # If not a C basic, then it is a pointer to a wrapped type
                 pass
 
-    def processMethod(self, method, overload=''):
+    def processMethod(self, method, indent, overload=''):
         assert not method.ignored
         if overload == '':
-            for i, m in enumerate([m for m in method.overloads
-                                     if not m.ignored]):
+            for i, m in enumerate(method.overloads):
                 m.klass = method.klass
                 self.processMethod(m, '_%d' % i)
 
-        method.indent = 0
         method.pyImpl = []
         method.cppImpl = []
         if method.cppCode is not None and method.cppCode[1] == 'sip':
@@ -390,11 +392,16 @@ class CffiModuleGenerator(object):
             # custom code
             return
 
+        # Even though this method may actually return a pointer to the
+        # subclass of the wrapped type, we'll use base class as the return type
+        # so the TypeInfo code can be simpler
+        method.type = method.klass.name + '*' if method.isCtor else method.type
+
         self.getTypeInfo(method)
         self.createArgsStrings(method)
 
-        if method.isCtor:
-            method.pyName = '__init__'
+        if method.isVirtual:
+            self.processVirtualMethod(method, indent, overload)
 
         if method.isDtor:
             # We need a special case for the dtor since '~' isn't allowed in an
@@ -407,7 +414,9 @@ class CffiModuleGenerator(object):
         if method.cppCode is not None:
             callName = self.createCppCodeWrapper(method)
         elif method.protection == 'protected':
-            callName = PROTECTED_PREFIX + method.name
+            # We only need to do the special handling of a protected method if
+            # it has not custom code.
+            callName = self.processProtectedMethod(method, indent, overload)
         elif method.isStatic:
             callName = "%s::%s" % method.klass.name
         elif method.isCtor:
@@ -428,7 +437,6 @@ class CffiModuleGenerator(object):
         method.cppImpl.append(nci("""\
         extern "C" %s %s%s
         {""" % (method.type.cdefType, method.cName, method.cArgs)))
-
         if method.isDtor:
             method.cppImpl.append('    delete self;')
         else:
@@ -436,44 +444,68 @@ class CffiModuleGenerator(object):
                                   method.cCallArgs + ';')
         method.cppImpl.append('}')
 
-        if (method.protection == 'protected' and not method.isDtor
-            and not method.isCtor):
-            method.cppImpl.append(nci("""\
-            %s %s::%s%s
-            {
-                %s%s::%s%s;
-            }""" % (method.type.name, method.klass.cppClassName, callName,
-                    method.cppArgs, retStmt, method.klass.name, method.name,
-                    method.cppCallArgs)))
-
-        if method.isVirtual and not method.isDtor:
-            # TODO: code to call python method
-            method.cppImpl.append(nci("""\
-            %s %s::%s%s
-            {
-                %s%s::%s%s;
-            }
-            """ % (method.type.name, method.klass.cppClassName, method.name,
-                   method.dcppArgs, retStmt, method.klass.name, method.name,
-                   method.cppCallArgs)))
 
         if method.isCtor:
             method.pyImpl.append(nci("""\
-            def %s%s:
+            def __init__%s:
                 cpp_obj = clib.%s%s
-                import pdb; pdb.set_trace()
                 wrapper_lib.CppWrapper.__init__(self, cpp_obj)
-            """ % (method.pyName, method.pyArgs, method.cName,
-                   method.pyCallArgs)))
+            """ % (method.pyArgs, method.cName, method.pyCallArgs), indent))
         else:
             method.pyImpl.append(nci("""\
             def %s%s:
                 return clib.%s%s
             """ % (method.pyName, method.pyArgs, method.cName,
-                   method.pyCallArgs)))
+                   method.pyCallArgs), indent))
+
+    def processVirtualMethod(self, method, indent, overload=''):
+        if method.isDtor:
+            return
+        meth_def = "    virtual %s %s%s;" % (m.type, m.name, m.cppArgs)
+        method.klass.virtualMethods.append(meth_def)
+
+        # TODO: route calls to virtual methods to Python replacement versions
+        method.cppImpl.append(nci("""\
+        %s %s::%s%s
+        {
+            %s%s::%s%s;
+        }
+        """ % (method.type.name, method.klass.cppClassName, method.name,
+               method.dcppArgs, func.retStmt, method.klass.name, method.name,
+               method.cppCallArgs), indent))
+
+        # TODO: We need pass (int) identifiers to the decoration so it knows
+        #       which C++ virtual method(s) this Python method corrisponds to.
+        #       This needs to be done once for every overload of the method, so
+        #       This (generator) method probably needs to detect which overload
+        #       is the first. After we have the first, we can probably just
+        #       stack decorators by inserting them into the start of the pyImpl
+        #       list.
+        #method.pyImpl.append(nci("@wrapper_lib.Virtual(%s)" % (), indent))
+
+        # TODO: Create a thunk that gets called from the C++ reimplementation
+
+    def processProtectedMethod(self, method, indent, overload=''):
+        if method.isCtor:
+            # We don't need any special code for protected ctors; they're
+            # already exposed when we create a new ctor that call the old one
+            return
+        callName = PROTECTED_PREFIX + method.name
+        meth_def = "    %s unprotected_%s%s;" % (m.type, m.name, m.cppArgs)
+        method.klass.protectedMethods.append(meth_def)
+        method.cppImpl.append(nci("""\
+        %s %s::%s%s%s
+        {
+            %s%s::%s%s;
+        }""" % (method.type.name, method.klass.cppClassName, callName,
+                method.cppArgs, func.retStmt, method.klass.name,
+                method.name, method.cppCallArgs), indnet))
+
+        return callName
 
 
-    def processCppMethod(self, method):
+    def processCppMethod(self, method, indent):
+        assert not method.ignored
         # Temporarily ignore methods if they are likely sip or CPython specific
         if 'sip' in method.body or 'Py' in method.body:
             return
@@ -487,20 +519,24 @@ class CffiModuleGenerator(object):
         # Some CppMethodDefs are not inside classes, but are global functions
         # instead.
         if hasattr(method, 'klass') and method.klass is not None:
-            self.processMethod(method)
+            self.processMethod(method, indent)
         else:
-            self.processFunction(method)
+            self.processFunction(method, indent)
 
     def processMemberVar(self, var):
+        assert not method.ignored
         pass
 
     def processProperty(self, property):
+        assert not method.ignored
         pass
 
     def processPyProperty(self, property):
+        assert not method.ignored
         pass
 
     def processPyMethod(self, method):
+        assert not method.ignored
         pass
 
     def getTypeInfo(self, item):
@@ -555,8 +591,7 @@ class CffiModuleGenerator(object):
                 func.cdefArgs.append('void *self')
 
 
-        for param in [i for i in func.items if not i.ignored]:
-            param.indent = 0
+        for param in func.items:
             self.getTypeInfo(param)
 
             cArg = "%s %s" % (param.type.cType, param.name)
