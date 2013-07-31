@@ -5,36 +5,42 @@ import weakref
 from os import path
 
 from wrapper_lib import (
-    wrapper_class, virtual_method, CppWrapper, obj_from_ptr, forget_ptr,
-    take_ownership, give_ownership)
+    CppWrapper, VirtualMethod, VirtualDispatcher, obj_from_ptr,
+    forget_ptr, take_ownership, give_ownership)
 
 ffi = cffi.FFI()
 ffi.cdef('''
 int deleted_count;
 int call_virtual_meth(void *obj, int i);
+void* create_DtorObj();
 
 void (*DtorObj_vtable[2])();
-void* DtorObj_88__op_new();
-void DtorObj_88__op_delete(void *self);
+void DtorObj_set_vflag(void* self, int i);
+void DtorObj_set_vflags(void* self, char* flags);
+void* DtorObj_88_DtorObj();
+void DtorObj_88_delete(void *self);
 int DtorObj_88_non_virtual_meth(void *self, int i);
 int DtorObj_88_virtual_meth(void *self, int i);
 
-void* NoDtorObj_88__op_new();
-void NoDtorObj_88__op_delete(void *obj);
+void* NoDtorObj_88_NoDtorObj();
+void NoDtorObj_88_delete(void *obj);
 ''')
 
 clib = ffi.verify('''
 extern int deleted_count;
 int call_virtual_meth(void *obj, int i);
+void* create_DtorObj();
 
 extern void (*DtorObj_vtable[2])();
-void* DtorObj_88__op_new();
-void DtorObj_88__op_delete(void *self);
+void DtorObj_set_vflag(void* self, int i);
+void DtorObj_set_vflags(void* self, char* flags);
+void* DtorObj_88_DtorObj();
+void DtorObj_88_delete(void *self);
 int DtorObj_88_non_virtual_meth(void *self, int i);
 int DtorObj_88_virtual_meth(void *self, int i);
 
-void* NoDtorObj_88__op_new();
-void NoDtorObj_88__op_delete(void *obj);
+void* NoDtorObj_88_NoDtorObj();
+void NoDtorObj_88_delete(void *obj);
 ''', sources=[path.join(path.dirname(__file__), 'test_cppwrapper.cpp')])
 
 
@@ -47,49 +53,59 @@ def collect_all_wrappers():
 
 
 class NoDtorObj(CppWrapper):
-    __metaclass__ = wrapper_class(ffi, clib)
-
     def __init__(self):
-        cpp_obj = clib.NoDtorObj_88__op_new()
+        cpp_obj = clib.NoDtorObj_88_NoDtorObj()
         CppWrapper.__init__(self, cpp_obj)
 
     def __del__(self):
         if self._py_owned:
-            clib.NoDtorObj_88__op_delete(self._cpp_obj)
+            clib.NoDtorObj_88_delete(self._cpp_obj)
         CppWrapper.__del__(self)
 
 class NoDtorObjSubClass(NoDtorObj):
     pass
 
-METHIDX_DtorObj_88_virtual_meth = 1
-DtorObj_vtable = [
-    "",
-    "int(*)(void*, int)"
-]
-
 class DtorObj(CppWrapper):
-    __metaclass__ = wrapper_class(ffi, clib, clib.DtorObj_vtable,
-                                  DtorObj_vtable)
+    _vtable = clib.DtorObj_vtable
+    _vtable_size = 2
 
     def __init__(self):
-        cpp_obj = clib.DtorObj_88__op_new()
+        cpp_obj = clib.DtorObj_88_DtorObj()
         CppWrapper.__init__(self, cpp_obj)
 
     def __del__(self):
         if self._py_owned:
-            clib.DtorObj_88__op_delete(self._cpp_obj)
+            clib.DtorObj_88_delete(self._cpp_obj)
         CppWrapper.__del__(self)
+
+    def _set_vflag(self, i):
+        clib.DtorObj_set_vflag(self._cpp_obj, i)
+
+    def _set_vflags(self, flags):
+        clib.DtorObj_set_vflags(self._cpp_obj, flags)
+
+    @VirtualDispatcher(0)
+    @ffi.callback('void(*)(void*)')
+    def _virtual___dtor__(ptr):
+        self = obj_from_ptr(ptr, DtorObj)
+        self.__del__()
 
     def non_virtual_meth(self, i):
         return clib.DtorObj_88_non_virtual_meth(self._cpp_obj, i)
 
+    @VirtualMethod(1)
     def virtual_meth(self, i):
         return clib.DtorObj_88_virtual_meth(self._cpp_obj, i)
 
-    @virtual_method(METHIDX_DtorObj_88_virtual_meth)
-    def _virtual_virtul_meth(ptr, i):
+    @VirtualDispatcher(1)
+    @ffi.callback("int(*)(void*, int)")
+    def _virtual_virtual_meth(ptr, i):
         self = obj_from_ptr(ptr, DtorObj)
         return self.virtual_meth(i)
+
+class DtorObjSubClass(DtorObj):
+    def virtual_meth(self, i):
+        return i * i
 
 class TestMethodCalls(object):
     def test_nonvirtual_method(self):
@@ -100,13 +116,66 @@ class TestMethodCalls(object):
         obj = DtorObj()
         assert obj.virtual_meth(10) == 10
 
-    def test_overridden_virtual_method(self):
+    def test_replacing_instance_virtual_method(self):
         def override(i):
             return -i
 
         obj = DtorObj()
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 10
         obj.virtual_meth = override
         assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
+
+    def test_replacing_instance_virtual_method(self):
+        class TmpDtorObjSubClass(DtorObj):
+            pass
+        def override(self, i):
+            return -i
+
+        obj = TmpDtorObjSubClass()
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 10
+
+        TmpDtorObjSubClass.virtual_meth = override
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
+
+        obj = TmpDtorObjSubClass()
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
+
+    def test_replacing_overriden_instance_virtual_method(self):
+        def override(i):
+            return -i
+
+        obj = DtorObjSubClass()
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 100
+
+        obj.virtual_meth = override
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
+
+    def test_call_virtual_method_from_super(self):
+        class TmpDtorObjSubClass(DtorObj):
+            def virtual_meth(self, i):
+                return super(TmpDtorObjSubClass, self).virtual_meth(i - 1)
+        def override(i):
+            return -i
+
+        obj = TmpDtorObjSubClass()
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 9
+        assert super(TmpDtorObjSubClass, obj).virtual_meth(10) == 10
+
+        obj.virtual_meth = override
+        assert super(TmpDtorObjSubClass, obj).virtual_meth(10) == 10
+
+    def test_overridden_virtual_method(self):
+        obj = DtorObjSubClass()
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 100
+
+    def test_override_not_py_created(self):
+        def override(self, i):
+            return -i
+
+        obj = obj_from_ptr(clib.create_DtorObj(), DtorObj)
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 10
+        obj.virtual_meth = override
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 10
 
 class TestCppObjectLifetimes(object):
     def test_cpp_owned(self):
@@ -170,7 +239,7 @@ class TestPyObjectLifetimes(object):
         ptr = obj._cpp_obj
         del obj
 
-        clib.DtorObj_88__op_delete(ptr)
+        clib.DtorObj_88_delete(ptr)
         collect_all_wrappers()
         assert deleted_count + 1 == clib.deleted_count
         assert wk() is None

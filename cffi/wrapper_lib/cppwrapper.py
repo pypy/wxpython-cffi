@@ -1,14 +1,117 @@
+import cffi
 import weakref
 
+class WrapperType(type):
+    """
+    Metaclass for CppWrapper.
+
+    The primary purpose of this metaclass is to automate the handling of
+    virtual methods on subclasses of CppWrapper.
+    """
+    def __init__(self, name, bases, attrs):
+        ffi = self._ffi
+        if '_vtable' in attrs:
+            # If the class has a _vtable attribute, then (we'll assume) it is
+            # a wrapper for a C++ class that has virtual methods. Thus we need
+            # to populate the vtable with the dispatcher callbacks
+            for name, attr in attrs.iteritems():
+                if isinstance(attr, VirtualDispatcher):
+                    self._vtable[attr.index] = ffi.cast('void*', attr.func)
+            self._default_vflags = ffi.new('char[]', self._vtable_size)
+
+            self._vmeths = {}
+            for name, attr in attrs.iteritems():
+                if isinstance(attr, VirtualMethod):
+                   attr.name = name
+            return
+
+        # If the class has no _vtable, then it is a subclass of a wrapper or a
+        # wrapper for a C++ that has no virtual methods
+        for base in self.mro():
+            if '_vtable' in base.__dict__:
+                ffi = base._ffi
+                base_wrapper = base
+                break
+        else:
+            # None of the base classes have virtual methods, so we're done
+            return
+
+        # Getting here means this is a subclass of a wrapper with virtual
+        # methods. We'll build an array that will serve as the default value
+        # for the virtual override flags for instances of this subclass.
+        self._default_vflags = ffi.new('unsigned char[]', self._vtable_size)
+
+        # Iterate on the base wrapper's __dict__ so we only catch virtual
+        # methods declared on it directly. We don't actually want any declared
+        # on the base wrapper's superclass(es).
+        for name, attr in base_wrapper.__dict__.iteritems():
+            if isinstance(attr, VirtualMethod):
+                if getattr(self, name).__func__ is not attr.func:
+                    # Set the default flag if the method is not the same as the
+                    # original one in the base wrapper
+                    for i in attr.indices:
+                        self._default_vflags[i] = 1
+
+    def __setattr__(self, name, value):
+        attr = self.__dict__.get(name, None)
+        if isinstance(attr, VirtualMethod):
+            attr.func = value
+            for i in attr.indices:
+                self._default_vflags[i] = 1
+            # TODO: Update the flag in existing instances as well, maybe?
+        else:
+            super(WrapperType, self).__setattr__(name, value)
+
+class VirtualMethod(object):
+    """
+    Descriptor for virtual methods. Automatically handles updating the vflag on
+    on an object when the method is changed. Should be used as a decorator and
+    can be stacked to allow one method to handle multiple overloads.
+    """
+    def __init__(self, *args):
+        self.indices = list(args)
+
+    def __call__(self, func):
+        if isinstance(func, VirtualMethod):
+            # Allow @VirtualMethod(n) decorators to be stacked
+            func.indices.extend(self.indices)
+            return func
+        self.func = func
+        return self
+
+    def __get__(self, obj, cls):
+        if obj is not None and self.name in obj._vmeths:
+            return obj._vmeths[self.name]
+        else:
+            return self.func.__get__(obj, cls)
+
+    def __set__(self, obj, value):
+        if 'vmeths' not in obj.__dict__:
+            obj._vmeths = {}
+        obj._vmeths[self.name] = value
+        if obj._py_created:
+            # We can only guarantee that it's safe to try setting vflags if
+            # Python create the object
+            for i in self.indices:
+                obj._set_vflag(i)
+
+class VirtualDispatcher(object):
+    def __init__(self, index):
+        self.index = index
+
+    def __call__(self, func):
+        self.func = func
+        return self
 
 class CppWrapper(object):
-    _ffi = None
-    _lib = None
-    _vtable = None
+    __metaclass__ = WrapperType
 
-    def __init__(self, cpp_obj, py_owned=True):
+    _ffi = cffi.FFI()
+
+    def __init__(self, cpp_obj, py_owned=True, py_created=True):
         self._cpp_obj = cpp_obj if cpp_obj is not None else self._ffi.NULL
         self._py_owned = py_owned
+        self._py_created = py_created
         remember_ptr(self, self._cpp_obj, py_owned)
 
         self._parent = None
@@ -16,14 +119,20 @@ class CppWrapper(object):
         self._next_sibling = None
         self._prev_sibling = None
 
+        if hasattr(self, '_default_vflags') and self._py_created:
+            # See comment about about setting vflags and _py_created
+            self._set_vflags(self._default_vflags)
+
     def __del__(self):
-        if not self._py_owned:
+        # We have to check forget_ptr because it may be garbage collected by
+        # the time this is called
+        if not self._py_owned and forget_ptr is not None:
             forget_ptr(self._cpp_obj)
 
     @classmethod
     def _from_ptr(cls, ptr):
         obj = cls.__new__(cls)
-        CppWrapper.__init__(obj, ptr, False)
+        CppWrapper.__init__(obj, ptr, False, False)
         return obj
 
 
@@ -34,43 +143,6 @@ def global_dtor(ptr):
         return
 
     forget_ptr(ptr)
-
-def wrapper_class(ffi, lib, vtable=None, virtual_methods=None):
-    if ((vtable is None and virtual_methods is not None) or
-        (vtable is not None and virtual_methods is None)):
-        raise ValueError('Either both or neither vtable and  virtual_methods '
-                         'may None')
-
-    def closure(cls_name, cls_bases, cls_attrs):
-        cls_attrs['_ffi'] = ffi
-        cls_attrs['_lib'] = lib
-        cls_attrs['_vtable'] = vtable
-
-        # Setup the global wrapper dtor
-        if vtable is not None:
-            if not hasattr(ffi, 'global_dtor'):
-                ffi.global_dtor = ffi.callback("void(void*)", global_dtor)
-            vtable[0] = ffi.cast('void(*)()', ffi.global_dtor)
-
-        # Create callbacks to populate the vtable
-        for key, method in cls_attrs.iteritems():
-            if not hasattr(method, '_virtual_method'):
-                continue
-            idx = method._virtual_method
-            cb = ffi.callback(virtual_methods[idx], method)
-            cls_attrs[key] = cb
-            vtable[idx] = ffi.cast('void(*)()', cb)
-
-        return type(cls_name, cls_bases, cls_attrs)
-
-    return closure
-
-def virtual_method(idx):
-    def closure(func):
-        func._virtual_method = idx
-        return func
-    return closure
-
 
 
 cpp_owned_objects = set()
