@@ -67,7 +67,6 @@ class NoDtorObjSubClass(NoDtorObj):
 
 class DtorObj(CppWrapper):
     _vtable = clib.DtorObj_vtable
-    _vtable_size = 2
 
     def __init__(self):
         cpp_obj = clib.DtorObj_88_DtorObj()
@@ -125,7 +124,7 @@ class TestMethodCalls(object):
         obj.virtual_meth = override
         assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
 
-    def test_replacing_instance_virtual_method(self):
+    def test_replacing_class_virtual_method(self):
         class TmpDtorObjSubClass(DtorObj):
             pass
         def override(self, i):
@@ -150,6 +149,19 @@ class TestMethodCalls(object):
         obj.virtual_meth = override
         assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
 
+    def test_replacing_class_and_instance_virtual_method(self):
+        class TmpDtorObjSubClass(DtorObj):
+            pass
+        def override(i):
+            return -i
+        def cls_override(self, i):
+            return i + 1
+
+        obj = TmpDtorObjSubClass()
+        obj.virtual_meth = override
+        TmpDtorObjSubClass.virtual_meth = cls_override
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
+
     def test_call_virtual_method_from_super(self):
         class TmpDtorObjSubClass(DtorObj):
             def virtual_meth(self, i):
@@ -163,9 +175,17 @@ class TestMethodCalls(object):
 
         obj.virtual_meth = override
         assert super(TmpDtorObjSubClass, obj).virtual_meth(10) == 10
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == -10
 
     def test_overridden_virtual_method(self):
         obj = DtorObjSubClass()
+        assert clib.call_virtual_meth(obj._cpp_obj, 10) == 100
+
+    def test_call_virtual_method_double_subclass(self):
+        class DtorObjSubClassSubClass(DtorObjSubClass):
+            pass
+
+        obj = DtorObjSubClassSubClass()
         assert clib.call_virtual_meth(obj._cpp_obj, 10) == 100
 
     def test_override_not_py_created(self):

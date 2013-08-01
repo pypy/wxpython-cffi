@@ -1,5 +1,7 @@
 import cffi
 import weakref
+import collections
+
 
 class WrapperType(type):
     """
@@ -17,7 +19,11 @@ class WrapperType(type):
             for name, attr in attrs.iteritems():
                 if isinstance(attr, VirtualDispatcher):
                     self._vtable[attr.index] = ffi.cast('void*', attr.func)
-            self._default_vflags = ffi.new('char[]', self._vtable_size)
+            self._vdata = VData(ffi, self._vtable, self._set_vflag,
+                                self._set_vflags, True)
+            del self._vtable
+            del self._set_vflag
+            del self._set_vflags
 
             self._vmeths = {}
             for name, attr in attrs.iteritems():
@@ -28,8 +34,7 @@ class WrapperType(type):
         # If the class has no _vtable, then it is a subclass of a wrapper or a
         # wrapper for a C++ that has no virtual methods
         for base in self.mro():
-            if '_vtable' in base.__dict__:
-                ffi = base._ffi
+            if '_vdata' in base.__dict__ and base._vdata.direct_wrapper:
                 base_wrapper = base
                 break
         else:
@@ -39,28 +44,53 @@ class WrapperType(type):
         # Getting here means this is a subclass of a wrapper with virtual
         # methods. We'll build an array that will serve as the default value
         # for the virtual override flags for instances of this subclass.
-        self._default_vflags = ffi.new('unsigned char[]', self._vtable_size)
+        self._vdata = VData(ffi, self._vdata.vtable, self._vdata.set_vflag,
+                            self._vdata.set_vflags, False)
 
-        # Iterate on the base wrapper's __dict__ so we only catch virtual
-        # methods declared on it directly. We don't actually want any declared
-        # on the base wrapper's superclass(es).
+        # Note this loop will only catch VirtualMethods declared directly on
+        # base_wrapper. We don't actually want any declared on base_wrapper's
+        # superclass(es).
         for name, attr in base_wrapper.__dict__.iteritems():
             if isinstance(attr, VirtualMethod):
                 if getattr(self, name).__func__ is not attr.func:
                     # Set the default flag if the method is not the same as the
                     # original one in the base wrapper
                     for i in attr.indices:
-                        self._default_vflags[i] = 1
+                        self._vdata.default_vflags[i] = 1
+                else:
+                    # Make a duplicate of the VirtualMethod object so when its
+                    # func attribute is changed in __get__ it only affects this
+                    # class
+                    vmeth = VirtualMethod()(attr)
+                    vmeth.name = name
+                    setattr(self, name, vmeth)
 
     def __setattr__(self, name, value):
         attr = self.__dict__.get(name, None)
         if isinstance(attr, VirtualMethod):
             attr.func = value
             for i in attr.indices:
-                self._default_vflags[i] = 1
-            # TODO: Update the flag in existing instances as well, maybe?
+                self._vdata.default_vflags[i] = 1
+            for obj in self._vdata.instances:
+                for i in attr.indices:
+                    obj._vdata.set_vflag(obj, i)
         else:
             super(WrapperType, self).__setattr__(name, value)
+
+VDataBase = collections.namedtuple('VData', ['vtable', 'default_vflags',
+                                             'set_vflag', 'set_vflags',
+                                             'instances', 'direct_wrapper'])
+class VData(VDataBase):
+    def __new__(cls, ffi, vtable, set_flag, set_flags, direct_wrapper):
+        return super(VData, cls).__new__(
+            cls,
+            vtable,
+            ffi.new('unsigned char[]', len(vtable)),
+            set_flag,
+            set_flags,
+            weakref.WeakSet(),
+            direct_wrapper
+        )
 
 class VirtualMethod(object):
     """
@@ -74,8 +104,8 @@ class VirtualMethod(object):
     def __call__(self, func):
         if isinstance(func, VirtualMethod):
             # Allow @VirtualMethod(n) decorators to be stacked
-            func.indices.extend(self.indices)
-            return func
+            self.indices.extend(func.indices)
+            return self
         self.func = func
         return self
 
@@ -86,14 +116,14 @@ class VirtualMethod(object):
             return self.func.__get__(obj, cls)
 
     def __set__(self, obj, value):
-        if 'vmeths' not in obj.__dict__:
+        if '_vmeths' not in obj.__dict__:
             obj._vmeths = {}
         obj._vmeths[self.name] = value
         if obj._py_created:
             # We can only guarantee that it's safe to try setting vflags if
             # Python create the object
             for i in self.indices:
-                obj._set_vflag(i)
+                obj._vdata.set_vflag(obj, i)
 
 class VirtualDispatcher(object):
     def __init__(self, index):
@@ -119,9 +149,10 @@ class CppWrapper(object):
         self._next_sibling = None
         self._prev_sibling = None
 
-        if hasattr(self, '_default_vflags') and self._py_created:
+        if hasattr(self, '_vdata') and self._py_created:
             # See comment about about setting vflags and _py_created
-            self._set_vflags(self._default_vflags)
+            self._vdata.set_vflags(self, self._vdata.default_vflags)
+            self._vdata.instances.add(self)
 
     def __del__(self):
         # We have to check forget_ptr because it may be garbage collected by
