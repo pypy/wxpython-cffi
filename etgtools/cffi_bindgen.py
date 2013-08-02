@@ -329,10 +329,9 @@ class CffiModuleGenerator(object):
 
         if klass.hasSubClass:
             klass.cppImpl.append(nci("""\
-            class %(subClassName)s : public %(className)s
-            {
-            public:"""
-            % {'className': klass.name, 'subClassName': klass.cppClassName}))
+            class {0} : public {1}
+            {{
+            public:""".format(klass.cppClassName, klass.name)))
 
             # Process all Ctors
             for ctor in ctors:
@@ -367,29 +366,28 @@ class CffiModuleGenerator(object):
                 self.cdefs.append('void %s_set_flags(void *, char*);' %
                                    (klass.name))
                 klass.cppImpl.append(nci("""\
-                extern "C" %s
+                extern "C" {0}
 
-                extern "C" void %s_set_flag(%s * self, int i)
-                {
+                extern "C" void {1}_set_flag({2} * self, int i)
+                {{
                     self->vflags[i] = 1;
-                }
+                }}
 
-                extern "C" void %s_set_flags(%s * self, char * flags)
-                {
+                extern "C" void {1}_set_flags({2} * self, char * flags)
+                {{
                     memcpy(self->vflags, flags, sizeof(self->vflags));
-                }
-                """ % (vtableDef, klass.name, klass.cppClassName, klass.name,
-                       klass.cppClassName)))
+                }}
+                """.format(vtableDef, klass.name, klass.cppClassName)))
 
                 klass.pyImpl.append(nci("""\
-                _vtable = clib.%s_vtable
+                _vtable = clib.{0}_vtable
 
                 def _set_vflag(self, i):
-                    clib.%s_set_flag(self._cpp_obj, i)
+                    clib.{0}_set_flag(self._cpp_obj, i)
 
                 def _set_vflags(self, flags):
-                    clib.%s_set_flags(self._cpp_obj, flags)
-                """ % (klass.name, klass.name, klass.name), 4))
+                    clib.{0}_set_flags(self._cpp_obj, flags)
+                """.format(klass.name), 4))
 
 
 
@@ -425,13 +423,11 @@ class CffiModuleGenerator(object):
                                   func.cdefArgs)
         self.cdefs.append(func.cdef)
 
-        #if func.cppCode is None:
         func.cppImpl.append(nci("""\
-        extern "C" %s %s%s
-        {
-            %s%s%s;
-        }""" % (func.type.cType, func.cName, func.cArgs,
-                func.retStmt, callName, func.cCallArgs)))
+        extern "C" {0.type.cType} {0.cName}{0.cArgs}
+        {{
+            {0.retStmt}{1}{0.cCallArgs};
+        }}""".format(func, callName)))
 
         func.pyImpl.append("def %s%s:" % (func.pyName, func.pyArgs))
 
@@ -519,16 +515,15 @@ class CffiModuleGenerator(object):
 
         if method.isCtor:
             method.pyImpl.append(nci("""\
-            def __init__%s:
-                cpp_obj = clib.%s%s
+            def __init__{0.pyArgs}:
+                cpp_obj = clib.{0.cName}{0.pyCallArgs}
                 wrapper_lib.CppWrapper.__init__(self, cpp_obj)
-            """ % (method.pyArgs, method.cName, method.pyCallArgs), indent))
+            """.format(method), indent))
         else:
             method.pyImpl.append(nci("""\
-            def %s%s:
-                return clib.%s%s
-            """ % (method.pyName, method.pyArgs, method.cName,
-                   method.pyCallArgs), indent))
+            def {0.pyName}{0.pyArgs}:
+                return clib.{0.cName}{0.pyCallArgs}
+            """.format(method), indent))
 
     def processVirtualMethod(self, method, indent, overload=''):
         if method.isDtor:
@@ -574,12 +569,10 @@ class CffiModuleGenerator(object):
         meth_def = "    %s unprotected_%s%s;" % (m.type, m.name, m.cppArgs)
         method.klass.protectedMethods.append(meth_def)
         method.cppImpl.append(nci("""\
-        %s %s::%s%s%s
+        {0.type.name} {0.klass.cppClassName}::{1}{0.cppArgs}
         {
-            %s%s::%s%s;
-        }""" % (method.type.name, method.klass.cppClassName, callName,
-                method.cppArgs, func.retStmt, method.klass.name,
-                method.name, method.cppCallArgs), indnet))
+            {0.retStmt}{0.klass.name}::{0.name}{0.cppCallArgs};
+        }""".format(method, callName)))
 
         return callName
 
