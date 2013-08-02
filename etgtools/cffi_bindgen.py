@@ -183,6 +183,8 @@ class CffiModuleGenerator(object):
             for line in getattr(self.module, attr):
                 print >> cppfile, line
 
+        print >> cppfile, "#include <cstring>"
+
         print >> pyfile, nci("""\
         import cffi
         import wrapper_lib""")
@@ -267,7 +269,7 @@ class CffiModuleGenerator(object):
             klass.pyName = klass.name
         klass.pyImpl.append(nci("""\
         class %s(%s):
-            __metaclass__ = wrapper_lib.wrapper_class(ffi, clib)"""
+            __metaclass__ = wrapper_lib.WrapperType"""
         % (klass.pyName, pyBases)))
 
 
@@ -304,23 +306,56 @@ class CffiModuleGenerator(object):
                                                 m.cppArgs)
                 klass.cppImpl.append(meth_def)
 
-            if len(virtualMethods) > 0:
+            # Signatures for re-implemented virtual methods
+            if len(klass.virtualMethods) > 0:
                 klass.cppImpl.append(nci("""\
-                protected:
-                    //Reimplement every virtual method"""))
-            for vmeth in virtualMethods:
-                for m in vmeth.all():
+                signed char vflags[%d];
+                //Reimplement every virtual method"""
+                % len(klass.virtualMethods), 4))
+            for vmeth in klass.virtualMethods:
                     klass.cppImpl.append(vmeth)
 
-            if len(protectedMethods) > 0:
+            # Signatures for
+            if len(klass.protectedMethods) > 0:
                 klass.cppImpl.append(nci("""\
-                public:
                     //Reimplement every protected method"""))
-            for pmeth in protectedMethods:
-                for m in pmeth.all():
-                    klass.cppImpl.append(pmeth)
+            for pmeth in klass.protectedMethods:
+                klass.cppImpl.append(pmeth)
 
             klass.cppImpl.append("};")
+
+            if len(klass.virtualMethods) > 0:
+                vtableDef = 'void(*%s_vtable[%d])();' % (klass.name,
+                                                        len(klass.virtualMethods))
+                self.cdefs.append(vtableDef)
+                self.cdefs.append('void %s_set_flag(void *, int);' %
+                                  (klass.name))
+                self.cdefs.append('void %s_set_flags(void *, char*);' %
+                                   (klass.name))
+                klass.cppImpl.append(nci("""\
+                extern "C" %s
+
+                extern "C" void %s_set_flag(%s * self, int i)
+                {
+                    self->vflags[i] = 1;
+                }
+
+                extern "C" void %s_set_flags(%s * self, char * flags)
+                {
+                    memcpy(self->vflags, flags, sizeof(self->vflags));
+                }
+                """ % (vtableDef, klass.name, klass.cppClassName, klass.name,
+                       klass.cppClassName)))
+
+                klass.pyImpl.append(nci("""\
+                _vtable = clib.%s_vtable
+
+                def _set_vflag(self, i):
+                    clib.%s_set_flag(self._cpp_obj, i)
+
+                def _set_vflags(self, flags):
+                    clib.%s_set_flags(self._cpp_obj, flags)
+                """ % (klass.name, klass.name, klass.name), 4))
 
 
 
@@ -400,6 +435,8 @@ class CffiModuleGenerator(object):
         self.getTypeInfo(method)
         self.createArgsStrings(method)
 
+        method.retStmt = 'return ' if method.type.name != 'void' else ''
+
         if method.isVirtual:
             self.processVirtualMethod(method, indent, overload)
 
@@ -461,29 +498,43 @@ class CffiModuleGenerator(object):
     def processVirtualMethod(self, method, indent, overload=''):
         if method.isDtor:
             return
-        meth_def = "    virtual %s %s%s;" % (m.type, m.name, m.cppArgs)
+        meth_def = "    virtual %s %s%s;" % (method.type.name, method.name,
+                                             method.cppArgs)
         method.klass.virtualMethods.append(meth_def)
+        index = len(method.klass.virtualMethods) - 1
 
-        # TODO: route calls to virtual methods to Python replacement versions
         method.cppImpl.append(nci("""\
-        %s %s::%s%s
+        extern "C" typedef %(cReturnType)s (*%(className)s_%(index)s_FUNCPTR)%(cArgs)s;
+        %(returnType)s %(cppClassName)s::%(methName)s%(cppArgs)s
         {
-            %s%s::%s%s;
+            if(this->vflags[%(index)s])
+                %(retStmt)s%(deref)s((%(className)s_%(index)s_FUNCPTR)%(className)s_vtable[%(index)s])%(vCallArgs)s;
+            else
+                %(retStmt)s%(className)s::%(methName)s%(cppCallArgs)s;
         }
-        """ % (method.type.name, method.klass.cppClassName, method.name,
-               method.dcppArgs, func.retStmt, method.klass.name, method.name,
-               method.cppCallArgs), indent))
+        """ % {'className': method.klass.name,
+               'cReturnType': method.type.cType,
+               'index': index,
+               'cArgs': method.cArgs,
+               'cppClassName': method.klass.cppClassName,
+               'returnType': method.type.name,
+               'methName': method.name,
+               'cppArgs': method.cppArgs,
+               'retStmt': method.retStmt,
+               'deref': '*' if method.type.deref else '',
+               'vCallArgs': method.vCallArgs,
+               'cppCallArgs': method.cppCallArgs}))
 
-        # TODO: We need pass (int) identifiers to the decoration so it knows
-        #       which C++ virtual method(s) this Python method corrisponds to.
-        #       This needs to be done once for every overload of the method, so
-        #       This (generator) method probably needs to detect which overload
-        #       is the first. After we have the first, we can probably just
-        #       stack decorators by inserting them into the start of the pyImpl
-        #       list.
-        #method.pyImpl.append(nci("@wrapper_lib.Virtual(%s)" % (), indent))
+        method.pyImpl.append(nci("""\
+        @wrapper_lib.VirtualDispatcher(%d)
+        @ffi.callback('%s(*)%s')
+        def _virtual__%s%s:
+            return wrapper_lib.obj_from_ptr(self, %s).%s%s
+        """ % (index, method.type.cdefType, method.cdefArgs, method.name,
+               method.pyArgs, method.klass.pyName, method.pyName, method.pyvCallArgs), indent))
 
-        # TODO: Create a thunk that gets called from the C++ reimplementation
+        method.pyImpl.append(nci("@wrapper_lib.VirtualMethod(%d)" %
+                                 (len(method.klass.virtualMethods) - 1), indent))
 
     def processProtectedMethod(self, method, indent, overload=''):
         if method.isCtor:
@@ -578,6 +629,8 @@ class CffiModuleGenerator(object):
         func.cArgs = []
         func.cdefArgs = []
         func.cCallArgs = []
+        func.vCallArgs = []
+        func.pyvCallArgs = []
         func.pyArgs = []
         func.pyCallArgs = []
         func.cppArgs = []
@@ -589,6 +642,7 @@ class CffiModuleGenerator(object):
                 func.pyCallArgs.append('self._cpp_obj')
                 func.cArgs.append('%s *self' % func.klass.cppClassName)
                 func.cdefArgs.append('void *self')
+                func.vCallArgs.append('this')
 
 
         for param in func.items:
@@ -597,10 +651,12 @@ class CffiModuleGenerator(object):
             cArg = "%s %s" % (param.type.cType, param.name)
             cdefArg = "%s %s" % (param.type.cdefType, param.name)
             cCallArg = "%s%s" % ('*' if param.type.deref else '', param.name)
+            vCallArg = "%s%s" % ('&' if param.type.deref else '', param.name)
+            pyvCallArg = param.name
 
             # XXX Maybe this should include const-ness too?
             cppArg = "%s %s" % (param.type.name, param.name)
-            cppCallArg = "%s" % param.type.name
+            cppCallArg = "%s" % param.name
 
             pyArg = "%s%s%s" % (param.name, '=' if param.default else '',
                                 defValueMap.get(param.default, param.default))
@@ -609,6 +665,8 @@ class CffiModuleGenerator(object):
             func.cArgs.append(cArg)
             func.cdefArgs.append(cdefArg)
             func.cCallArgs.append(cCallArg)
+            func.vCallArgs.append(vCallArg)
+            func.pyvCallArgs.append(pyvCallArg)
             func.cppArgs.append(cppArg)
             func.cppCallArgs.append(cppCallArg)
 
@@ -641,6 +699,8 @@ class CffiModuleGenerator(object):
         func.cppCallArgs = '(' + ', '.join(func.cppCallArgs) + ')'
         func.wrapperArgs = '(' + ', '.join(func.wrapperArgs) + ')'
         func.wrapperCallArgs = '(' + ', '.join(func.wrapperCallArgs) + ')'
+        func.vCallArgs = '(' + ', '.join(func.vCallArgs) + ')'
+        func.pyvCallArgs = '(' + ', '.join(func.pyvCallArgs) + ')'
 
 
     def disassembleArgsString(self, argsString):

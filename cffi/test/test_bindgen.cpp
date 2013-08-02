@@ -19,3 +19,13 @@ int SimpleClass::simple_method(double f)
 {
     return f;
 }
+
+int VMethClass::virtual_method(int i)
+{
+    return -i;
+}
+
+int VMethClass::call_virtual(int i)
+{
+    return this->virtual_method(i);
+}

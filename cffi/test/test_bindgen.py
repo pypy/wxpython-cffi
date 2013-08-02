@@ -41,6 +41,25 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        c = ClassDef(name='VMethClass')
+        c.addItem(MethodDef(
+            type='int', argsString='(int i)',
+            name='virtual_method', pyName='virtual_method', isVirtual=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='int', argsString='(int i)',
+            name='call_virtual', pyName='call_virtual',
+            items=[ParamDef(type='int', name='i')]))
+
+        module.addItem(c)
+
+        c = ClassDef(name='VDtorClass')
+        c.addItem(MethodDef(
+            type='', argsString='()',
+            name='~VMethClass', isVirtual=True))
+
+        module.addItem(c)
+
         mod_path = self.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
             pickle.dump(module, f)
@@ -85,3 +104,17 @@ class TestBindGen(object):
     def test_simple_method(self):
         c = self.mod.SimpleClass()
         assert c.simple_method(5.5) == 5
+
+    def test_virtual_method_direct_call(self):
+        c = self.mod.VMethClass()
+        assert c.virtual_method(5) == -5
+        assert c.call_virtual(5) == -5
+
+    def test_override_virtual_method(self):
+        class VMethSubClass(self.mod.VMethClass):
+            def virtual_method(self, i):
+                return i * 2
+
+        c = VMethSubClass()
+        assert c.virtual_method(5) == 10
+        assert c.call_virtual(5) == 10

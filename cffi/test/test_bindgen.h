@@ -7,3 +7,16 @@ class SimpleClass
 public:
     int simple_method(double f);
 };
+
+class VMethClass
+{
+public:
+    virtual int virtual_method(int i);
+    int call_virtual(int i);
+};
+
+class VDtorClass
+{
+public:
+    virtual ~VDtorClass { };
+};
