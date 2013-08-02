@@ -18,5 +18,5 @@ public:
 class VDtorClass
 {
 public:
-    virtual ~VDtorClass { };
+    virtual ~VDtorClass() { };
 };

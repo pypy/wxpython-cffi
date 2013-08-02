@@ -56,7 +56,7 @@ class TestBindGen(object):
         c = ClassDef(name='VDtorClass')
         c.addItem(MethodDef(
             type='', argsString='()',
-            name='~VMethClass', isVirtual=True))
+            name='~VMethClass', isVirtual=True, isDtor=True))
 
         module.addItem(c)
 
