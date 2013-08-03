@@ -16,11 +16,13 @@ class WrapperType(type):
             # If the class has a _vtable attribute, then (we'll assume) it is
             # a wrapper for a C++ class that has virtual methods. Thus we need
             # to populate the vtable with the dispatcher callbacks
+            self._vdata = VData(ffi, self._vtable, self._set_vflag,
+                                self._set_vflags, True)
             for name, attr in attrs.iteritems():
                 if isinstance(attr, VirtualDispatcher):
                     self._vtable[attr.index] = ffi.cast('void*', attr.func)
-            self._vdata = VData(ffi, self._vtable, self._set_vflag,
-                                self._set_vflags, True)
+                    self._vdata.dispatchers.append(attr)
+                    delattr(self, name)
             del self._vtable
             del self._set_vflag
             del self._set_vflags
@@ -79,7 +81,8 @@ class WrapperType(type):
 
 VDataBase = collections.namedtuple('VData', ['vtable', 'default_vflags',
                                              'set_vflag', 'set_vflags',
-                                             'instances', 'direct_wrapper'])
+                                             'instances', 'dispatchers',
+                                             'direct_wrapper'])
 class VData(VDataBase):
     def __new__(cls, ffi, vtable, set_flag, set_flags, direct_wrapper):
         return super(VData, cls).__new__(
@@ -89,6 +92,7 @@ class VData(VDataBase):
             set_flag,
             set_flags,
             weakref.WeakSet(),
+            [],
             direct_wrapper
         )
 
