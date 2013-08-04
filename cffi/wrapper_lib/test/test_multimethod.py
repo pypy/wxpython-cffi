@@ -56,14 +56,13 @@ class ClassWithMMs(object):
     def positional_builtins(self):
         return tuple()
 
-    @positional_builtins.overload(int)
+    @positional_builtins.overload(i=int)
     def positional_builtins(self, i):
         return (i,)
 
-    @positional_builtins.overload(int, list)
+    @positional_builtins.overload(i=int, l=list)
     def positional_builtins(self, i, l):
         return (i, l)
-
 
     keyword_builtins = Multimethod()
 
@@ -78,15 +77,15 @@ class ClassWithMMs(object):
 
     mixed_builtins = Multimethod()
 
-    @mixed_builtins.overload(int, l=list)
+    @mixed_builtins.overload(i=int, l=list)
     def mixed_builtins(self, i, l=[1, 2, 3]):
         return (i, l)
 
-    @mixed_builtins.overload(float, l=tuple)
+    @mixed_builtins.overload(f=float, l=tuple)
     def mixed_builtins(self, f, l=(1, 2, 3)):
         return (f, l)
 
-    @mixed_builtins.overload("one", "two", one=tuple, two=tuple)
+    @mixed_builtins.overload(one=tuple, two=tuple)
     def mixed_builtins(self, one=(1, 2), two=(2, 3)):
         return one + two
 
@@ -96,7 +95,7 @@ class ClassWithMMs(object):
     def instance_builtins(self):
         return (self,)
 
-    @instance_builtins.overload(dict)
+    @instance_builtins.overload(d=dict)
     def instance_builtins(self, d):
         return (self, d)
 
@@ -110,7 +109,7 @@ class ClassWithMMs(object):
     def class_builtins(cls):
         return (cls,)
 
-    @class_builtins.overload(dict)
+    @class_builtins.overload(d=dict)
     def class_builtins(cls, d):
         return (cls, d)
 
@@ -124,7 +123,7 @@ class ClassWithMMs(object):
     def static_builtins():
         return tuple()
 
-    @static_builtins.overload(dict)
+    @static_builtins.overload(d=dict)
     def static_builtins(d):
         return (d,)
 
@@ -138,11 +137,11 @@ class ClassWithMMs(object):
     def usertypes(self):
         return tuple()
 
-    @usertypes.overload(Seq.mm_type)
+    @usertypes.overload(seq=Seq.mm_type)
     def usertypes(self, seq):
         return (seq.x, seq.y)
 
-    @usertypes.overload(Number.mm_type)
+    @usertypes.overload(numb=Number.mm_type)
     def usrtypes(self, numb):
         return (numb,)
 
@@ -183,9 +182,8 @@ class TestMultimethods(object):
     def test_mixed(self):
         mm_obj = ClassWithMMs()
         assert mm_obj.mixed_builtins(0) == (0, [1, 2, 3])
+        assert mm_obj.mixed_builtins(0, []) == (0, [])
         assert mm_obj.mixed_builtins(0, l=[]) == (0, [])
-        with pytest.raises(TypeError):
-            mm_obj.mixed_builtins(0, [])
 
         assert mm_obj.mixed_builtins(.7) == (.7, (1, 2, 3))
         assert mm_obj.mixed_builtins(.7, l=tuple()) == (.7, tuple())

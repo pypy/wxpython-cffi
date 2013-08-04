@@ -1,3 +1,5 @@
+import inspect
+
 class MMTypeCheckMeta(type):
     def __instancecheck__(self, instance):
         return self.__instancecheck__(instance)
@@ -13,14 +15,12 @@ class Multimethod(object):
         else:
             self.get = self.get_partial
 
-    def overload(self, *args, **kwargs):
+    def overload(self, **kwargs):
         """
         Add a new overload to the multimethod.
-
-        Args
         """
         def closure(func):
-            self.overloads.append(Overload(func, args, kwargs))
+            self.overloads.append(Overload(func, True, kwargs))
             return self
         return closure
 
@@ -60,6 +60,15 @@ class StaticMultimethod(Multimethod):
     def get_partial(self, instance, owner):
         return self
 
+    def overload(self, **kwargs):
+        """
+        Add a new overload to the multimethod.
+        """
+        def closure(func):
+            self.overloads.append(Overload(func, False, kwargs))
+            return self
+        return closure
+
 class ClassMultimethod(Multimethod):
     def get_partial(self, instance, owner):
         return MultimethodPartial(self.resolve_overload, owner)
@@ -81,40 +90,46 @@ class MultimethodPartial(object):
         return overload.func(instance, *args, **kwargs)
 
 class Overload(object):
-    def __init__(self, func, args, kwargs):
-        self.func = func
-        self.args = []
-        self.kwargs = kwargs
-        self.required_count = 0
+    def __init__(self, func, ignore_first, kwargs):
+        argspec = inspect.getargspec(func)
+        args = argspec.args
+        if ignore_first:
+            args = args[1:]
 
-        for (i, a) in enumerate(args):
-            if isinstance(a, str):
-                if a not in kwargs:
-                    raise TypeError("named positional argument '%s' at "
-                                    "position %d does match any keyword "
-                                    "arguments" % (a, i))
-                self.args.append((kwargs[a], a))
-            else:
-                if i > 0 and self.args[-1][1] is not None:
-                    raise TypeError("unnamed positional argument at position "
-                                    "%d follows a named positional argument."
-                                    % i)
-                self.args.append((a, None))
-                self.required_count += 1
-        
+        for i, a in enumerate(args):
+            if a not in kwargs:
+                raise TypeError("named positional argument '%s' at position %d"
+                                " does match any keyword arguments" % (a, i))
+        for a in kwargs:
+            if a not in argspec.args:
+                raise TypeError("keyword argument '%s' does not match any "
+                                "positional arguments" % a)
+
+        self.func = func
+        self.args = [(a, kwargs[a]) for a in args]
+        self.kwargs = kwargs
+
+        if argspec.defaults is None:
+            self.required_args = set(args)
+        else:
+            self.required_args = set(args[:-len(argspec.defaults)])
+
 
     def check_match(self, args, kwargs):
         """
         Checks if the given arguments match this overload. Returns an error
         message if the arguments don't match.
         """
-        if len(args) < self.required_count:
-            return "not enough arguments"
-        elif len(args) > len(self.args):
+        total_args = len(args) + len(kwargs)
+        if total_args > len(self.args):
+            return "too many arguments"
+        elif total_args < len(self.required_args):
             return "too many arguments"
 
+        provided_required_args = len(args)
+
         for i, arg_value in enumerate(args):
-            arg_type, arg_name = self.args[i]
+            arg_name, arg_type = self.args[i]
             if arg_name in kwargs:
                 return ("argument '%s' has already been given as a positional "
                         "argument" % arg_name)
@@ -129,6 +144,12 @@ class Overload(object):
             if not isinstance(arg_value, arg_type):
                 return ("argument '%s' has unexpected type '%s'" %
                         (arg_name, arg_type))
+
+            provided_required_args += int(arg_name in self.required_args)
+
+        if provided_required_args < len(self.required_args):
+            return "some required arguments are missing"
+
         return True
 
     def convert_args(self, args, kwargs):
@@ -139,7 +160,7 @@ class Overload(object):
         new_args = list(args)
         new_kwargs = dict(kwargs)
         for i, arg_value in enumerate(args):
-            arg_type, arg_name = self.args[i]
+            arg_name, arg_type = self.args[i]
             # Use issubclass here so we won't invoke __instancecheck__ twice
             if (not issubclass(type(arg_value), arg_type) and
                 hasattr(arg_type, 'convert')):
