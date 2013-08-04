@@ -1,22 +1,9 @@
-type_registry = {}
+class MMTypeCheckMeta(type):
+    def __instancecheck__(self, instance):
+        return self.__instancecheck__(instance)
 
-def register_type(type, check, conversion=None):
-    """
-    Register a custom check function and optional conversion function to handle
-    a given type when resolving overloads.
-
-    The check function should have the form check(obj, type) and should return
-    a boolan. It will be called to verify that ``obj`` can be converted to
-    ``type``.
-
-    The conversion function should have the form conversion(obj) and should
-    return an instance of ``type``.
-    """
-    if not callable(check):
-        raise TypeError('')
-    if conversion is not None and not callable(conversion):
-        raise TypeError('')
-    type_registry[type] = (check, conversion)
+    def __subclasscheck__(self, cls):
+        return issubclass(cls, self.getclass())
 
 class Multimethod(object):
     def __init__(self, outofbody_overloads=False):
@@ -128,12 +115,10 @@ class Overload(object):
 
         for i, arg_value in enumerate(args):
             arg_type, arg_name = self.args[i]
-            check = type_registry.get(arg_type, (None,))[0]
             if arg_name in kwargs:
                 return ("argument '%s' has already been given as a positional "
                         "argument" % arg_name)
-            if (not isinstance(arg_value, arg_type) and
-                (check is None or not check(arg_value, arg_type))):
+            if not isinstance(arg_value, arg_type):
                 return "argument %d has unexptected type '%s'" % (i, arg_type)
 
         for arg_name, arg_value in kwargs.iteritems():
@@ -141,9 +126,7 @@ class Overload(object):
                 return "'%s' is not a valid keyword argument" % arg_name
 
             arg_type = self.kwargs[arg_name]
-            check = type_registry.get(arg_type, (None,))[0]
-            if (not isinstance(arg_value, arg_type) and
-                (check is None or not check(arg_value, arg_type))):
+            if not isinstance(arg_value, arg_type):
                 return ("argument '%s' has unexpected type '%s'" %
                         (arg_name, arg_type))
         return True
@@ -157,23 +140,17 @@ class Overload(object):
         new_kwargs = dict(kwargs)
         for i, arg_value in enumerate(args):
             arg_type, arg_name = self.args[i]
-            convert = type_registry.get(arg_type, (None, None))[1]
-            if not isinstance(arg_value, arg_type):
+            # Use issubclass here so we won't invoke __instancecheck__ twice
+            if (not issubclass(type(arg_value), arg_type) and
+                hasattr(arg_type, 'convert')):
                 # only try to convert arg_value if it isn't already the correct
                 # type
-                if convert is None:
-                    # call the constructor if no conversion function was given
-                    new_args[i] = arg_type(arg_value)
-                else:
-                    new_args[i] = convert(arg_value)
+                new_args[i] = arg_type.convert(arg_value)
 
         for arg_name, arg_value in kwargs.iteritems():
             arg_type = self.kwargs[arg_name]
-            convert = type_registry.get(arg_type, (None, None))[1]
-            if not isinstance(arg_value, arg_type):
-                if convert is None:
-                    new_args[i] = arg_type(arg_value)
-                else:
-                    new_args[i] = convert(arg_value)
+            if (not issubclass(type(arg_value), arg_type) and
+                hasattr(arg_type, 'convert')):
+                new_kwargs[arg_name] = arg_type.convert(arg_value)
 
         return (tuple(new_args), new_kwargs)

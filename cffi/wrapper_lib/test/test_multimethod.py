@@ -1,25 +1,31 @@
 import pytest
 
 from wrapper_lib import (
-    Multimethod, StaticMultimethod, ClassMultimethod, register_type)
+    Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta)
 
 class Seq(object):
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
-def check_Seq(obj, type):
-    return (isinstance(obj, (tuple, list))
-            and len(obj) >= 2
-            and isinstance(obj[0], (int, long, float, complex))
-            and isinstance(obj[1], (int, long, float, complex)))
+    class mm_type(object):
+        __metaclass__ = MMTypeCheckMeta
 
-def convert_Seq(obj):
-    if isinstance(obj, Seq):
-        return obj
-    return Seq(obj[0], obj[1])
+        @classmethod
+        def getclass(self):
+            return Seq
 
-register_type(Seq, check_Seq, convert_Seq)
+        @classmethod
+        def __instancecheck__(cls, obj):
+            return (isinstance(obj, Seq) or
+                    isinstance(obj, (tuple, list))
+                    and len(obj) >= 2
+                    and isinstance(obj[0], (int, long, float, complex))
+                    and isinstance(obj[1], (int, long, float, complex)))
+
+        @staticmethod
+        def convert(obj):
+            return Seq(obj[0], obj[1])
 
 class Number(object):
     def __init__(self, value):
@@ -28,10 +34,20 @@ class Number(object):
     def __eq__(self, other):
         return self.value == other.value
 
-def check_Number(obj, type):
-    return isinstance(obj, (int, long, float, complex))
+    class mm_type(object):
+        __metaclass__ = MMTypeCheckMeta
 
-register_type(Number, check_Number)
+        @classmethod
+        def getclass(self):
+            return Number
+
+        @classmethod
+        def __instancecheck__(cls, obj):
+            return isinstance(obj, (int, long, float, complex, Number))
+
+        @staticmethod
+        def convert(obj):
+            return Number(obj)
 
 class ClassWithMMs(object):
     positional_builtins = Multimethod()
@@ -122,11 +138,11 @@ class ClassWithMMs(object):
     def usertypes(self):
         return tuple()
 
-    @usertypes.overload(Seq)
+    @usertypes.overload(Seq.mm_type)
     def usertypes(self, seq):
         return (seq.x, seq.y)
 
-    @usertypes.overload(Number)
+    @usertypes.overload(Number.mm_type)
     def usrtypes(self, numb):
         return (numb,)
 

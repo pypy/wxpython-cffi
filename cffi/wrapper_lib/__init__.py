@@ -2,7 +2,7 @@ from cppwrapper import (
     CppWrapper, WrapperType, VirtualMethod, VirtualDispatcher,  obj_from_ptr,
     forget_ptr, take_ownership, give_ownership)
 from multimethod import (
-    Multimethod, StaticMultimethod, ClassMultimethod, register_type)
+    Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta)
 
 classname_registry = {}
 
