@@ -44,7 +44,6 @@ class Multimethod(object):
 
     def __call__(self, *args, **kwargs):
         overload = self.resolve_overload(args, kwargs)
-        args, kwargs = overload.convert_args(args, kwargs)
         return overload.func(*args, **kwargs)
 
     def get_self(self, instance, owner):
@@ -85,7 +84,6 @@ class MultimethodPartial(object):
         else:
             instance = self.instance
         overload = self.resolve(args, kwargs)
-        args, kwargs = overload.convert_args(args, kwargs)
 
         return overload.func(instance, *args, **kwargs)
 
@@ -151,27 +149,3 @@ class Overload(object):
             return "some required arguments are missing"
 
         return True
-
-    def convert_args(self, args, kwargs):
-        """
-        Convert the arguments passed to the types specified in the signature
-        if necessary.
-        """
-        new_args = list(args)
-        new_kwargs = dict(kwargs)
-        for i, arg_value in enumerate(args):
-            arg_name, arg_type = self.args[i]
-            # Use issubclass here so we won't invoke __instancecheck__ twice
-            if (not issubclass(type(arg_value), arg_type) and
-                hasattr(arg_type, 'convert')):
-                # only try to convert arg_value if it isn't already the correct
-                # type
-                new_args[i] = arg_type.convert(arg_value)
-
-        for arg_name, arg_value in kwargs.iteritems():
-            arg_type = self.kwargs[arg_name]
-            if (not issubclass(type(arg_value), arg_type) and
-                hasattr(arg_type, 'convert')):
-                new_kwargs[arg_name] = arg_type.convert(arg_value)
-
-        return (tuple(new_args), new_kwargs)

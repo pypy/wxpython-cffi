@@ -25,6 +25,8 @@ class Seq(object):
 
         @staticmethod
         def convert(obj):
+            if isinstance(obj, Seq):
+                return obj
             return Seq(obj[0], obj[1])
 
 class Number(object):
@@ -47,6 +49,8 @@ class Number(object):
 
         @staticmethod
         def convert(obj):
+            if isinstance(obj, Number):
+                return obj
             return Number(obj)
 
 class ClassWithMMs(object):
@@ -122,10 +126,12 @@ class ClassWithMMs(object):
 
     @usertypes.overload(seq=Seq.mm_type)
     def usertypes(self, seq):
+        seq = Seq.mm_type.convert(seq)
         return (seq.x, seq.y)
 
     @usertypes.overload(numb=Number.mm_type)
-    def usrtypes(self, numb):
+    def usertypes(self, numb):
+        numb = Number.mm_type.convert(numb)
         return (numb,)
 
     outofbody = Multimethod(True)
