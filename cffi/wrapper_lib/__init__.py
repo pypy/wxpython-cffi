@@ -1,6 +1,6 @@
 from cppwrapper import (
     CppWrapper, WrapperType, VirtualMethod, VirtualDispatcher,  obj_from_ptr,
-    forget_ptr, take_ownership, give_ownership)
+    get_ptr, forget_ptr, take_ownership, give_ownership)
 from multimethod import (
     Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta)
 

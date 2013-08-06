@@ -2,6 +2,7 @@ import cffi
 import weakref
 import collections
 
+ffi = cffi.FFI()
 
 class WrapperType(type):
     """
@@ -11,7 +12,6 @@ class WrapperType(type):
     virtual methods on subclasses of CppWrapper.
     """
     def __init__(self, name, bases, attrs):
-        ffi = self._ffi
         if '_vtable' in attrs:
             # If the class has a _vtable attribute, then (we'll assume) it is
             # a wrapper for a C++ class that has virtual methods. Thus we need
@@ -140,10 +140,8 @@ class VirtualDispatcher(object):
 class CppWrapper(object):
     __metaclass__ = WrapperType
 
-    _ffi = cffi.FFI()
-
     def __init__(self, cpp_obj, py_owned=True, py_created=True):
-        self._cpp_obj = cpp_obj if cpp_obj is not None else self._ffi.NULL
+        self._cpp_obj = cpp_obj if cpp_obj is not None else ffi.NULL
         self._py_owned = py_owned
         self._py_created = py_created
         remember_ptr(self, self._cpp_obj, py_owned)
@@ -213,6 +211,13 @@ def obj_from_ptr(ptr, klass=CppWrapper):
     else:
         object_map[ptr] = obj
     return obj
+
+def get_ptr(obj):
+    if obj is None:
+        return ffi.NULL
+    if isinstance(obj, CppWrapper):
+        return obj._cpp_obj
+    raise TypeError('obj is not a wrapper for a C++ object')
 
 def remember_ptr(obj, ptr, weak=False):
     if not weak:

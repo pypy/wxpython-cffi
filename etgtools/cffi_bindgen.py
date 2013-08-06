@@ -141,7 +141,7 @@ class TypeInfo(object):
 
     def py2c(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
-            return varName + '._cpp_obj'
+            return 'wrapper_lib.get_ptr(%s)' % varName
         elif self.isCBasic:
             assert self.typedef is None
             return varName
@@ -383,10 +383,10 @@ class CffiModuleGenerator(object):
                 _vtable = clib.{0}_vtable
 
                 def _set_vflag(self, i):
-                    clib.{0}_set_flag(self._cpp_obj, i)
+                    clib.{0}_set_flag(wrapper_lib.get_ptr(self), i)
 
                 def _set_vflags(self, flags):
-                    clib.{0}_set_flags(self._cpp_obj, flags)
+                    clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
                 """.format(klass.name), 4))
 
 
