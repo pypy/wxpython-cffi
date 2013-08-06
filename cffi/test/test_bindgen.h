@@ -20,3 +20,16 @@ class VDtorClass
 public:
     virtual ~VDtorClass() { };
 };
+
+class CtorsClass
+{
+public:
+    CtorsClass() : m_i(0) {};
+    CtorsClass(const CtorsClass &other) : m_i(other.m_i) {};
+    CtorsClass(int i) : m_i(i) {};
+
+    int get();
+
+private:
+    int m_i;
+};

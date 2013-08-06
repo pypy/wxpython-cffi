@@ -53,6 +53,23 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        c = ClassDef(name='CtorsClass')
+        c.addItem(MethodDef(
+            type='', argsString='()', isOverloaded=True,
+            name='CtorsClass', isCtor=True,
+            overloads=[
+                MethodDef(type='', argsString='(const CtorsClass &other)',
+                name='CtorsClass', isCtor=True,
+                items=[ParamDef(type='const CtorsClass &', name='other')]),
+                MethodDef(type='', argsString='(int i)',
+                name='CtorsClass', isCtor=True,
+                items=[ParamDef(type='int', name='i')])]))
+        c.addItem(MethodDef(
+            type='int', argsString='()',
+            name='get', pyName='get'))
+
+        module.addItem(c)
+
         c = ClassDef(name='VDtorClass')
         c.addItem(MethodDef(
             type='', argsString='()',
@@ -118,3 +135,19 @@ class TestBindGen(object):
         c = VMethSubClass()
         assert c.virtual_method(5) == 10
         assert c.call_virtual(5) == 10
+
+    def test_overloaded_ctors(self):
+        obj = self.mod.CtorsClass()
+        obj2 = self.mod.CtorsClass(obj)
+        assert obj.get() == 0
+        assert obj.get() == obj2.get()
+
+        obj = self.mod.CtorsClass(12)
+        obj2 = self.mod.CtorsClass(obj)
+        assert obj.get() == 12
+        assert obj.get() == obj2.get()
+
+        obj = self.mod.CtorsClass(5.0)
+        obj2 = self.mod.CtorsClass(obj)
+        assert obj.get() == 5
+        assert obj.get() == obj2.get()

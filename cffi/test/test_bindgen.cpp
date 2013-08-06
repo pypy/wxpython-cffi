@@ -29,3 +29,8 @@ int VMethClass::call_virtual(int i)
 {
     return this->virtual_method(i);
 }
+
+int CtorsClass::get()
+{
+    return m_i;
+}

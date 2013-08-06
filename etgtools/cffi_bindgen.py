@@ -104,6 +104,16 @@ class TypeInfo(object):
         # the type original type is not
         self.deref = self.cType[-1] == '*' and self.isPtr
 
+        # TODO: Add the hook for MappedTypes here when adding them
+        if self.isCBasic:
+            if 'char' not in self.cType:
+                # All of the c basics that not strings are numbers
+                self.overloadType = 'numbers.Number'
+            else:
+                self.overloadType = '(str, unicode)'
+        else:
+            self.overloadType = self.typedef.pyName
+
     @classmethod
     def new(cls, typeName, findItem):
         if typeName not in cls._cache:
@@ -115,9 +125,8 @@ class TypeInfo(object):
     def cpp2c(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
             # Always pass wrapped classes as pointers
-            return ('&' if not self.isPtr else '') + varName
+            return ('&' if not self.deref else '') + varName
         elif self.isCBasic:
-            assert self.typedef is None
             # C basic types don't need anything special
             return varName
         raise Exception()
@@ -127,15 +136,13 @@ class TypeInfo(object):
             return 'wrapper_lib.obj_from_ptr(%s, %s)' % (varName,
                                                          self.typedef.pyName)
         elif self.isCBasic:
-            assert self.typedef is None
             return varName
         raise Exception()
 
     def c2cpp(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
-            return ('*' if not self.isPtr else '') + varName
+            return ('*' if not self.deref else '') + varName
         elif self.isCBasic:
-            assert self.typedef is None
             return varName
         raise Exception()
 
@@ -143,8 +150,7 @@ class TypeInfo(object):
         if isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.get_ptr(%s)' % varName
         elif self.isCBasic:
-            assert self.typedef is None
-            return varName
+            return "%s(%s)" % (BASIC_CTYPES[self.cdefType], varName)
         raise Exception()
 
 class MethodDefOverload(extractors.MethodDef):
@@ -191,6 +197,7 @@ class CffiModuleGenerator(object):
             extractors.ClassDef         : self.processClass,
             extractors.FunctionDef      : self.processFunction,
             extractors.CppMethodDef     : self.processCppMethod,
+            MethodDefOverload           : self.processMethodOverload,
         }
         """
             extractors.DefineDef        : self.generateDefine,
@@ -223,6 +230,7 @@ class CffiModuleGenerator(object):
 
         print >> pyfile, nci("""\
         import cffi
+        import numbers
         import wrapper_lib""")
 
         for module in self.module.imports:
@@ -284,7 +292,7 @@ class CffiModuleGenerator(object):
         # In theory we should be able to just do `klass.findItem(klass.name is
         # not None` to check if a ctor exists, but there's no guarantee that a
         # ctor added by the tweaker will have its name set correctly
-        ctors = [ctor for m in klass if isinstance(m, extractors.MethodDef) and
+        ctors = [m for m in klass if isinstance(m, extractors.MethodDef) and
                                         m.isCtor]
         if len(ctors) == 0:
             # If the class doesn't have a ctor specified, we need to add a
@@ -434,21 +442,30 @@ class CffiModuleGenerator(object):
         if func.type.name == 'void':
             func.pyImpl.append("    clib.%s%s" % (func.cName, func.pyCallArgs))
         else:
-            func.pyImpl.append("    cdata = clib.%s%s" % (func.cName,
-                               func.pyCallArgs))
-            if func.type.isCBasic:
-                func.pyImpl.append("    return %s(cdata)" %
-                                   BASIC_CTYPES[func.type.cdefType])
-            else:
-                # If not a C basic, then it is a pointer to a wrapped type
-                pass
+            func.pyImpl.append("    ret_value = " + func.type.c2py("clib.%s%s"
+                               % (func.cName, func.pyCallArgs)))
+            func.pyImpl.append("    return ret_value")
 
     def processMethod(self, method, indent, overload=''):
         assert not method.ignored
-        if overload == '':
+        if method.hasOverloads():
+            # Move The bodies of the overloaded methods are outside of the
+            # class body and place them at the end of the module to ensure that
+            # every type they need has been defined already. Trying to sort
+            # classes so that every dependency has already been defined can't
+            # work because of methods like copy constructors which reference
+            # the class they are defined in.
+            method.klass.items[method.klass.items.index(method)] = extractors.BaseDef()
+            self.module.items.append(MethodDefOverload(method))
             for i, m in enumerate(method.overloads):
                 m.klass = method.klass
-                self.processMethod(m, '_%d' % i)
+                m.overloadId = '_%d' % i
+                self.module.items.append(MethodDefOverload(m))
+            m.closeMM = True
+            self.processOverloadBase(method, indent)
+            method.overloadId = ''
+            method.overloads = []
+            return
 
         method.pyImpl = []
         method.cppImpl = []
@@ -461,6 +478,7 @@ class CffiModuleGenerator(object):
         # subclass of the wrapped type, we'll use base class as the return type
         # so the TypeInfo code can be simpler
         method.type = method.klass.name + '*' if method.isCtor else method.type
+        method.pyName = '__init__' if method.isCtor else method.pyName
 
         self.getTypeInfo(method)
         self.createArgsStrings(method)
@@ -596,6 +614,28 @@ class CffiModuleGenerator(object):
         else:
             self.processFunction(method, indent)
 
+    def processOverloadBase(self, method, indent):
+        if method.isCtor:
+            method.pyName = '__init__'
+        method.klass.pyImpl.append(nci("""\
+        @wrapper_lib.Multimethod
+        def {0.pyName}():
+            #TODO: docstring here
+            pass
+        """.format(method), indent))
+
+    def processMethodOverload(self, method, indent):
+        self.processMethod(method, indent, method.overloadId)
+        self.cppImpl = []
+        method.pyImpl = [nci("""\
+        @{0.klass.pyName}.{0.pyName}.overload{0.overloadArgs}
+        """.format(method), indent)] + method.pyImpl
+
+        if hasattr(method, 'closeMM'):
+            method.pyImpl.append(nci("""\
+            {0.klass.pyName}.{0.pyName}.finish()
+            """.format(method), indent))
+
     def processMemberVar(self, var):
         assert not method.ignored
         pass
@@ -659,11 +699,12 @@ class CffiModuleGenerator(object):
         func.vtdCallArgs = []
         func.cppArgs = []
         func.cppCallArgs = []
+        func.overloadArgs = []
 
         if hasattr(func, 'klass') and not func.isStatic:
             func.pyArgs.append('self')
             if not func.isCtor:
-                func.pyCallArgs.append('self._cpp_obj')
+                func.pyCallArgs.append('wrapper_lib.get_ptr(self)')
                 func.cArgs.append('%s *self' % func.klass.cppClassName)
                 func.cdefArgs.append('void *self')
                 func.cbCallArgs.append('this')
@@ -687,6 +728,7 @@ class CffiModuleGenerator(object):
             pyCallArg = param.type.py2c(param.name)
             vtdArg = param.name
             vtdCallArg = param.type.c2py(param.name)
+            overloadArg = param.name + '=' + param.type.overloadType
 
             func.cArgs.append(cArg)
             func.cdefArgs.append(cdefArg)
@@ -698,6 +740,7 @@ class CffiModuleGenerator(object):
             func.pyCallArgs.append(pyCallArg)
             func.vtdArgs.append(vtdArg)
             func.vtdCallArgs.append(vtdCallArg)
+            func.overloadArgs.append(overloadArg)
 
         # We're generating a wrapper function that needs a `self` pointer in
         # its args string if this function has custom C++ code or is protected
@@ -723,6 +766,7 @@ class CffiModuleGenerator(object):
         func.vtdCallArgs = '(' + ', '.join(func.vtdCallArgs) + ')'
         func.wrapperArgs = '(' + ', '.join(func.wrapperArgs) + ')'
         func.wrapperCallArgs = '(' + ', '.join(func.wrapperCallArgs) + ')'
+        func.overloadArgs = '(' + ', '.join(func.overloadArgs) + ')'
 
 
     def disassembleArgsString(self, argsString):
