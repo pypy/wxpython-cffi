@@ -508,8 +508,10 @@ class CffiModuleGenerator(object):
         if method.isVirtual:
             self.processVirtualMethod(method, indent, overload)
 
+        callArgs = method.cCallArgs
         if method.cppCode is not None:
             callName = self.createCppCodeWrapper(method)
+            callArgs = method.wrapperCallArgs
         elif method.protection == 'protected':
             # We only need to do the special handling of a protected method if
             # it has not custom code.
@@ -538,7 +540,7 @@ class CffiModuleGenerator(object):
             method.cppImpl.append('    delete self;')
         else:
             method.cppImpl.append('    ' + operation + callName +
-                                  method.cCallArgs + ';')
+                                  callArgs + ';')
         method.cppImpl.append('}')
 
 
@@ -832,7 +834,7 @@ class CffiModuleGenerator(object):
         func.cppImpl.append(nci("""\
         %s %s%s
         {
-        """ % (func.type.name, wrapperName, func.cppArgs)))
+        """ % (func.type.name, wrapperName, func.wrapperArgs)))
         func.cppImpl.append(func.cppCode)
         func.cppImpl.append("}")
 

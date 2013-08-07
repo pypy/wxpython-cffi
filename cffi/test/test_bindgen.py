@@ -34,7 +34,7 @@ class TestBindGen(object):
                    ParamDef(type='double', name='j')]))
         module.addItem(FunctionDef(
             type='double', argsString='()',
-            name='custom_code_func', pyName='custom_code_func',
+            name='custom_code_global_func', pyName='custom_code_global_func',
             cppCode="return custom_code_global_func() - 1;"))
         module.addItem(FunctionDef(
             type='int', argsString='()',
@@ -79,6 +79,11 @@ class TestBindGen(object):
         c.addItem(MethodDef(
             type='int', argsString='()',
             name='get', pyName='get'))
+        c.addItem(MethodDef(
+            type='double', argsString='(double f)',
+            name='custom_code_meth', pyName='custom_code_meth',
+            items=[ParamDef(type='double', name='f')],
+            cppCode='return self->get() * f;'))
 
         module.addItem(c)
 
@@ -128,7 +133,7 @@ class TestBindGen(object):
         assert self.mod.global_func_with_args(14, .25) == (14 * .25)
 
     def test_custom_code_func(self):
-        assert self.mod.custom_code_func() == 1
+        assert self.mod.custom_code_global_func() == 1
 
     def test_simple_class_init(self):
         self.mod.SimpleClass()
@@ -166,6 +171,10 @@ class TestBindGen(object):
         obj2 = self.mod.CtorsClass(obj)
         assert obj.get() == 5
         assert obj.get() == obj2.get()
+
+    def test_custom_code_method(self):
+        obj = self.mod.CtorsClass(15)
+        assert obj.custom_code_meth(.2) == 3
 
     def test_overloaded_func(self):
         assert self.mod.overloaded_func() == 20
