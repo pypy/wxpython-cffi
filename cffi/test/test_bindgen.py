@@ -32,6 +32,14 @@ class TestBindGen(object):
             type='double', argsString='()',
             name='custom_code_func', pyName='custom_code_func',
             cppCode="return custom_code_global_func() - 1;"))
+        module.addItem(FunctionDef(
+            type='int', argsString='()',
+            name='overloaded_func', pyName='overloaded_func',
+            overloads=[FunctionDef(
+                type='double', argsString='(double i)',
+                name='overloaded_func', pyName='overloaded_func',
+                items=[ParamDef(type='int', name='i')])]))
+
 
         c = ClassDef(name='SimpleClass')
         c.addItem(MethodDef(
@@ -151,3 +159,7 @@ class TestBindGen(object):
         obj2 = self.mod.CtorsClass(obj)
         assert obj.get() == 5
         assert obj.get() == obj2.get()
+
+    def test_overloaded_func(self):
+        assert self.mod.overloaded_func() == 20
+        assert self.mod.overloaded_func(12) == 6

@@ -15,6 +15,16 @@ double custom_code_global_func()
     return 2.0;
 }
 
+int overloaded_func()
+{
+    return 20;
+}
+
+double overloaded_func(double i)
+{
+    return i / 2;
+}
+
 int SimpleClass::simple_method(double f)
 {
     return f;

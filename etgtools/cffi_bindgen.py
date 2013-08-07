@@ -401,13 +401,9 @@ class CffiModuleGenerator(object):
 
     def processFunction(self, func, indent, overload=''):
         assert not func.ignored
-        # TODO: Add support for overloaded functions on the Python side
-        if overload == '':
-            for i, m in enumerate(func.overloads):
-                self.processFunction(m, '_%d' % i)
+
         func.pyImpl = []
         func.cppImpl = []
-
         self.getTypeInfo(func)
         self.createArgsStrings(func)
 
@@ -416,7 +412,7 @@ class CffiModuleGenerator(object):
             # custom code
             return
 
-        func.cName = FUNC_PREFIX + func.name
+        func.cName = FUNC_PREFIX + func.name + overload
         func.retStmt = 'return ' if func.type.name != 'void' else ''
 
         # Figure out the name of the C++ function that we want to call from our
@@ -437,6 +433,15 @@ class CffiModuleGenerator(object):
             {0.retStmt}{1}{0.cCallArgs};
         }}""".format(func, callName)))
 
+        if func.hasOverloads():
+            func.pyImpl.append(nci("""\
+            @wrapper_lib.StaticMultimethod
+            def %s():
+                pass
+            """ % func.pyName))
+
+        if func.hasOverloads() or overload != '':
+            func.pyImpl.append("@%s.overload%s" % (func.pyName, func.overloadArgs))
         func.pyImpl.append("def %s%s:" % (func.pyName, func.pyArgs))
 
         if func.type.name == 'void':
@@ -445,6 +450,12 @@ class CffiModuleGenerator(object):
             func.pyImpl.append("    ret_value = " + func.type.c2py("clib.%s%s"
                                % (func.cName, func.pyCallArgs)))
             func.pyImpl.append("    return ret_value")
+
+        for i, f in enumerate(func.overloads):
+            self.processFunction(f, indent, '_%d' % i)
+            func.pyImpl.extend(f.pyImpl)
+            func.cppImpl.extend(f.cppImpl)
+        self.overloads = []
 
     def processMethod(self, method, indent, overload=''):
         assert not method.ignored
