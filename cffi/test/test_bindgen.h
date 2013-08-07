@@ -47,3 +47,18 @@ protected:
 private:
     int m_i;
 };
+
+class ReturnWrapperClass
+{
+public:
+    ReturnWrapperClass(int i) : m_i(i) {};
+    static ReturnWrapperClass new_by_value(int i);
+    static ReturnWrapperClass* new_by_ptr(int i);
+    static ReturnWrapperClass& new_by_ref(int i);
+
+    int get();
+
+private:
+    int m_i;
+
+};

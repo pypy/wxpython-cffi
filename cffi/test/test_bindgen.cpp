@@ -55,3 +55,23 @@ void CtorsClass::set(int i)
 {
     m_i = i;
 }
+
+ReturnWrapperClass ReturnWrapperClass::new_by_value(int i)
+{
+    return ReturnWrapperClass(i);
+}
+
+ReturnWrapperClass* ReturnWrapperClass::new_by_ptr(int i)
+{
+    return new ReturnWrapperClass(i);
+}
+
+ReturnWrapperClass& ReturnWrapperClass::new_by_ref(int i)
+{
+    return *(new ReturnWrapperClass(i));
+}
+
+int ReturnWrapperClass::get()
+{
+    return m_i;
+}

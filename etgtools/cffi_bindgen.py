@@ -124,8 +124,13 @@ class TypeInfo(object):
 
     def cpp2c(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
-            # Always pass wrapped classes as pointers
-            return ('&' if not self.deref else '') + varName
+            if not self.deref:
+                # Always pass wrapped classes as pointers. Because any return
+                # value that isn't a pointer will be temporary, it needs to bd
+                # copy constructored into a heap variable.
+                return "new %s(%s)" % (self.typedef.cppClassName, varName)
+            else:
+                return varName
         elif self.isCBasic:
             # C basic types don't need anything special
             return varName
@@ -517,7 +522,7 @@ class CffiModuleGenerator(object):
             # it has not custom code.
             callName = self.processProtectedMethod(method, indent, overload)
         elif method.isStatic:
-            callName = "%s::%s" % method.klass.name
+            callName = "%s::%s" % (method.klass.name, method.name)
         elif method.isCtor:
             callName = method.klass.cppClassName
         else:
@@ -539,22 +544,25 @@ class CffiModuleGenerator(object):
         if method.isDtor:
             method.cppImpl.append('    delete self;')
         else:
-            method.cppImpl.append('    ' + operation + callName +
-                                  callArgs + ';')
+            method.cppImpl.append('    ' + operation + method.type.cpp2c(callName +
+                                  callArgs) + ';')
         method.cppImpl.append('}')
 
 
+        if method.isStatic and not method.hasOverloads() and overload == '':
+            method.pyImpl.append(nci("@staticmethod", indent))
+        call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
         if method.isCtor:
             method.pyImpl.append(nci("""\
             def __init__{0.pyArgs}:
-                cpp_obj = clib.{0.cName}{0.pyCallArgs}
+                cpp_obj = {1}
                 wrapper_lib.CppWrapper.__init__(self, cpp_obj)
-            """.format(method), indent))
+            """.format(method, call), indent))
         else:
             method.pyImpl.append(nci("""\
             def {0.pyName}{0.pyArgs}:
-                return clib.{0.cName}{0.pyCallArgs}
-            """.format(method), indent))
+                return {1}
+            """.format(method, method.type.c2py(call)), indent))
 
     def processVirtualMethod(self, method, indent, overload=''):
         if method.isDtor:
@@ -630,12 +638,13 @@ class CffiModuleGenerator(object):
     def processOverloadBase(self, method, indent):
         if method.isCtor:
             method.pyName = '__init__'
+        mmType = '' if not method.isStatic else 'Static'
         method.klass.pyImpl.append(nci("""\
-        @wrapper_lib.Multimethod
+        @wrapper_lib.{1}Multimethod
         def {0.pyName}():
             #TODO: docstring here
             pass
-        """.format(method), indent))
+        """.format(method, mmType), indent))
 
     def processMethodOverload(self, method, indent):
         self.processMethod(method, indent, method.overloadId)

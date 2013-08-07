@@ -95,6 +95,29 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        c = ClassDef(name='ReturnWrapperClass')
+        c.addItem(MethodDef(
+            type='', argsString='(int i)',
+            name='ReturnWrapperClass', isCtor=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='int', argsString='()',
+            name='get', pyName='get'))
+        c.addItem(MethodDef(
+            type='ReturnWrapperClass', argsString='(int i)',
+            name='new_by_value', pyName='new_by_value', isStatic=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='ReturnWrapperClass*', argsString='(int i)',
+            name='new_by_ptr', pyName='new_by_ptr', isStatic=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='ReturnWrapperClass&', argsString='(int i)',
+            name='new_by_ref', pyName='new_by_ref', isStatic=True,
+            items=[ParamDef(type='int', name='i')]))
+
+        module.addItem(c)
+
         c = ClassDef(name='VDtorClass')
         c.addItem(MethodDef(
             type='', argsString='()',
@@ -191,3 +214,12 @@ class TestBindGen(object):
     def test_overloaded_func(self):
         assert self.mod.overloaded_func() == 20
         assert self.mod.overloaded_func(12) == 6
+
+    def test_returned_wrapper(self):
+        from_value = self.mod.ReturnWrapperClass.new_by_value(3)
+        from_ptr = self.mod.ReturnWrapperClass.new_by_ptr(4)
+        from_ref = self.mod.ReturnWrapperClass.new_by_ref(5)
+
+        assert from_value.get() == 3
+        assert from_ptr.get() == 4
+        assert from_ref.get() == 5
