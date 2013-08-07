@@ -20,6 +20,12 @@ public:
     int call_virtual(int i);
 };
 
+class PMethClass
+{
+protected:
+    char protected_method(char c);
+};
+
 class VDtorClass
 {
 public:
@@ -34,6 +40,9 @@ public:
     CtorsClass(int i) : m_i(i) {};
 
     int get();
+
+protected:
+    void set(int i);
 
 private:
     int m_i;

@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include "test_bindgen.h"
 
 int simple_global_func()
@@ -40,7 +41,17 @@ int VMethClass::call_virtual(int i)
     return this->virtual_method(i);
 }
 
+char PMethClass::protected_method(char c)
+{
+    return toupper(c);
+}
+
 int CtorsClass::get()
 {
     return m_i;
+}
+
+void CtorsClass::set(int i)
+{
+    m_i = i;
 }

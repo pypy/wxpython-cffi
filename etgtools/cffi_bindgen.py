@@ -31,7 +31,7 @@ BASIC_CTYPES = {
     'unsigned': 'int',
     'float': 'float',
     'double': 'float',
-    'char': 'ffi.string',
+    'char': 'str',
     'bool': 'bool',
     'void': None
 }
@@ -597,15 +597,15 @@ class CffiModuleGenerator(object):
             # already exposed when we create a new ctor that call the old one
             return
         callName = PROTECTED_PREFIX + method.name
-        meth_def = "    %s unprotected_%s%s;" % (m.type, m.name, m.cppArgs)
+        meth_def = "    {0.type.name} unprotected_{0.name}{0.cppArgs};".format(method)
         method.klass.protectedMethods.append(meth_def)
         method.cppImpl.append(nci("""\
         {0.type.name} {0.klass.cppClassName}::{1}{0.cppArgs}
-        {
+        {{
             {0.retStmt}{0.klass.name}::{0.name}{0.cppCallArgs};
-        }""".format(method, callName)))
+        }}""".format(method, callName)))
 
-        return callName
+        return "self->" + callName
 
 
     def processCppMethod(self, method, indent):

@@ -65,6 +65,14 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        c = ClassDef(name='PMethClass')
+        c.addItem(MethodDef(
+            protection='protected', type='char', argsString='(char c)',
+            name='protected_method', pyName='protected_method',
+            items=[ParamDef(type='char', name='c')]))
+
+        module.addItem(c)
+
         c = ClassDef(name='CtorsClass')
         c.addItem(MethodDef(
             type='', argsString='()', isOverloaded=True,
@@ -155,6 +163,10 @@ class TestBindGen(object):
         c = VMethSubClass()
         assert c.virtual_method(5) == 10
         assert c.call_virtual(5) == 10
+
+    def test_protected_method(self):
+        obj = self.mod.PMethClass()
+        assert obj.protected_method('a') == 'A'
 
     def test_overloaded_ctors(self):
         obj = self.mod.CtorsClass()
