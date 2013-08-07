@@ -198,9 +198,9 @@ class CffiModuleGenerator(object):
             extractors.FunctionDef      : self.processFunction,
             extractors.CppMethodDef     : self.processCppMethod,
             MethodDefOverload           : self.processMethodOverload,
+            extractors.DefineDef        : self.processDefine,
         }
         """
-            extractors.DefineDef        : self.generateDefine,
             extractors.EnumDef          : self.generateEnum,
             extractors.GlobalVarDef     : self.generateGlobalVar,
             extractors.TypedefDef       : self.generateTypedef,
@@ -662,6 +662,19 @@ class CffiModuleGenerator(object):
     def processPyMethod(self, method):
         assert not method.ignored
         pass
+
+    def processDefine(self, define, indent):
+        assert not define.ignored
+        define.pyImpl = []
+        define.cppImpl = []
+
+        cName = "cffidefine_" + define.name
+        # Let's assume that defines are always integers for now.
+        self.cdefs.append("extern const int %s;" % cName)
+        define.pyImpl.append("%s = clib.%s" %
+                             (define.pyName, cName))
+        define.cppImpl.append("""extern "C" const int %s = %s;""" %
+                              (cName, define.name))
 
     def getTypeInfo(self, item):
         if isinstance(item.type, (str, types.NoneType)):

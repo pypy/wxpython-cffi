@@ -9,7 +9,7 @@ import pytest
 sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
 from etgtools.extractors import (
-    ModuleDef, ClassDef, MethodDef, FunctionDef, ParamDef)
+    ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef)
 
 class TestBindGen(object):
     def setup(self):
@@ -20,6 +20,10 @@ class TestBindGen(object):
     def create_generator(self):
         module = ModuleDef('bindgen_test', '_core', '_core')
         module.addHeaderCode('#include <test_bindgen.h>')
+
+        module.addItem(DefineDef(
+            name='prefixedSOME_INT', pyName='SOME_INT'))
+
         module.addItem(FunctionDef(
             type='int', argsString='()', name='simple_global_func',
             pyName='simple_global_func'))
@@ -111,6 +115,9 @@ class TestBindGen(object):
                 ('", "'.join(sources), '", "'.join(include_dirs), tmpdir))
 
         return py_path.pyimport()
+
+    def test_define(self):
+        assert self.mod.SOME_INT == 15
 
     def test_simple_global_func(self):
         assert self.mod.simple_global_func() == 10
