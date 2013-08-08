@@ -108,13 +108,33 @@ class TestBindGen(object):
             name='new_by_value', pyName='new_by_value', isStatic=True,
             items=[ParamDef(type='int', name='i')]))
         c.addItem(MethodDef(
-            type='ReturnWrapperClass*', argsString='(int i)',
+            type='ReturnWrapperClass *', argsString='(int i)',
             name='new_by_ptr', pyName='new_by_ptr', isStatic=True,
             items=[ParamDef(type='int', name='i')]))
         c.addItem(MethodDef(
-            type='ReturnWrapperClass&', argsString='(int i)',
+            type='ReturnWrapperClass &', argsString='(int i)',
             name='new_by_ref', pyName='new_by_ref', isStatic=True,
             items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='const ReturnWrapperClass &', argsString='(int i)',
+            name='new_by_cref', pyName='new_by_cref', isStatic=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='ReturnWrapperClass',
+            argsString='()',
+            name='self_by_value', pyName='self_by_value'))
+        c.addItem(MethodDef(
+            type='ReturnWrapperClass *',
+            argsString='()',
+            name='self_by_ptr', pyName='self_by_ptr'))
+        c.addItem(MethodDef(
+            type='ReturnWrapperClass &',
+            argsString='()',
+            name='self_by_ref', pyName='self_by_ref'))
+        c.addItem(MethodDef(
+            type='const ReturnWrapperClass &',
+            argsString='()',
+            name='self_by_cref', pyName='self_by_cref'))
 
         module.addItem(c)
 
@@ -219,7 +239,26 @@ class TestBindGen(object):
         from_value = self.mod.ReturnWrapperClass.new_by_value(3)
         from_ptr = self.mod.ReturnWrapperClass.new_by_ptr(4)
         from_ref = self.mod.ReturnWrapperClass.new_by_ref(5)
+        from_cref = self.mod.ReturnWrapperClass.new_by_cref(5)
 
         assert from_value.get() == 3
         assert from_ptr.get() == 4
         assert from_ref.get() == 5
+        assert from_cref.get() == 5
+
+        obj = self.mod.ReturnWrapperClass(15)
+        from_value = obj.self_by_value()
+        from_ptr = obj.self_by_ptr()
+        from_ref = obj.self_by_ref()
+        from_cref = obj.self_by_cref()
+
+        assert obj is not from_value
+        assert obj is from_ptr
+        assert obj is from_ref
+        assert obj is not from_cref
+
+        assert obj._py_owned
+        # TODO: uncomment these assertions when I start implementing object
+        #       ownership stuff
+        #assert from_value._py_owned
+        #assert from_cref._py_owned

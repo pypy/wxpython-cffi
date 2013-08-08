@@ -71,6 +71,31 @@ ReturnWrapperClass& ReturnWrapperClass::new_by_ref(int i)
     return *(new ReturnWrapperClass(i));
 }
 
+const ReturnWrapperClass& ReturnWrapperClass::new_by_cref(int i)
+{
+    return *(new ReturnWrapperClass(i));
+}
+
+ReturnWrapperClass ReturnWrapperClass::self_by_value()
+{
+    return *this;
+}
+
+ReturnWrapperClass* ReturnWrapperClass::self_by_ptr()
+{
+    return this;
+}
+
+ReturnWrapperClass& ReturnWrapperClass::self_by_ref()
+{
+    return *this;
+}
+
+const ReturnWrapperClass& ReturnWrapperClass::self_by_cref()
+{
+    return *this;
+}
+
 int ReturnWrapperClass::get()
 {
     return m_i;

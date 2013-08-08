@@ -55,6 +55,12 @@ public:
     static ReturnWrapperClass new_by_value(int i);
     static ReturnWrapperClass* new_by_ptr(int i);
     static ReturnWrapperClass& new_by_ref(int i);
+    static const ReturnWrapperClass& new_by_cref(int i);
+
+    ReturnWrapperClass self_by_value();
+    ReturnWrapperClass* self_by_ptr();
+    ReturnWrapperClass& self_by_ref();
+    const ReturnWrapperClass& self_by_cref();
 
     int get();
 

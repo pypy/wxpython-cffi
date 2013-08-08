@@ -44,7 +44,7 @@ class TypeInfo(object):
         self.name = typeName
         self.isRef = False
         self.isPtr = False
-        self.isConst = True
+        self.isConst = 'const ' in typeName
 
         # Loop until we find either a typedef that isn't a TypedefDef or we
         # find that their isn't any typedef for this type
@@ -124,13 +124,15 @@ class TypeInfo(object):
 
     def cpp2c(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
-            if not self.deref:
-                # Always pass wrapped classes as pointers. Because any return
-                # value that isn't a pointer will be temporary, it needs to bd
-                # copy constructored into a heap variable.
-                return "new %s(%s)" % (self.typedef.cppClassName, varName)
-            else:
+            # Always pass wrapped classes as pointers. If this is by value or
+            # a const reference, it needs to be copy constructored onto the
+            # heap, with Python taking ownership of the new object.
+            if self.isPtr:
                 return varName
+            elif self.isRef and not self.isConst:
+                return '&' + varName
+            else:
+                return "new %s(%s)" % (self.typedef.cppClassName, varName)
         elif self.isCBasic:
             # C basic types don't need anything special
             return varName
