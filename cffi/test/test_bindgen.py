@@ -65,6 +65,19 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        c = ClassDef(name='PVMethClass')
+        c.addItem(MethodDef(
+            protection='protected', type='int', argsString='(int i)',
+            name='protected_virtual_method', pyName='protected_virtual_method',
+            isVirtual=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='int', argsString='(int i)',
+            name='call_method', pyName='call_method',
+            items=[ParamDef(type='int', name='i')]))
+
+        module.addItem(c)
+
         c = ClassDef(name='PMethClass')
         c.addItem(MethodDef(
             protection='protected', type='char', argsString='(char c)',
@@ -210,6 +223,20 @@ class TestBindGen(object):
     def test_protected_method(self):
         obj = self.mod.PMethClass()
         assert obj.protected_method('a') == 'A'
+
+    def test_protected_virtual_method_direct_call(self):
+        c = self.mod.PVMethClass()
+        assert c.protected_virtual_method(5) == -5
+        assert c.call_method(5) == -5
+
+    def test_override_proected_virtual_method(self):
+        class PVMethSubClass(self.mod.PVMethClass):
+            def protected_virtual_method(self, i):
+                return i * 2
+
+        c = PVMethSubClass()
+        assert c.protected_virtual_method(5) == 10
+        assert c.call_method(5) == 10
 
     def test_overloaded_ctors(self):
         obj = self.mod.CtorsClass()

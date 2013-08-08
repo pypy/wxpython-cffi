@@ -46,6 +46,16 @@ char PMethClass::protected_method(char c)
     return toupper(c);
 }
 
+int PVMethClass::protected_virtual_method(int i)
+{
+    return -i;
+}
+
+int PVMethClass::call_method(int i)
+{
+    return this->protected_virtual_method(i);
+}
+
 int CtorsClass::get()
 {
     return m_i;

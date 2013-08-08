@@ -32,6 +32,15 @@ public:
     virtual ~VDtorClass() { };
 };
 
+class PVMethClass
+{
+protected:
+    virtual int protected_virtual_method(int i);
+
+public:
+    int call_method(int i);
+};
+
 class CtorsClass
 {
 public:
