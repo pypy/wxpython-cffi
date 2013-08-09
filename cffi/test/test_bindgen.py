@@ -9,7 +9,8 @@ import pytest
 sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
 from etgtools.extractors import (
-    ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef)
+    ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
+    MemberVarDef)
 
 class TestBindGen(object):
     def setup(self):
@@ -168,6 +169,16 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        c = ClassDef(name='MemberVarClass')
+        c.addItem(MethodDef(
+            type='', argsString='(int i)',
+            name='MemberVarClass', isCtor=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MemberVarDef(
+            type='int', name='m_i', pyName='m_i'))
+
+        module.addItem(c)
+
         mod_path = self.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
             pickle.dump(module, f)
@@ -302,3 +313,9 @@ class TestBindGen(object):
         #       ownership stuff
         #assert from_value._py_owned
         #assert from_cref._py_owned
+
+    def test_membervar(self):
+        obj = self.mod.MemberVarClass(5)
+        assert obj.m_i == 5
+        obj.m_i = 6
+        assert obj.m_i == 6

@@ -20,6 +20,7 @@ SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
 FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
+MEMBER_VAR_PREFIX = "cffimvar_"
 CPPCODE_WRAPPER_SUFIX = "_cppwrapper"
 
 # C basic types -> Python conversion functions
@@ -210,7 +211,6 @@ class CffiModuleGenerator(object):
         """
             extractors.EnumDef          : self.generateEnum,
             extractors.GlobalVarDef     : self.generateGlobalVar,
-            extractors.TypedefDef       : self.generateTypedef,
             extractors.WigCode          : self.generateWigCode,
             extractors.PyCodeDef        : self.generatePyCode,
             extractors.PyFunctionDef    : self.generatePyFunction,
@@ -666,9 +666,35 @@ class CffiModuleGenerator(object):
             {0.klass.pyName}.{0.pyName}.finish()
             """.format(method), indent))
 
-    def processMemberVar(self, var):
-        assert not method.ignored
-        pass
+    def processMemberVar(self, var, indent):
+        assert not var.ignored
+        var.pyImpl = []
+        var.cppImpl = []
+        self.getTypeInfo(var)
+
+        getName = MEMBER_VAR_PREFIX + var.klass.name + "_88_get_" + var.name
+        self.cdefs.append("%s %s(void*);" % (var.type.cdefType, getName))
+        var.cppImpl.append(nci("""\
+        extern "C" {0.type.cType} {1}({0.klass.name} * self)
+        {{
+            return self->{0.name};
+        }}
+        """.format(var, getName)))
+
+        setName = MEMBER_VAR_PREFIX + var.klass.name + "_88_set_" + var.name
+        self.cdefs.append("void %s(void*, %s);" % (setName, var.type.cdefType))
+        var.cppImpl.append(nci("""\
+        extern "C" void {1}({0.klass.name} * self, {0.type.cType} value)
+        {{
+            self->{0.name} = value;
+        }}
+        """.format(var, setName)))
+
+        var.pyImpl.append(nci("""\
+        {0.pyName} = property(
+            lambda self: clib.{1}(wrapper_lib.get_ptr(self)),
+            lambda self, value: clib.{2}(wrapper_lib.get_ptr(self), {3}))
+        """.format(var, getName, setName, var.type.py2c('value')), indent))
 
     def processProperty(self, property):
         assert not method.ignored

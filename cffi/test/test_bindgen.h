@@ -89,3 +89,11 @@ private:
     int m_i;
 
 };
+
+class MemberVarClass
+{
+public:
+    MemberVarClass(int i) : m_i(i) {}
+
+    int m_i;
+};
