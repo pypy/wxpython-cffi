@@ -10,7 +10,7 @@ sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
-    MemberVarDef)
+    CppMethodDef, MemberVarDef)
 
 class TestBindGen(object):
     def setup(self):
@@ -33,10 +33,14 @@ class TestBindGen(object):
             name='global_func_with_args', pyName='global_func_with_args',
             items=[ParamDef(type='int', name='i'),
                    ParamDef(type='double', name='j')]))
-        module.addItem(FunctionDef(
+        f = FunctionDef(
             type='double', argsString='()',
-            name='custom_code_global_func', pyName='custom_code_global_func',
-            cppCode="return custom_code_global_func() - 1;"))
+            name='custom_code_global_func', pyName='custom_code_global_func')
+        f.setCppCode("return custom_code_global_func() - 1;")
+        module.addItem(f)
+        module.addItem(CppMethodDef(
+            'short', 'global_cppmethod', '(short x, short y)',
+            body="return (x * y)/(x + y);"))
         module.addItem(FunctionDef(
             type='int', argsString='()',
             name='overloaded_func', pyName='overloaded_func',
@@ -101,11 +105,13 @@ class TestBindGen(object):
         c.addItem(MethodDef(
             type='int', argsString='()',
             name='get', pyName='get'))
-        c.addItem(MethodDef(
+        m = MethodDef(
             type='double', argsString='(double f)',
             name='custom_code_meth', pyName='custom_code_meth',
-            items=[ParamDef(type='double', name='f')],
-            cppCode='return self->get() * f;'))
+            items=[ParamDef(type='double', name='f')])
+        m.setCppCode('return self->get() * f;')
+        c.addCppMethod('double', 'cppmethod', '()', 'return self->get() * 2;')
+        c.addItem(m)
 
         module.addItem(c)
 
@@ -228,6 +234,10 @@ class TestBindGen(object):
     def test_custom_code_func(self):
         assert self.mod.custom_code_global_func() == 1
 
+    def test_global_cppmethod(self):
+        obj =  self.mod.CtorsClass(4)
+        assert obj.cppmethod() == 8
+
     def test_simple_class_init(self):
         self.mod.SimpleClass()
 
@@ -289,6 +299,11 @@ class TestBindGen(object):
     def test_custom_code_method(self):
         obj = self.mod.CtorsClass(15)
         assert obj.custom_code_meth(.2) == 3
+        obj = self.mod.CtorsClass(4)
+        assert obj.custom_code_meth(1.5) == 6
+
+    def test_cpp_method(self):
+        obj = self.mod.CtorsClass(15)
 
     def test_overloaded_func(self):
         assert self.mod.overloaded_func() == 20

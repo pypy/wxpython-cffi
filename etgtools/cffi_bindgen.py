@@ -630,6 +630,7 @@ class CffiModuleGenerator(object):
         if 'sip' in method.body or 'Py' in method.body:
             return
 
+        method.pyName = method.name
         method.cppCode = (method.body, 'function')
 
         # CppMethodDefs have no ParamDefs, just an arg string. Build the list
@@ -638,7 +639,7 @@ class CffiModuleGenerator(object):
 
         # Some CppMethodDefs are not inside classes, but are global functions
         # instead.
-        if hasattr(method, 'klass') and method.klass is not None:
+        if getattr(method, 'klass', None) is not None:
             self.processMethod(method, indent)
         else:
             self.processFunction(method, indent)
@@ -776,7 +777,7 @@ class CffiModuleGenerator(object):
         func.cppCallArgs = []
         func.overloadArgs = []
 
-        if hasattr(func, 'klass') and not func.isStatic:
+        if getattr(func, 'klass', None) is not None and not func.isStatic:
             func.pyArgs.append('self')
             if not func.isCtor:
                 func.pyCallArgs.append('wrapper_lib.get_ptr(self)')
@@ -817,17 +818,17 @@ class CffiModuleGenerator(object):
             func.vtdCallArgs.append(vtdCallArg)
             func.overloadArgs.append(overloadArg)
 
-        # We're generating a wrapper function that needs a `self` pointer in
-        # its args string if this function has custom C++ code or is protected
-        # and not static
-        if hasattr(func, 'klass') and (func.cppCode is not None or
-           (func.protection == 'protected' and not func.isStatic)):
-            func.wrapperArgs = (['%s *self' % func.klass.cppClassName] +
+
+        if getattr(func, 'klass', None) is not None and not func.isStatic:
+            # We're generating a wrapper function that needs a `self` pointer
+            # in its args string if this function has custom C++ code or is
+            # protected and not static
+            func.wrapperArgs = ([func.klass.cppClassName + " *self"] +
                                 func.cppArgs)
             func.wrapperCallArgs = ['self'] + func.cppCallArgs
         else:
-            func.wrapperArgs = []
-            func.wrapperCallArgs = []
+            func.wrapperArgs = func.cppArgs
+            func.wrapperCallArgs = func.cppCallArgs
 
         func.cArgs = '(' + ', '.join(func.cArgs) + ')'
         func.cdefArgs = '(' + ', '.join(func.cdefArgs) + ')'
@@ -866,8 +867,8 @@ class CffiModuleGenerator(object):
                 arg = arg.split('=')[0].strip()
             # Now the last word should be the variable name, and everything
             # before it is the type
-            param.type, param.name = arg.rsplit(' ', 1)[-1]
-            params.append(arg)
+            param.type, param.name = arg.rsplit(' ', 1)
+            params.append(param)
 
         return params
 
@@ -884,7 +885,7 @@ class CffiModuleGenerator(object):
         %s %s%s
         {
         """ % (func.type.name, wrapperName, func.wrapperArgs)))
-        func.cppImpl.append(func.cppCode)
+        func.cppImpl.append(func.cppCode[0])
         func.cppImpl.append("}")
 
         return wrapperName
