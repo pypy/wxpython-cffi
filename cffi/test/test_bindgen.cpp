@@ -115,3 +115,13 @@ int ReturnWrapperClass::get()
 {
     return m_i;
 }
+
+int MemberVarClass::Get_i()
+{
+    return m_i;
+}
+
+void MemberVarClass::Set_i(int i)
+{
+    m_i = i;
+}

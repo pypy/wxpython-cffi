@@ -174,9 +174,17 @@ class TestBindGen(object):
             type='', argsString='(int i)',
             name='MemberVarClass', isCtor=True,
             items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='int', argsString='()',
+            name='Get_i', pyName='Get_i'))
+        c.addItem(MethodDef(
+            type='void', argsString='(int i)',
+            name='Set_i', pyName='Set_i',
+            items=[ParamDef(type='int', name='i')]))
         c.addItem(MemberVarDef(
             type='int', name='m_i', pyName='m_i'))
 
+        c.addAutoProperties()
         module.addItem(c)
 
         mod_path = self.tmpdir.join('%s.def' % module.name)
@@ -319,3 +327,11 @@ class TestBindGen(object):
         assert obj.m_i == 5
         obj.m_i = 6
         assert obj.m_i == 6
+
+    def test_property(self):
+        obj = self.mod.MemberVarClass(9)
+        assert obj._i == 9
+
+        obj._i += 11
+        assert obj._i == 20
+        assert obj.m_i == 20

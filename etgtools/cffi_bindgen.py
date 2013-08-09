@@ -672,6 +672,10 @@ class CffiModuleGenerator(object):
         var.cppImpl = []
         self.getTypeInfo(var)
 
+        # TODO: implement protected member vars. Currently, they are all
+        #       suppressed by the tweakers, so wehcan wait until that changes
+        #       to add them.
+
         getName = MEMBER_VAR_PREFIX + var.klass.name + "_88_get_" + var.name
         self.cdefs.append("%s %s(void*);" % (var.type.cdefType, getName))
         var.cppImpl.append(nci("""\
@@ -696,13 +700,15 @@ class CffiModuleGenerator(object):
             lambda self, value: clib.{2}(wrapper_lib.get_ptr(self), {3}))
         """.format(var, getName, setName, var.type.py2c('value')), indent))
 
-    def processProperty(self, property):
-        assert not method.ignored
-        pass
+    def processProperty(self, property, indent):
+        assert not property.ignored
+        property.pyImpl = []
+        property.pyImpl.append(nci("""\
+        {0.name} = property({0.getter}, {0.setter})
+        """.format(property), indent))
 
-    def processPyProperty(self, property):
-        assert not method.ignored
-        pass
+    def processPyProperty(self, property, indent):
+        processProperty(property, indent)
 
     def processPyMethod(self, method):
         assert not method.ignored

@@ -95,5 +95,9 @@ class MemberVarClass
 public:
     MemberVarClass(int i) : m_i(i) {}
 
+
+    int Get_i();
+    void Set_i(int i);
+
     int m_i;
 };
