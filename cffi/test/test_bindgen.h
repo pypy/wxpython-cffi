@@ -57,6 +57,18 @@ private:
     int m_i;
 };
 
+class PCtorClass
+{
+protected:
+    PCtorClass(int i) : m_i(i) { };
+
+public:
+    int get();
+
+private:
+    int m_i;
+};
+
 class ReturnWrapperClass
 {
 public:

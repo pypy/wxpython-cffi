@@ -108,6 +108,16 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        c = ClassDef(name='PCtorClass')
+        c.addItem(MethodDef(
+            type='', argsString='(int i)',
+            protection='protected', name='PCtorClass', isCtor=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
+            type='int', argsString='()',
+            name='get', pyName='get'))
+        module.addItem(c)
+
         c = ClassDef(name='ReturnWrapperClass')
         c.addItem(MethodDef(
             type='', argsString='(int i)',
@@ -223,6 +233,9 @@ class TestBindGen(object):
     def test_protected_method(self):
         obj = self.mod.PMethClass()
         assert obj.protected_method('a') == 'A'
+
+    def test_protected_ctor(self):
+        assert self.mod.PCtorClass(15).get() == 15
 
     def test_protected_virtual_method_direct_call(self):
         c = self.mod.PVMethClass()

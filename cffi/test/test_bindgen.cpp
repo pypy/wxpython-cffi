@@ -66,6 +66,11 @@ void CtorsClass::set(int i)
     m_i = i;
 }
 
+int PCtorClass::get()
+{
+    return m_i;
+}
+
 ReturnWrapperClass ReturnWrapperClass::new_by_value(int i)
 {
     return ReturnWrapperClass(i);

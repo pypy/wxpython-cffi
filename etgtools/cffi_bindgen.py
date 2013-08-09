@@ -304,12 +304,14 @@ class CffiModuleGenerator(object):
         if len(ctors) == 0:
             # If the class doesn't have a ctor specified, we need to add a
             # default ctor
-            klass.addItem(extractors.MethodDef(
+            ctor = extractors.MethodDef(
                 className=klass.name,
                 name=klass.name,
                 argsString='()',
                 isCtor=True
-            ))
+            )
+            klass.addItem(ctor)
+            ctors.append(ctor)
 
         pyBases = ', '.join([b.pyName for b in klass.bases])
         if pyBases == '':
@@ -350,9 +352,11 @@ class CffiModuleGenerator(object):
 
             # Process all Ctors
             for ctor in ctors:
-                meth_def = "    %s %s%s;" % (m.type, klass.cppClassName,
-                                                m.cppArgs)
-                klass.cppImpl.append(meth_def)
+                klass.cppImpl.append(nci("""\
+                {0.cppClassName}{1.cppArgs}
+                 : {0.name}{1.cppCallArgs}
+                {{}};
+                """.format(klass, ctor), 4))
 
             # Signatures for re-implemented virtual methods
             if len(klass.virtualMethods) > 0:
@@ -552,6 +556,8 @@ class CffiModuleGenerator(object):
 
 
         if method.isStatic and not method.hasOverloads() and overload == '':
+            # @staticmethod isn't needed if this is a multimethod because the
+            # StaticMutlimethod decorator takes care of it
             method.pyImpl.append(nci("@staticmethod", indent))
         call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
         if method.isCtor:
@@ -605,7 +611,7 @@ class CffiModuleGenerator(object):
         if method.isCtor:
             # We don't need any special code for protected ctors; they're
             # already exposed when we create a new ctor that call the old one
-            return
+            return method.klass.cppClassName
         callName = PROTECTED_PREFIX + method.name
         meth_def = "    {0.type.name} unprotected_{0.name}{0.cppArgs};".format(method)
         method.klass.protectedMethods.append(meth_def)
