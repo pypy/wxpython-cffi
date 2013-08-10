@@ -20,7 +20,9 @@ SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
 FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
+DEFINE_PREFIX = "cffidefine_"
 MEMBER_VAR_PREFIX = "cffimvar_"
+GLOBAL_VAR_PREFIX = "cffigvar_"
 CPPCODE_WRAPPER_SUFIX = "_cppwrapper"
 
 # C basic types -> Python conversion functions
@@ -34,7 +36,8 @@ BASIC_CTYPES = {
     'double': 'float',
     'char': 'str',
     'bool': 'bool',
-    'void': None
+    'void': None,
+    'char *': 'ffi.string'
 }
 
 class TypeInfo(object):
@@ -88,6 +91,9 @@ class TypeInfo(object):
             self.cType = typeName
         if self.isRef or self.isPtr or isinstance(typedef, extractors.ClassDef):
             self.cType += ' *'
+
+        if self.isConst:
+            self.cType = 'const ' + self.cType
 
         # Type for the cdef that will be called by cffi. Same rules as cType,
         # but must also treat all pointers to wrapped classes as `void *`
@@ -207,10 +213,10 @@ class CffiModuleGenerator(object):
             extractors.CppMethodDef     : self.processCppMethod,
             MethodDefOverload           : self.processMethodOverload,
             extractors.DefineDef        : self.processDefine,
+            extractors.GlobalVarDef     : self.processGlobalVar,
         }
         """
             extractors.EnumDef          : self.generateEnum,
-            extractors.GlobalVarDef     : self.generateGlobalVar,
             extractors.WigCode          : self.generateWigCode,
             extractors.PyCodeDef        : self.generatePyCode,
             extractors.PyFunctionDef    : self.generatePyFunction,
@@ -720,13 +726,27 @@ class CffiModuleGenerator(object):
         define.pyImpl = []
         define.cppImpl = []
 
-        cName = "cffidefine_" + define.name
+        cName = DEFINE_PREFIX + define.name
         # Let's assume that defines are always integers for now.
         self.cdefs.append("extern const int %s;" % cName)
         define.pyImpl.append("%s = clib.%s" %
                              (define.pyName, cName))
         define.cppImpl.append("""extern "C" const int %s = %s;""" %
                               (cName, define.name))
+
+    def processGlobalVar(self, var, indent):
+        assert not var.ignored
+        var.pyImpl = []
+        var.cppImpl = []
+        self.getTypeInfo(var)
+
+        cName = GLOBAL_VAR_PREFIX + var.name
+        self.cdefs.append('extern %s %s;' % (var.type.cdefType, cName))
+        var.cppImpl.append('extern "C" {0.type.cType} {1} = {2};'.
+                            format(var, cName, var.type.cpp2c(var.name)))
+
+        var.pyImpl.append(var.pyName + ' = ' + var.type.py2c('clib.' + cName))
+
 
     def getTypeInfo(self, item):
         if isinstance(item.type, (str, types.NoneType)):

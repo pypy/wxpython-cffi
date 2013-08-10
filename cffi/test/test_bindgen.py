@@ -10,7 +10,7 @@ sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
-    CppMethodDef, MemberVarDef)
+    CppMethodDef, MemberVarDef, GlobalVarDef)
 
 class TestBindGen(object):
     def setup(self):
@@ -24,6 +24,9 @@ class TestBindGen(object):
 
         module.addItem(DefineDef(
             name='prefixedSOME_INT', pyName='SOME_INT'))
+
+        module.addItem(GlobalVarDef(
+            type='const char *', name='global_str', pyName='global_str'))
 
         module.addItem(FunctionDef(
             type='int', argsString='()', name='simple_global_func',
@@ -222,6 +225,9 @@ class TestBindGen(object):
 
     def test_define(self):
         assert self.mod.SOME_INT == 15
+
+    def test_globalvar(self):
+        assert self.mod.global_str == 'string'
 
     def test_simple_global_func(self):
         assert self.mod.simple_global_func() == 10

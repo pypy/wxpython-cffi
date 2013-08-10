@@ -1,6 +1,8 @@
 #include <ctype.h>
 #include "test_bindgen.h"
 
+const char *global_str = "string";
+
 int simple_global_func()
 {
     return 10;
@@ -125,3 +127,4 @@ void MemberVarClass::Set_i(int i)
 {
     m_i = i;
 }
+
