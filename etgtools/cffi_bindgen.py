@@ -37,7 +37,6 @@ BASIC_CTYPES = {
     'char': 'str',
     'bool': 'bool',
     'void': None,
-    'char *': 'ffi.string'
 }
 
 class TypeInfo(object):
@@ -129,6 +128,10 @@ class TypeInfo(object):
             return typeInfo
         return cls._cache[typeName]
 
+    @classmethod
+    def clearCache(cls):
+        cls._cache = {}
+
     def cpp2c(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
             # Always pass wrapped classes as pointers. If this is by value or
@@ -150,6 +153,8 @@ class TypeInfo(object):
             return 'wrapper_lib.obj_from_ptr(%s, %s)' % (varName,
                                                          self.typedef.pyName)
         elif self.isCBasic:
+            if 'char *' in self.name or 'char*' in self.name:
+                return "ffi.string(%s)" % varName
             return varName
         raise Exception()
 
@@ -188,6 +193,7 @@ class CffiModuleGenerator(object):
                              'preInitializerCode', 'postInitializerCode',
                              'includes', 'imports', 'items'):
                     getattr(self.module, attr).extend(getattr(mod, attr))
+        TypeInfo.clearCache()
 
     def generate(self, generators):
         if self.completed is True:
@@ -204,7 +210,9 @@ class CffiModuleGenerator(object):
 
         self.cdefs = []
 
-        defaults = self.findDefaults(self.module)
+        self.module.items = self.sortItems()
+
+        #defaults = self.findDefaults(self.module)
         # TODO: findItem the defaults and get their pyNames
 
         methodMap = {
@@ -279,6 +287,61 @@ class CffiModuleGenerator(object):
                 self.findDefaults(i, defaults)
 
         return defaults
+
+    def sortItems(self):
+        """
+        Sort items list so that every each items dependencies (base classes and 
+        defaults values, so far) occur before the item itself.
+        """
+        def getDependencies(item):
+            dependencies = []
+            if isinstance(item, (extractors.GlobalVarDef,
+                                extractors.MemberVarDef)):
+                self.getTypeInfo(item)
+                if item.type.typedef is not None:
+                    dependencies.append(item.type.typedef)
+            elif isinstance(item, extractors.ClassDef):
+                for b in item.bases:
+                    b = TypeInfo.new(b)
+                    if b is not None:
+                        dependencies.append(b)
+                for m in item:
+                    dependencies.extend(getDependencies(m))
+            elif (isinstance(item, extractors.FunctionDef) and
+                  not item.hasOverloads()):
+                for p in item.items:
+                    self.getTypeInfo(p)
+                    if p.type.typedef is not None:
+                        dependencies.append(p.type.typedef)
+            return dependencies
+
+        # Map items to items that depend on them
+        dependents = {}
+        finalItemOrder = []
+        for item in self.module.items:
+            deps = getDependencies(item)
+            for d in deps:
+                if d not in dependents:
+                    assert isinstance(d, extractors.ClassDef)
+                    dependents[d] = set()
+                dependents[d].add(item)
+            if len(deps) == 0:
+                finalItemOrder.append(item)
+            else:
+                item.deps = set(deps)
+
+        for i in range(len(finalItemOrder)):
+            item = finalItemOrder[i]
+            if item in dependents:
+                dependentItems = dependents[item]
+                del dependents[item]
+                for dependentItem in dependentItems:
+                    dependentItem.deps.remove(item)
+                    if len(dependentItem.deps) == 0:
+                        finalItemOrder.append(dependentItem)
+
+        assert len(finalItemOrder) == len(self.module.items)
+        return finalItemOrder
 
     def processClass(self, klass, indent):
         assert not klass.ignored
@@ -745,12 +808,12 @@ class CffiModuleGenerator(object):
         var.cppImpl.append('extern "C" {0.type.cType} {1} = {2};'.
                             format(var, cName, var.type.cpp2c(var.name)))
 
-        var.pyImpl.append(var.pyName + ' = ' + var.type.py2c('clib.' + cName))
+        var.pyImpl.append(var.pyName + ' = ' + var.type.c2py('clib.' + cName))
 
 
     def getTypeInfo(self, item):
         if isinstance(item.type, (str, types.NoneType)):
-            item.type = TypeInfo(item.type, self.findItem)
+            item.type = TypeInfo.new(item.type, self.findItem)
 
     def createArgsStrings(self, func):
         """

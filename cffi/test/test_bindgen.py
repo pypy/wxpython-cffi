@@ -27,6 +27,9 @@ class TestBindGen(object):
 
         module.addItem(GlobalVarDef(
             type='const char *', name='global_str', pyName='global_str'))
+        module.addItem(GlobalVarDef(
+            type='const CtorsClass', name='global_wrapped_obj',
+            pyName='global_wrapped_obj'))
 
         module.addItem(FunctionDef(
             type='int', argsString='()', name='simple_global_func',

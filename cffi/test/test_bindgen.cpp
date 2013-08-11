@@ -2,6 +2,7 @@
 #include "test_bindgen.h"
 
 const char *global_str = "string";
+CtorsClass global_wrapped_obj(13);
 
 int simple_global_func()
 {

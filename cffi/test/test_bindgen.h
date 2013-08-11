@@ -59,6 +59,8 @@ private:
     int m_i;
 };
 
+extern CtorsClass global_wrapped_obj;
+
 class PCtorClass
 {
 protected:
