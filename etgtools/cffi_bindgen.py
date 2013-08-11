@@ -302,7 +302,7 @@ class CffiModuleGenerator(object):
                     dependencies.append(item.type.typedef)
             elif isinstance(item, extractors.ClassDef):
                 for b in item.bases:
-                    b = TypeInfo.new(b)
+                    b = TypeInfo.new(b, self.findItem).typedef
                     if b is not None:
                         dependencies.append(b)
                 for m in item:
@@ -382,7 +382,7 @@ class CffiModuleGenerator(object):
             klass.addItem(ctor)
             ctors.append(ctor)
 
-        pyBases = ', '.join([b.pyName for b in klass.bases])
+        pyBases = ', '.join([self.findItem(b).pyName for b in klass.bases])
         if pyBases == '':
             pyBases = 'wrapper_lib.CppWrapper'
         if klass.pyName == '' or klass.pyName is None:

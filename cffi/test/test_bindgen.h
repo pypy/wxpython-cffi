@@ -15,12 +15,18 @@ public:
     int simple_method(double f);
 };
 
+class SimpleSubclass : public SimpleClass
+{ };
+
 class VMethClass
 {
 public:
     virtual int virtual_method(int i);
     int call_virtual(int i);
 };
+
+class VMethSubclass : public VMethClass
+{ };
 
 class PMethClass
 {

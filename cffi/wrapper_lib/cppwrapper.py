@@ -109,6 +109,7 @@ class VirtualMethod(object):
         if isinstance(func, VirtualMethod):
             # Allow @VirtualMethod(n) decorators to be stacked
             self.indices.extend(func.indices)
+            self.func = func.func
             return self
         self.func = func
         return self

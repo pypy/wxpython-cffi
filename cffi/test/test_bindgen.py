@@ -64,6 +64,8 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        module.addItem(ClassDef(name='SimpleSubclass', bases=['SimpleClass']))
+
         c = ClassDef(name='VMethClass')
         c.addItem(MethodDef(
             type='int', argsString='(int i)',
@@ -75,6 +77,8 @@ class TestBindGen(object):
             items=[ParamDef(type='int', name='i')]))
 
         module.addItem(c)
+
+        module.addItem(ClassDef(name='VMethSubclass', bases=['VMethClass']))
 
         c = ClassDef(name='PVMethClass')
         c.addItem(MethodDef(
@@ -177,7 +181,7 @@ class TestBindGen(object):
         c = ClassDef(name='VDtorClass')
         c.addItem(MethodDef(
             type='', argsString='()',
-            name='~VMethClass', isVirtual=True, isDtor=True))
+            name='~VDtorClass', isVirtual=True, isDtor=True))
 
         module.addItem(c)
 
@@ -250,9 +254,16 @@ class TestBindGen(object):
     def test_simple_class_init(self):
         self.mod.SimpleClass()
 
+    def test_simple_subclass_init(self):
+        self.mod.SimpleSubclass()
+
     def test_simple_method(self):
         c = self.mod.SimpleClass()
         assert c.simple_method(5.5) == 5
+
+    def test_simple_subclass_method(self):
+        obj = self.mod.SimpleSubclass()
+        assert obj.simple_method(5.5) == 5
 
     def test_virtual_method_direct_call(self):
         c = self.mod.VMethClass()
@@ -267,6 +278,11 @@ class TestBindGen(object):
         c = VMethSubClass()
         assert c.virtual_method(5) == 10
         assert c.call_virtual(5) == 10
+
+    def test_subclass_virtual_method_direct_call(self):
+        c = self.mod.VMethSubclass()
+        assert c.virtual_method(5) == -5
+        assert c.call_virtual(5) == -5
 
     def test_protected_method(self):
         obj = self.mod.PMethClass()
