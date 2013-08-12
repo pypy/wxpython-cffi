@@ -55,6 +55,8 @@ class TestBindGen(object):
                 name='overloaded_func', pyName='overloaded_func',
                 items=[ParamDef(type='int', name='i')])]))
 
+        module.addPyFunction('global_pyfunc', '()', 'return "42"')
+
 
         c = ClassDef(name='SimpleClass')
         c.addItem(MethodDef(
@@ -121,6 +123,7 @@ class TestBindGen(object):
             items=[ParamDef(type='double', name='f')])
         m.setCppCode('return self->get() * f;')
         c.addCppMethod('double', 'cppmethod', '()', 'return self->get() * 2;')
+        c.addPyMethod('double_i', '(self)', 'return self.get() * 2')
         c.addItem(m)
 
         module.addItem(c)
@@ -333,6 +336,13 @@ class TestBindGen(object):
     def test_overloaded_func(self):
         assert self.mod.overloaded_func() == 20
         assert self.mod.overloaded_func(12) == 6
+
+    def test_pymethod(self):
+        obj = self.mod.CtorsClass(100)
+        assert obj.double_i() == 200
+
+    def test_global_pyfunc(self):
+        assert self.mod.global_pyfunc() == '42'
 
     def test_returned_wrapper(self):
         from_value = self.mod.ReturnWrapperClass.new_by_value(3)

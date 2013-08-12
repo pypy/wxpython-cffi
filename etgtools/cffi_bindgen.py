@@ -222,16 +222,13 @@ class CffiModuleGenerator(object):
             MethodDefOverload           : self.processMethodOverload,
             extractors.DefineDef        : self.processDefine,
             extractors.GlobalVarDef     : self.processGlobalVar,
+            #extractors.EnumDef          : self.generateEnum,
+            #extractors.WigCode          : self.generateWigCode,
+            #extractors.PyCodeDef        : self.generatePyCode,
+            extractors.PyFunctionDef    : self.processPyFunction,
+            #extractors.PyClassDef       : self.generatePyClass,
+            #extractors.CppMethodDef_sip : self.generateCppMethod_sip,
         }
-        """
-            extractors.EnumDef          : self.generateEnum,
-            extractors.WigCode          : self.generateWigCode,
-            extractors.PyCodeDef        : self.generatePyCode,
-            extractors.PyFunctionDef    : self.generatePyFunction,
-            extractors.PyClassDef       : self.generatePyClass,
-            extractors.CppMethodDef_sip : self.generateCppMethod_sip,
-            }
-        """
 
         for item in self.module:
             if type(item) in methodMap:
@@ -780,9 +777,17 @@ class CffiModuleGenerator(object):
     def processPyProperty(self, property, indent):
         processProperty(property, indent)
 
-    def processPyMethod(self, method):
+    def processPyMethod(self, method, indent):
         assert not method.ignored
-        pass
+        method.pyImpl = []
+
+        method.pyImpl.append(nci("""\
+        def {0.name}{0.argsString}:
+            {0.briefDoc}""".format(method), indent))
+        method.pyImpl.append(nci(method.body, indent + 4))
+
+    def processPyFunction(self, func, indent):
+        self.processPyMethod(func, indent)
 
     def processDefine(self, define, indent):
         assert not define.ignored
