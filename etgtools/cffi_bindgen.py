@@ -226,7 +226,7 @@ class CffiModuleGenerator(object):
             #extractors.WigCode          : self.generateWigCode,
             #extractors.PyCodeDef        : self.generatePyCode,
             extractors.PyFunctionDef    : self.processPyFunction,
-            #extractors.PyClassDef       : self.generatePyClass,
+            extractors.PyClassDef       : self.processPyClass,
             #extractors.CppMethodDef_sip : self.generateCppMethod_sip,
         }
 
@@ -775,7 +775,7 @@ class CffiModuleGenerator(object):
         """.format(property), indent))
 
     def processPyProperty(self, property, indent):
-        processProperty(property, indent)
+        self.processProperty(property, indent)
 
     def processPyMethod(self, method, indent):
         assert not method.ignored
@@ -788,6 +788,33 @@ class CffiModuleGenerator(object):
 
     def processPyFunction(self, func, indent):
         self.processPyMethod(func, indent)
+
+    def processPyClass(self, klass, indent):
+        klass.pyImpl = []
+
+        if len(klass.bases) == 0:
+            klass.bases.append('object')
+        klass.pyImpl.append(nci('''\
+        class {0.name}({1}):
+            """
+            {0.briefDoc}
+            """'''.format(klass, ', '.join(klass.bases)), indent))
+
+        dispatch = {
+            extractors.PyFunctionDef    : self.processPyFunction,
+            extractors.PyPropertyDef    : self.processPyProperty,
+            #extractors.PyCodeDef        : self.processPyCode,
+            extractors.PyClassDef       : self.processPyClass,
+        }
+
+        # TODO: sort these items by their `order`
+        for item in klass:
+            if not type(item) in dispatch:
+                continue
+            item.klass = klass
+            f = dispatch[type(item)]
+            f(item, indent + 4)
+
 
     def processDefine(self, define, indent):
         assert not define.ignored

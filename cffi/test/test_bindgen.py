@@ -10,7 +10,7 @@ sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
-    CppMethodDef, MemberVarDef, GlobalVarDef)
+    CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef)
 
 class TestBindGen(object):
     def setup(self):
@@ -206,6 +206,12 @@ class TestBindGen(object):
         c.addAutoProperties()
         module.addItem(c)
 
+        module.addPyClass('PyClass', [], 'PyClass docstring', [
+            PyFunctionDef('__init__', '(self, i)', 'self._i = i'),
+            PyFunctionDef('geti', '(self)', 'return self._i'),
+            PyFunctionDef('seti', '(self, i)', 'self._i = i'),
+            PyPropertyDef(name='i', getter='geti', setter='seti')])
+
         mod_path = self.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
             pickle.dump(module, f)
@@ -340,6 +346,12 @@ class TestBindGen(object):
     def test_pymethod(self):
         obj = self.mod.CtorsClass(100)
         assert obj.double_i() == 200
+
+    def test_pyclass(self):
+        obj = self.mod.PyClass(99)
+        assert obj.geti() == obj.i == 99
+        obj.i = 88
+        assert obj.geti() == obj.i == 88
 
     def test_global_pyfunc(self):
         assert self.mod.global_pyfunc() == '42'
