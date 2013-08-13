@@ -248,8 +248,9 @@ class CffiModuleGenerator(object):
             extractors.PyPropertyDef    : self.processPyProperty,
         }
 
-        self.pyItems.sort(key=lambda item: item.order if item.order is not None
-                                                      else sys.maxint)
+        self.pyItems.sort(key=lambda item: item.order
+                            if getattr(item, 'order', None) is not None
+                            else sys.maxint)
         for item in self.pyItems:
             if type(item) in pyItemMethodMap:
                 function = pyItemMethodMap[type(item)]
@@ -805,7 +806,7 @@ class CffiModuleGenerator(object):
         if isinstance(klass, extractors.ClassDef):
             property.pyImpl = [
                 nci("{0.klass.pyName}.{0.name} = "
-                    "property({0.klass.pyName}{0.getter}, "
+                    "property({0.klass.pyName}.{0.getter}, "
                     "{0.klass.pyName}.{0.setter})".format(property))
             ]
         else:

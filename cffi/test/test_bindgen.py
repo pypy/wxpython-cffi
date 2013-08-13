@@ -203,6 +203,8 @@ class TestBindGen(object):
             type='void', argsString='(int i)',
             name='Set_i', pyName='Set_i',
             items=[ParamDef(type='int', name='i')]))
+        c.addPyMethod('Get_i_pymeth', '(self)', 'return self._i')
+        c.addPyMethod('Set_i_pymeth', '(self, i)', 'self._i = i')
         c.addItem(MemberVarDef(
             type='int', name='m_i', pyName='m_i'))
 
@@ -408,4 +410,12 @@ class TestBindGen(object):
 
         obj._i += 11
         assert obj._i == 20
+        assert obj.m_i == 20
+
+    def test_pyproperty(self):
+        obj = self.mod.MemberVarClass(9)
+        assert obj._i_pymeth == 9
+
+        obj._i_pymeth += 11
+        assert obj._i_pymeth == 20
         assert obj.m_i == 20
