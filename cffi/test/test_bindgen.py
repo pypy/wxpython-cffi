@@ -13,12 +13,14 @@ from etgtools.extractors import (
     CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef)
 
 class TestBindGen(object):
-    def setup(self):
-        self.tmpdir = pytest.ensuretemp('build', dir=True)
-        self.gen = self.create_generator()
-        self.mod = self.build_module()
+    @classmethod
+    def setup_class(cls):
+        cls.tmpdir = pytest.ensuretemp('build', dir=True)
+        cls.gen = cls.create_generator()
+        cls.mod = cls.build_module()
 
-    def create_generator(self):
+    @classmethod
+    def create_generator(cls):
         module = ModuleDef('bindgen_test', '_core', '_core')
         module.addHeaderCode('#include <test_bindgen.h>')
 
@@ -212,27 +214,28 @@ class TestBindGen(object):
             PyFunctionDef('seti', '(self, i)', 'self._i = i'),
             PyPropertyDef(name='i', getter='geti', setter='seti')])
 
-        mod_path = self.tmpdir.join('%s.def' % module.name)
+        mod_path = cls.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
             pickle.dump(module, f)
 
         gen = cffi_bindgen.CffiModuleGenerator(module.name,
-                                               str(self.tmpdir.join('%s.def')))
+                                               str(cls.tmpdir.join('%s.def')))
         gen.generate({})
         return gen
 
-    def build_module(self):
-        cpp_path = self.tmpdir.join('_core.cpp')
-        py_path = self.tmpdir.join('_core.py')
+    @classmethod
+    def build_module(cls):
+        cpp_path = cls.tmpdir.join('_core.cpp')
+        py_path = cls.tmpdir.join('_core.py')
 
         test_dir = os.path.dirname(__file__)
         sources = [str(cpp_path), os.path.join(test_dir, 'test_bindgen.cpp')]
         include_dirs = [test_dir]
-        tmpdir = str(self.tmpdir)
+        tmpdir = str(cls.tmpdir)
 
         with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file:
             # Use distutis via cffi to build the cpp code
-            self.gen.write_files(
+            cls.gen.write_files(
                 py_file, cpp_file,
                 'sources=["%s"], include_dirs=["%s"], tmpdir="%s"' %
                 ('", "'.join(sources), '", "'.join(include_dirs), tmpdir))
