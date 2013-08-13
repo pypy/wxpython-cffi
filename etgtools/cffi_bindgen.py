@@ -1,4 +1,5 @@
 import os
+import sys
 import glob
 import types
 import pickle
@@ -247,7 +248,8 @@ class CffiModuleGenerator(object):
             extractors.PyPropertyDef    : self.processPyProperty,
         }
 
-        # TODO: sort these items by their `order`
+        self.pyItems.sort(key=lambda item: item.order if item.order is not None
+                                                      else sys.maxint)
         for item in self.pyItems:
             if type(item) in pyItemMethodMap:
                 function = pyItemMethodMap[type(item)]
@@ -859,7 +861,6 @@ class CffiModuleGenerator(object):
             extractors.PyClassDef       : self.processPyClass,
         }
 
-        # TODO: sort these items by their `order`
         for item in klass:
             if not type(item) in dispatch:
                 continue

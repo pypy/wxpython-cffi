@@ -10,7 +10,8 @@ sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
-    CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef)
+    CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef,
+    PyClassDef, PyCodeDef)
 
 class TestBindGen(object):
     @classmethod
@@ -208,7 +209,11 @@ class TestBindGen(object):
         c.addAutoProperties()
         module.addItem(c)
 
-        module.addPyClass('PyClass', [], 'PyClass docstring', [
+        module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
+        module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
+
+        module.addPyClass('PyClass', [], 'PyClass docstring', order=10, items=[
+            PyCodeDef('SOME_INT = 9'),
             PyFunctionDef('__init__', '(self, i)', 'self._i = i'),
             PyFunctionDef('geti', '(self)', 'return self._i'),
             PyFunctionDef('seti', '(self, i)', 'self._i = i'),
@@ -355,6 +360,10 @@ class TestBindGen(object):
         assert obj.geti() == obj.i == 99
         obj.i = 88
         assert obj.geti() == obj.i == 88
+
+    def test_pycode(self):
+        assert self.mod.global_pyclass_int == 9
+        assert self.mod.global_pyclass_inst.i == 9
 
     def test_global_pyfunc(self):
         assert self.mod.global_pyfunc() == '42'
