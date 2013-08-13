@@ -211,9 +211,7 @@ class CffiModuleGenerator(object):
         self.cdefs = []
 
         self.module.items = self.sortItems()
-
-        #defaults = self.findDefaults(self.module)
-        # TODO: findItem the defaults and get their pyNames
+        self.pyItems = []
 
         methodMap = {
             extractors.ClassDef         : self.processClass,
@@ -224,19 +222,38 @@ class CffiModuleGenerator(object):
             extractors.GlobalVarDef     : self.processGlobalVar,
             #extractors.EnumDef          : self.generateEnum,
             #extractors.WigCode          : self.generateWigCode,
-            #extractors.PyCodeDef        : self.generatePyCode,
-            extractors.PyFunctionDef    : self.processPyFunction,
-            extractors.PyClassDef       : self.processPyClass,
             #extractors.CppMethodDef_sip : self.generateCppMethod_sip,
         }
 
-        for item in self.module:
+        for i, item in enumerate(self.module):
+            if isinstance(item, (extractors.PyCodeDef,
+                                 extractors.PyFunctionDef,
+                                 extractors.PyClassDef)):
+                self.pyItems.append(item)
+                self.module.items[i] = extractors.BaseDef()
             if type(item) in methodMap:
                 function = methodMap[type(item)]
                 function(item, 0)
 
-        # TODO: sort items so that classes and global variables are defined
-        #       by the time we need to reference them
+        # Process the items that contain raw Python code seperately. These will
+        # need to appear at the end of the module because they assume that all
+        # of generated items already exist.
+
+        pyItemMethodMap = {
+            extractors.PyCodeDef        : self.processPyCode,
+            extractors.PyFunctionDef    : self.processPyFunction,
+            extractors.PyClassDef       : self.processPyClass,
+            extractors.PyMethodDef      : self.processPyMethod,
+            extractors.PyPropertyDef    : self.processPyProperty,
+        }
+
+        # TODO: sort these items by their `order`
+        for item in self.pyItems:
+            if type(item) in pyItemMethodMap:
+                function = pyItemMethodMap[type(item)]
+                function(item, 0)
+
+        self.module.items.extend(self.pyItems)
 
     def write_files(self, pyfile, cppfile, verify_args=''):
         for attr in ('headerCode', 'cppCode', 'initializerCode',
@@ -402,10 +419,16 @@ class CffiModuleGenerator(object):
             #extractors.PyCodeDef        : self.processPyCode,
             #extractors.WigCode          : self.processWigCode,
         }
-        for item in klass:
+
+        for i, item in enumerate(klass):
+            item.klass = klass
+            if isinstance(item, (extractors.PyMethodDef,
+                                 extractors.PyCodeDef,
+                                 extractors.PyPropertyDef)):
+                self.pyItems.append(item)
+                klass.items[i] = extractors.BaseDef()
             if not type(item) in dispatch:
                 continue
-            item.klass = klass
             f = dispatch[type(item)]
             f(item, indent + 4)
 
@@ -775,19 +798,48 @@ class CffiModuleGenerator(object):
         """.format(property), indent))
 
     def processPyProperty(self, property, indent):
-        self.processProperty(property, indent)
+        assert not property.ignored
+        klass = getattr(property, 'klass', None)
+        if isinstance(klass, extractors.ClassDef):
+            property.pyImpl = [
+                nci("{0.klass.pyName}.{0.name} = "
+                    "property({0.klass.pyName}{0.getter}, "
+                    "{0.klass.pyName}.{0.setter})".format(property))
+            ]
+        else:
+            assert isinstance(klass, extractors.PyClassDef)
+            self.processProperty(property, indent)
 
     def processPyMethod(self, method, indent):
         assert not method.ignored
-        method.pyImpl = []
 
-        method.pyImpl.append(nci("""\
-        def {0.name}{0.argsString}:
-            {0.briefDoc}""".format(method), indent))
-        method.pyImpl.append(nci(method.body, indent + 4))
+        methName = "_{0.klass.pyName}_{0.name}".format(method)
+        assignName = methName
+        if method.isStatic:
+            assignName = "staticmethod(" + assignName + ")"
+        if method.deprecated:
+            assignName = "wx.deprecated(" + assignName + ")"
+
+        method.pyImpl = [
+            'def {1}{0.argsString}:'.format(method, methName),
+            '    """',
+            nci(method.briefDoc or '', 4),
+            '    """',
+            nci(method.body, 4),
+            nci("""\
+                {0.klass.pyName}.{0.name} = {1}
+                del {2}""".format(method, assignName, methName))
+        ]
 
     def processPyFunction(self, func, indent):
-        self.processPyMethod(func, indent)
+        func.pyImpl = [
+            nci('''\
+                def {0.name}{0.argsString}:
+                    """'''.format(func), indent),
+            nci(func.briefDoc or '', indent + 4),
+            nci('"""', indent + 4),
+            nci(func.body, indent + 4)
+        ]
 
     def processPyClass(self, klass, indent):
         klass.pyImpl = []
@@ -803,7 +855,7 @@ class CffiModuleGenerator(object):
         dispatch = {
             extractors.PyFunctionDef    : self.processPyFunction,
             extractors.PyPropertyDef    : self.processPyProperty,
-            #extractors.PyCodeDef        : self.processPyCode,
+            extractors.PyCodeDef        : self.processPyCode,
             extractors.PyClassDef       : self.processPyClass,
         }
 
@@ -815,6 +867,8 @@ class CffiModuleGenerator(object):
             f = dispatch[type(item)]
             f(item, indent + 4)
 
+    def processPyCode(self, code, indent):
+        code.pyImpl = [nci(code.code, indent)]
 
     def processDefine(self, define, indent):
         assert not define.ignored
