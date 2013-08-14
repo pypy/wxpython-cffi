@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 import glob
@@ -119,7 +120,7 @@ class TypeInfo(object):
             else:
                 self.overloadType = '(str, unicode)'
         else:
-            self.overloadType = self.typedef.pyName
+            self.overloadType = self.typedef.fullPyName
 
     @classmethod
     def new(cls, typeName, findItem):
@@ -152,7 +153,7 @@ class TypeInfo(object):
     def c2py(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.obj_from_ptr(%s, %s)' % (varName,
-                                                         self.typedef.pyName)
+                                                         self.typedef.fullPyName)
         elif self.isCBasic:
             if 'char *' in self.name or 'char*' in self.name:
                 return "ffi.string(%s)" % varName
@@ -211,6 +212,7 @@ class CffiModuleGenerator(object):
 
         self.cdefs = []
 
+        self.expandClassNames()
         self.module.items = self.sortItems()
         self.pyItems = []
 
@@ -360,12 +362,40 @@ class CffiModuleGenerator(object):
         assert len(finalItemOrder) == len(self.module.items)
         return finalItemOrder
 
+    def expandClassNames(self):
+        # Typenames of nested classes used in this class don't have to use the
+        # type's full name. This messes up the type lookup, so replace short
+        # names with the full name. This can be pretty simple because we are
+        # only supporting nesting of a maximum depth of 1.
+        for klass in self.module.items:
+            if not isinstance(klass, extractors.ClassDef):
+                continue
+
+            klass.type = klass.name
+            klass.pyName = klass.pyName or klass.name
+            klass.fullPyName = klass.pyName
+
+            for innerclass in klass.innerclasses:
+                innerclass.pyName = innerclass.pyName or innerclass.name
+                innerclass.fullPyName = klass.pyName + '.' + innerclass.pyName
+                innerclass.type = klass.name + '::' + innerclass.name
+                replace = r'\1' + innerclass.type
+                pattern = re.compile(r'( |^)%s' % innerclass.name)
+                for item in klass:
+                    if isinstance(getattr(item, 'type', None), str):
+                        item.type = pattern.sub(replace, item.type)
+
+
     def processClass(self, klass, indent):
         assert not klass.ignored
         klass.cppImpl = []
         klass.pyImpl = []
 
-        klass.type = klass.name + '*'
+        if not hasattr(klass, 'klass'):
+            klass.cName = klass.name
+        else:
+            klass.cName = klass.klass.name + '_88_' + klass.name
+
         self.getTypeInfo(klass)
 
         # Create a subclass of the C++ type if we have any virtual or
@@ -374,15 +404,15 @@ class CffiModuleGenerator(object):
                                    if isinstance(i, extractors.MethodDef) and
                                       (i.protection == 'protected' or
                                        i.isVirtual)]) > 0
-        klass.cppClassName = (klass.name if not klass.hasSubClass
-                                         else SUBCLASS_PREFIX + klass.name)
+        klass.cppClassName = (klass.cName if not klass.hasSubClass
+                                         else SUBCLASS_PREFIX + klass.cName)
 
         # While we process the class's items, we'll build a list of the virtual
         # and protected methods' declarations to place in the subclass's body
         klass.virtualMethods = []
         klass.protectedMethods = []
 
-        # In theory we should be able to just do `klass.findItem(klass.name is
+        # In theory we should be able to just do `klass.findItem(klass.name) is
         # not None` to check if a ctor exists, but there's no guarantee that a
         # ctor added by the tweaker will have its name set correctly
         ctors = [m for m in klass if isinstance(m, extractors.MethodDef) and
@@ -402,15 +432,14 @@ class CffiModuleGenerator(object):
         pyBases = ', '.join([self.findItem(b).pyName for b in klass.bases])
         if pyBases == '':
             pyBases = 'wrapper_lib.CppWrapper'
-        if klass.pyName == '' or klass.pyName is None:
-            klass.pyName = klass.name
         klass.pyImpl.append(nci("""\
         class %s(%s):
             __metaclass__ = wrapper_lib.WrapperType"""
-        % (klass.pyName, pyBases)))
+        % (klass.pyName, pyBases), indent))
 
 
         dispatch = {
+            extractors.ClassDef         : self.processClass,
             extractors.MemberVarDef     : self.processMemberVar,
             extractors.PropertyDef      : self.processProperty,
             extractors.PyPropertyDef    : self.processPyProperty,
@@ -423,6 +452,7 @@ class CffiModuleGenerator(object):
             #extractors.WigCode          : self.processWigCode,
         }
 
+        klass.items.extend(klass.innerclasses)
         for i, item in enumerate(klass):
             item.klass = klass
             if isinstance(item, (extractors.PyMethodDef,
@@ -440,13 +470,13 @@ class CffiModuleGenerator(object):
             klass.cppImpl.append(nci("""\
             class {0} : public {1}
             {{
-            public:""".format(klass.cppClassName, klass.name)))
+            public:""".format(klass.cppClassName, klass.type.name)))
 
             # Process all Ctors
             for ctor in ctors:
                 klass.cppImpl.append(nci("""\
                 {0.cppClassName}{1.cppArgs}
-                 : {0.name}{1.cppCallArgs}
+                 : {0.type.name}{1.cppCallArgs}
                 {{}};
                 """.format(klass, ctor), 4))
 
@@ -462,20 +492,20 @@ class CffiModuleGenerator(object):
             # Signatures for
             if len(klass.protectedMethods) > 0:
                 klass.cppImpl.append(nci("""\
-                    //Reimplement every protected method"""))
+                    //Reimplement every protected method""", indent))
             for pmeth in klass.protectedMethods:
                 klass.cppImpl.append(pmeth)
 
             klass.cppImpl.append("};")
 
             if len(klass.virtualMethods) > 0:
-                vtableDef = 'void(*%s_vtable[%d])();' % (klass.name,
+                vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
                                                         len(klass.virtualMethods))
                 self.cdefs.append(vtableDef)
                 self.cdefs.append('void %s_set_flag(void *, int);' %
-                                  (klass.name))
+                                  (klass.cName))
                 self.cdefs.append('void %s_set_flags(void *, char*);' %
-                                   (klass.name))
+                                   (klass.cName))
                 klass.cppImpl.append(nci("""\
                 extern "C" {0}
 
@@ -488,7 +518,7 @@ class CffiModuleGenerator(object):
                 {{
                     memcpy(self->vflags, flags, sizeof(self->vflags));
                 }}
-                """.format(vtableDef, klass.name, klass.cppClassName)))
+                """.format(vtableDef, klass.cName, klass.cppClassName)))
 
                 klass.pyImpl.append(nci("""\
                 _vtable = clib.{0}_vtable
@@ -498,8 +528,7 @@ class CffiModuleGenerator(object):
 
                 def _set_vflags(self, flags):
                     clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
-                """.format(klass.name), 4))
-
+                """.format(klass.cName), indent + 4))
 
 
     def processFunction(self, func, indent, overload=''):
@@ -591,7 +620,8 @@ class CffiModuleGenerator(object):
         # Even though this method may actually return a pointer to the
         # subclass of the wrapped type, we'll use base class as the return type
         # so the TypeInfo code can be simpler
-        method.type = method.klass.name + '*' if method.isCtor else method.type
+        if method.isCtor:
+            method.type = method.klass.type
         method.pyName = '__init__' if method.isCtor else method.pyName
 
         self.getTypeInfo(method)
@@ -603,9 +633,9 @@ class CffiModuleGenerator(object):
             # We need a special case for the dtor since '~' isn't allowed in an
             # function name
             method.pyName = '__del__'
-            method.cName = METHOD_PREFIX + method.klass.name + '_88_delete'
+            method.cName = METHOD_PREFIX + method.klass.cName + '_88_delete'
         else:
-            method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, method.klass.name,
+            method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, method.klass.cName,
                                              method.name, overload)
 
         if method.isVirtual:
@@ -620,20 +650,19 @@ class CffiModuleGenerator(object):
             # it has not custom code.
             callName = self.processProtectedMethod(method, indent, overload)
         elif method.isStatic:
-            callName = "%s::%s" % (method.klass.name, method.name)
+            callName = "%s::%s" % (method.klass.type.name, method.name)
         elif method.isCtor:
             callName = method.klass.cppClassName
         else:
             # Just in case, we'll always specify the original implementation,
             # for both regular and virtual methods
-            callName = "self->%s::%s" % (method.klass.name, method.name)
+            callName = "self->%s::%s" % (method.klass.type.name, method.name)
 
         method.cdef = '%s %s%s;' % (method.type.cdefType, method.cName,
                                       method.cdefArgs)
         self.cdefs.append(method.cdef)
 
         operation = 'return ' if method.type.name != 'void' else ''
-        operation += 'new ' if method.isCtor else ''
 
 
         method.cppImpl.append(nci("""\
@@ -672,8 +701,8 @@ class CffiModuleGenerator(object):
         method.klass.virtualMethods.append(meth_def)
         index = len(method.klass.virtualMethods) - 1
 
-        funcPtrName = '%s_%s_FUNCPTR' % (method.klass.name, index)
-        cbCall = '(({0}){1.klass.name}_vtable[{2}]){1.cbCallArgs}'.format(
+        funcPtrName = '%s_%s_FUNCPTR' % (method.klass.cName, index)
+        cbCall = '(({0}){1.klass.cName}_vtable[{2}]){1.cbCallArgs}'.format(
                   funcPtrName, method, index)
 
         method.cppImpl.append(nci("""\
@@ -683,7 +712,7 @@ class CffiModuleGenerator(object):
             if(this->vflags[{2}])
                 {0.retStmt}{3};
             else
-                {0.retStmt}{0.klass.name}::{0.name}{0.cppCallArgs};
+                {0.retStmt}{0.klass.type.name}::{0.name}{0.cppCallArgs};
         }}""".format(method, funcPtrName, index, method.type.c2cpp(cbCall))))
 
         call = '{0}.{1.pyName}{1.vtdCallArgs}'.format(
@@ -710,7 +739,7 @@ class CffiModuleGenerator(object):
         method.cppImpl.append(nci("""\
         {0.type.name} {0.klass.cppClassName}::{1}{0.cppArgs}
         {{
-            {0.retStmt}{0.klass.name}::{0.name}{0.cppCallArgs};
+            {0.retStmt}{0.klass.type.name}::{0.name}{0.cppCallArgs};
         }}""".format(method, callName)))
 
         return "self->" + callName
@@ -751,12 +780,12 @@ class CffiModuleGenerator(object):
         self.processMethod(method, indent, method.overloadId)
         self.cppImpl = []
         method.pyImpl = [nci("""\
-        @{0.klass.pyName}.{0.pyName}.overload{0.overloadArgs}
+        @{0.klass.fullPyName}.{0.pyName}.overload{0.overloadArgs}
         """.format(method), indent)] + method.pyImpl
 
         if hasattr(method, 'closeMM'):
             method.pyImpl.append(nci("""\
-            {0.klass.pyName}.{0.pyName}.finish()
+            {0.klass.fullPyName}.{0.pyName}.finish()
             """.format(method), indent))
 
     def processMemberVar(self, var, indent):
@@ -769,19 +798,19 @@ class CffiModuleGenerator(object):
         #       suppressed by the tweakers, so wehcan wait until that changes
         #       to add them.
 
-        getName = MEMBER_VAR_PREFIX + var.klass.name + "_88_get_" + var.name
+        getName = MEMBER_VAR_PREFIX + var.klass.cName + "_88_get_" + var.name
         self.cdefs.append("%s %s(void*);" % (var.type.cdefType, getName))
         var.cppImpl.append(nci("""\
-        extern "C" {0.type.cType} {1}({0.klass.name} * self)
+        extern "C" {0.type.cType} {1}({0.klass.type.name} * self)
         {{
             return self->{0.name};
         }}
         """.format(var, getName)))
 
-        setName = MEMBER_VAR_PREFIX + var.klass.name + "_88_set_" + var.name
+        setName = MEMBER_VAR_PREFIX + var.klass.cName + "_88_set_" + var.name
         self.cdefs.append("void %s(void*, %s);" % (setName, var.type.cdefType))
         var.cppImpl.append(nci("""\
-        extern "C" void {1}({0.klass.name} * self, {0.type.cType} value)
+        extern "C" void {1}({0.klass.type.name} * self, {0.type.cType} value)
         {{
             self->{0.name} = value;
         }}
@@ -805,9 +834,9 @@ class CffiModuleGenerator(object):
         klass = getattr(property, 'klass', None)
         if isinstance(klass, extractors.ClassDef):
             property.pyImpl = [
-                nci("{0.klass.pyName}.{0.name} = "
-                    "property({0.klass.pyName}.{0.getter}, "
-                    "{0.klass.pyName}.{0.setter})".format(property))
+                nci("{0.klass.fullPyName}.{0.name} = "
+                    "property({0.klass.fullPyName}.{0.getter}, "
+                    "{0.klass.fullPyName}.{0.setter})".format(property))
             ]
         else:
             assert isinstance(klass, extractors.PyClassDef)
@@ -816,7 +845,8 @@ class CffiModuleGenerator(object):
     def processPyMethod(self, method, indent):
         assert not method.ignored
 
-        methName = "_{0.klass.pyName}_{0.name}".format(method)
+        escapedPyName = method.klass.fullPyName.replace('.', '__')
+        methName = "_{1}_{0.name}".format(method, escapedPyName)
         assignName = methName
         if method.isStatic:
             assignName = "staticmethod(" + assignName + ")"
@@ -830,7 +860,7 @@ class CffiModuleGenerator(object):
             '    """',
             nci(method.body, 4),
             nci("""\
-                {0.klass.pyName}.{0.name} = {1}
+                {0.klass.fullPyName}.{0.name} = {1}
                 del {2}""".format(method, assignName, methName))
         ]
 

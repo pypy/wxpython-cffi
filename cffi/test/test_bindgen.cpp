@@ -129,3 +129,33 @@ void MemberVarClass::Set_i(int i)
     m_i = i;
 }
 
+int NestedClassesOuter::NestedClassesInner::vmeth()
+{
+    return 142;
+}
+
+int NestedClassesOuter::NestedClassesInner::call_vmeth()
+{
+    return vmeth();
+}
+
+int NestedClassesOuter::NestedClassesInner::Get_i()
+{
+    return m_i;
+}
+
+void NestedClassesOuter::NestedClassesInner::Set_i(int i)
+{
+    m_i = i;
+}
+
+void NestedClassesOuter::NestedClassesInner::overloaded()
+{
+    m_i = -10;
+}
+
+void NestedClassesOuter::NestedClassesInner::overloaded(double f)
+{
+    m_i *= f;
+}
+

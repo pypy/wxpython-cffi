@@ -111,3 +111,21 @@ public:
 
     int m_i;
 };
+
+class NestedClassesOuter
+{
+public:
+    class NestedClassesInner
+    {
+    public:
+        virtual int vmeth();
+        int call_vmeth();
+
+        int m_i;
+        int Get_i();
+        void Set_i(int i);
+
+        void overloaded();
+        void overloaded(double f);
+    };
+};

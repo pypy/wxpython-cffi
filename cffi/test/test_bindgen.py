@@ -211,6 +211,40 @@ class TestBindGen(object):
         c.addAutoProperties()
         module.addItem(c)
 
+        c = ClassDef(name='NestedClassesOuter')
+        ic = ClassDef(name='NestedClassesInner')
+        c.innerclasses = [ic]
+        ic.addItem(MethodDef(
+            type='int', argsString='()', name='vmeth', pyName='vmeth',
+            isVirtual=True))
+        ic.addItem(MethodDef(
+            type='int', argsString='()', name='call_vmeth',
+            pyName='call_vmeth'))
+        ic.addItem(MemberVarDef(type='int', name='m_i', pyName='m_i'))
+        ic.addPyMethod(
+            type='int', argsString='(self)', name='Getpyi',
+            body='return self.m_i')
+        ic.addPyMethod(
+            type='void', argsString='(self, i)', name='Setpyi',
+            body='self.m_i = i')
+        ic.addItem(MethodDef(
+            type='int', argsString='()',
+            name='Get_i', pyName='Get_i'))
+        ic.addItem(MethodDef(
+            type='void', argsString='(int i)',
+            name='Set_i', pyName='Set_i',
+            items=[ParamDef(type='int', name='i')]))
+        ic.addItem(MethodDef(
+            type='void', argsString='()',
+            name='overloaded', pyName='overloaded', isOverloaded=True,
+            overloads=[MethodDef(
+                type='void', argsString='(double f)',
+                name='overloaded', pyName='overloaded',
+                items=[ParamDef(type='double', name='f')])]))
+
+        ic.addAutoProperties()
+        module.addItem(c)
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -419,3 +453,32 @@ class TestBindGen(object):
         obj._i_pymeth += 11
         assert obj._i_pymeth == 20
         assert obj.m_i == 20
+
+    def test_nested_class(self):
+        class InnerClassSubclass(self.mod.NestedClassesOuter.NestedClassesInner):
+            def vmeth(self):
+                return 121
+
+        obj = self.mod.NestedClassesOuter()
+        obj = self.mod.NestedClassesOuter.NestedClassesInner()
+        assert obj.vmeth() == 142
+        assert obj.call_vmeth() == 142
+
+        obj.pyi = 169
+        assert obj.m_i == 169
+        assert obj._i == 169
+        obj.m_i = 221
+        assert obj.pyi == 221
+        assert obj._i == 221
+        obj._i = 99
+        assert obj.pyi == 99
+        assert obj.m_i == 99
+
+        obj.overloaded()
+        assert obj.m_i == -10
+        obj.overloaded(-.2)
+        assert obj.m_i == 2
+
+        obj = InnerClassSubclass()
+        assert obj.vmeth() == 121
+        assert obj.call_vmeth() == 121
