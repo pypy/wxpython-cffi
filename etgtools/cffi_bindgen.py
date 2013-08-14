@@ -87,7 +87,7 @@ class TypeInfo(object):
         if isinstance(typedef, extractors.EnumDef) or typeName == 'bool':
             self.cType = 'int'
         elif isinstance(typedef, extractors.ClassDef):
-            self.cType = typedef.name
+            self.cType = typedef.unscopedName
         else:
             self.cType = typeName
         if self.isRef or self.isPtr or isinstance(typedef, extractors.ClassDef):
@@ -120,7 +120,7 @@ class TypeInfo(object):
             else:
                 self.overloadType = '(str, unicode)'
         else:
-            self.overloadType = self.typedef.fullPyName
+            self.overloadType = self.typedef.unscopedPyName
 
     @classmethod
     def new(cls, typeName, findItem):
@@ -153,7 +153,7 @@ class TypeInfo(object):
     def c2py(self, varName):
         if isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.obj_from_ptr(%s, %s)' % (varName,
-                                                         self.typedef.fullPyName)
+                                                         self.typedef.unscopedPyName)
         elif self.isCBasic:
             if 'char *' in self.name or 'char*' in self.name:
                 return "ffi.string(%s)" % varName
@@ -212,9 +212,12 @@ class CffiModuleGenerator(object):
 
         self.cdefs = []
 
-        self.expandClassNames()
+        self.preprocessClasses()
         self.module.items = self.sortItems()
         self.pyItems = []
+        # Store all of the C++ class bodies in a seperate list so they can be
+        # placed at the top the C++ file easily.
+        self.classDefs = []
 
         methodMap = {
             extractors.ClassDef         : self.processClass,
@@ -268,6 +271,8 @@ class CffiModuleGenerator(object):
 
         print >> cppfile, "#include <cstring>"
 
+        print >> cppfile, '\n'.join(self.classDefs)
+
         print >> pyfile, nci("""\
         import cffi
         import numbers
@@ -310,7 +315,8 @@ class CffiModuleGenerator(object):
     def sortItems(self):
         """
         Sort items list so that every each items dependencies (base classes and 
-        defaults values, so far) occur before the item itself.
+        defaults values, so far) occur before the item itself. The dependencies
+        in question only exist in the generated Python code, not the C++ code.
         """
         def getDependencies(item):
             dependencies = []
@@ -321,9 +327,10 @@ class CffiModuleGenerator(object):
                     dependencies.append(item.type.typedef)
             elif isinstance(item, extractors.ClassDef):
                 for b in item.bases:
-                    b = TypeInfo.new(b, self.findItem).typedef
-                    if b is not None:
-                        dependencies.append(b)
+                    b = self.findItem(b)
+                    self.getTypeInfo(b)
+                    if b.type.typedef is not None:
+                        dependencies.append(b.type.typedef)
                 for m in item:
                     dependencies.extend(getDependencies(m))
             elif (isinstance(item, extractors.FunctionDef) and
@@ -349,52 +356,45 @@ class CffiModuleGenerator(object):
             else:
                 item.deps = set(deps)
 
-        for i in range(len(finalItemOrder)):
+        i = 0
+        while i < len(finalItemOrder):
             item = finalItemOrder[i]
-            if item in dependents:
-                dependentItems = dependents[item]
-                del dependents[item]
-                for dependentItem in dependentItems:
-                    dependentItem.deps.remove(item)
-                    if len(dependentItem.deps) == 0:
-                        finalItemOrder.append(dependentItem)
+            i += 1
+            items = [item] + getattr(item, 'innerclasses', [])
+            for dependency in items:
+                if dependency in dependents:
+                    dependentItems = dependents[dependency]
+                    del dependents[dependency]
+                    for dependentItem in dependentItems:
+                        dependentItem.deps.remove(dependency)
+                        if len(dependentItem.deps) == 0:
+                            finalItemOrder.append(dependentItem)
 
         assert len(finalItemOrder) == len(self.module.items)
         return finalItemOrder
 
-    def expandClassNames(self):
+    def preprocessClasses(self):
+        for klass in self.module.items:
+            if not isinstance(klass, extractors.ClassDef):
+                continue
+            self.preprocessClass(klass)
+
+    def preprocessClass(self, klass):
         # Typenames of nested classes used in this class don't have to use the
         # type's full name. This messes up the type lookup, so replace short
         # names with the full name. This can be pretty simple because we are
         # only supporting nesting of a maximum depth of 1.
-        for klass in self.module.items:
-            if not isinstance(klass, extractors.ClassDef):
-                continue
-
-            klass.type = klass.name
-            klass.pyName = klass.pyName or klass.name
-            klass.fullPyName = klass.pyName
-
-            for innerclass in klass.innerclasses:
-                innerclass.pyName = innerclass.pyName or innerclass.name
-                innerclass.fullPyName = klass.pyName + '.' + innerclass.pyName
-                innerclass.type = klass.name + '::' + innerclass.name
-                replace = r'\1' + innerclass.type
-                pattern = re.compile(r'( |^)%s' % innerclass.name)
-                for item in klass:
-                    if isinstance(getattr(item, 'type', None), str):
-                        item.type = pattern.sub(replace, item.type)
-
-
-    def processClass(self, klass, indent):
         assert not klass.ignored
-        klass.cppImpl = []
-        klass.pyImpl = []
 
         if not hasattr(klass, 'klass'):
+            klass.type = klass.name
+            klass.pyName = klass.pyName or klass.name
+            klass.unscopedPyName = klass.pyName
+
             klass.cName = klass.name
         else:
             klass.cName = klass.klass.name + '_88_' + klass.name
+        klass.unscopedName = klass.type
 
         self.getTypeInfo(klass)
 
@@ -405,7 +405,26 @@ class CffiModuleGenerator(object):
                                       (i.protection == 'protected' or
                                        i.isVirtual)]) > 0
         klass.cppClassName = (klass.cName if not klass.hasSubClass
-                                         else SUBCLASS_PREFIX + klass.cName)
+                                          else SUBCLASS_PREFIX + klass.cName)
+
+        for innerclass in klass.innerclasses:
+            innerclass.klass = klass
+
+            innerclass.pyName = innerclass.pyName or innerclass.name
+            innerclass.unscopedPyName = klass.pyName + '.' + innerclass.pyName
+            innerclass.type = klass.name + '::' + innerclass.name
+            replace = r'\1' + innerclass.type
+            pattern = re.compile(r'( |^)%s' % innerclass.name)
+            for item in klass:
+                if isinstance(getattr(item, 'type', None), str):
+                    item.type = pattern.sub(replace, item.type)
+            self.preprocessClass(innerclass)
+
+    def processClass(self, klass, indent):
+        assert not klass.ignored
+        klass.cppImpl = []
+        klass.pyImpl = []
+
 
         # While we process the class's items, we'll build a list of the virtual
         # and protected methods' declarations to place in the subclass's body
@@ -421,13 +440,24 @@ class CffiModuleGenerator(object):
             # If the class doesn't have a ctor specified, we need to add a
             # default ctor
             ctor = extractors.MethodDef(
-                className=klass.name,
                 name=klass.name,
                 argsString='()',
                 isCtor=True
             )
             klass.addItem(ctor)
-            ctors.append(ctor)
+        else:
+            assert len(ctors) == 1
+            ctor = ctors[0]
+
+        # Add a copy ctor that takes an instance of the original class
+        copyCtor = extractors.MethodDef(
+            name=klass.name,
+            argsString='(const %s &other)' % klass.unscopedName,
+            isCtor=True,
+            items=[extractors.ParamDef(type='const %s &' % klass.unscopedName, name='other')]
+        )
+        ctor.overloads.append(copyCtor)
+        ctors = ctor.all()
 
         pyBases = ', '.join([self.findItem(b).pyName for b in klass.bases])
         if pyBases == '':
@@ -467,36 +497,37 @@ class CffiModuleGenerator(object):
 
 
         if klass.hasSubClass:
-            klass.cppImpl.append(nci("""\
+            self.classDefs.append(nci("""\
             class {0} : public {1}
             {{
-            public:""".format(klass.cppClassName, klass.type.name)))
+            public:""".format(klass.cppClassName, klass.unscopedName)))
 
             # Process all Ctors
             for ctor in ctors:
-                klass.cppImpl.append(nci("""\
+                self.createArgsStrings(ctor)
+                self.classDefs.append(nci("""\
                 {0.cppClassName}{1.cppArgs}
-                 : {0.type.name}{1.cppCallArgs}
+                 : {0.unscopedName}{1.cppCallArgs}
                 {{}};
                 """.format(klass, ctor), 4))
 
             # Signatures for re-implemented virtual methods
             if len(klass.virtualMethods) > 0:
-                klass.cppImpl.append(nci("""\
+                self.classDefs.append(nci("""\
                 signed char vflags[%d];
                 //Reimplement every virtual method"""
                 % len(klass.virtualMethods), 4))
             for vmeth in klass.virtualMethods:
-                    klass.cppImpl.append(vmeth)
+                    self.classDefs.append(vmeth)
 
             # Signatures for
             if len(klass.protectedMethods) > 0:
-                klass.cppImpl.append(nci("""\
+                self.classDefs.append(nci("""\
                     //Reimplement every protected method""", indent))
             for pmeth in klass.protectedMethods:
-                klass.cppImpl.append(pmeth)
+                self.classDefs.append(pmeth)
 
-            klass.cppImpl.append("};")
+            self.classDefs.append("};")
 
             if len(klass.virtualMethods) > 0:
                 vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
@@ -650,13 +681,13 @@ class CffiModuleGenerator(object):
             # it has not custom code.
             callName = self.processProtectedMethod(method, indent, overload)
         elif method.isStatic:
-            callName = "%s::%s" % (method.klass.type.name, method.name)
+            callName = "%s::%s" % (method.klass.unscopedName, method.name)
         elif method.isCtor:
             callName = method.klass.cppClassName
         else:
             # Just in case, we'll always specify the original implementation,
             # for both regular and virtual methods
-            callName = "self->%s::%s" % (method.klass.type.name, method.name)
+            callName = "self->%s::%s" % (method.klass.unscopedName, method.name)
 
         method.cdef = '%s %s%s;' % (method.type.cdefType, method.cName,
                                       method.cdefArgs)
@@ -712,7 +743,7 @@ class CffiModuleGenerator(object):
             if(this->vflags[{2}])
                 {0.retStmt}{3};
             else
-                {0.retStmt}{0.klass.type.name}::{0.name}{0.cppCallArgs};
+                {0.retStmt}{0.klass.unscopedName}::{0.name}{0.cppCallArgs};
         }}""".format(method, funcPtrName, index, method.type.c2cpp(cbCall))))
 
         call = '{0}.{1.pyName}{1.vtdCallArgs}'.format(
@@ -739,7 +770,7 @@ class CffiModuleGenerator(object):
         method.cppImpl.append(nci("""\
         {0.type.name} {0.klass.cppClassName}::{1}{0.cppArgs}
         {{
-            {0.retStmt}{0.klass.type.name}::{0.name}{0.cppCallArgs};
+            {0.retStmt}{0.klass.unscopedName}::{0.name}{0.cppCallArgs};
         }}""".format(method, callName)))
 
         return "self->" + callName
@@ -780,12 +811,12 @@ class CffiModuleGenerator(object):
         self.processMethod(method, indent, method.overloadId)
         self.cppImpl = []
         method.pyImpl = [nci("""\
-        @{0.klass.fullPyName}.{0.pyName}.overload{0.overloadArgs}
+        @{0.klass.unscopedPyName}.{0.pyName}.overload{0.overloadArgs}
         """.format(method), indent)] + method.pyImpl
 
         if hasattr(method, 'closeMM'):
             method.pyImpl.append(nci("""\
-            {0.klass.fullPyName}.{0.pyName}.finish()
+            {0.klass.unscopedPyName}.{0.pyName}.finish()
             """.format(method), indent))
 
     def processMemberVar(self, var, indent):
@@ -801,7 +832,7 @@ class CffiModuleGenerator(object):
         getName = MEMBER_VAR_PREFIX + var.klass.cName + "_88_get_" + var.name
         self.cdefs.append("%s %s(void*);" % (var.type.cdefType, getName))
         var.cppImpl.append(nci("""\
-        extern "C" {0.type.cType} {1}({0.klass.type.name} * self)
+        extern "C" {0.type.cType} {1}({0.klass.unscopedName} * self)
         {{
             return self->{0.name};
         }}
@@ -810,7 +841,7 @@ class CffiModuleGenerator(object):
         setName = MEMBER_VAR_PREFIX + var.klass.cName + "_88_set_" + var.name
         self.cdefs.append("void %s(void*, %s);" % (setName, var.type.cdefType))
         var.cppImpl.append(nci("""\
-        extern "C" void {1}({0.klass.type.name} * self, {0.type.cType} value)
+        extern "C" void {1}({0.klass.unscopedName} * self, {0.type.cType} value)
         {{
             self->{0.name} = value;
         }}
@@ -834,9 +865,9 @@ class CffiModuleGenerator(object):
         klass = getattr(property, 'klass', None)
         if isinstance(klass, extractors.ClassDef):
             property.pyImpl = [
-                nci("{0.klass.fullPyName}.{0.name} = "
-                    "property({0.klass.fullPyName}.{0.getter}, "
-                    "{0.klass.fullPyName}.{0.setter})".format(property))
+                nci("{0.klass.unscopedPyName}.{0.name} = "
+                    "property({0.klass.unscopedPyName}.{0.getter}, "
+                    "{0.klass.unscopedPyName}.{0.setter})".format(property))
             ]
         else:
             assert isinstance(klass, extractors.PyClassDef)
@@ -845,7 +876,7 @@ class CffiModuleGenerator(object):
     def processPyMethod(self, method, indent):
         assert not method.ignored
 
-        escapedPyName = method.klass.fullPyName.replace('.', '__')
+        escapedPyName = method.klass.unscopedPyName.replace('.', '__')
         methName = "_{1}_{0.name}".format(method, escapedPyName)
         assignName = methName
         if method.isStatic:
@@ -860,7 +891,7 @@ class CffiModuleGenerator(object):
             '    """',
             nci(method.body, 4),
             nci("""\
-                {0.klass.fullPyName}.{0.name} = {1}
+                {0.klass.unscopedPyName}.{0.name} = {1}
                 del {2}""".format(method, assignName, methName))
         ]
 
@@ -996,8 +1027,7 @@ class CffiModuleGenerator(object):
             cCallArg = param.type.c2cpp(param.name)
             cbCallArg = param.type.cpp2c(param.name)
 
-            cppArg = "%s%s %s" % ('const ' if param.type.isConst else '',
-                                  param.type.name, param.name)
+            cppArg = "%s %s" % (param.type.name, param.name)
             cppCallArg = "%s" % param.name
 
             pyArg = "%s%s%s" % (param.name, '=' if param.default else '',

@@ -215,13 +215,15 @@ class TestBindGen(object):
         c.addItem(MethodDef(
             type='NestedClassesOuter::NestedClassesInner', argsString='()',
             name='get', pyName='get'))
+        module.addItem(c)
 
-        c = ClassDef(name='NestedClassReturnDependant')
+        c = ClassDef(name='NestedClassArgDependant')
         c.addItem(MethodDef(
             type='int', argsString='(const NestedClassesOuter::NestedClassesInner &i)',
             name='get', pyName='get', items=[ParamDef(
                 type='const NestedClassesOuter::NestedClassesInner &',
                 name='i')]))
+        module.addItem(c)
 
         c = ClassDef(name='NestedClassesOuter')
         ic = ClassDef(name='NestedClassesInner')
