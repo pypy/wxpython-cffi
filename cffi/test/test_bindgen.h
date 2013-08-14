@@ -129,3 +129,15 @@ public:
         void overloaded(double f);
     };
 };
+
+class NestedClassReturnDependant
+{
+public:
+    NestedClassesOuter::NestedClassesInner get();
+};
+
+class NestedClassArgDependant
+{
+public:
+    int get(const NestedClassesOuter::NestedClassesInner &i);
+};

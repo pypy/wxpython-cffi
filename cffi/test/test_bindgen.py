@@ -211,6 +211,18 @@ class TestBindGen(object):
         c.addAutoProperties()
         module.addItem(c)
 
+        c = ClassDef(name='NestedClassReturnDependant')
+        c.addItem(MethodDef(
+            type='NestedClassesOuter::NestedClassesInner', argsString='()',
+            name='get', pyName='get'))
+
+        c = ClassDef(name='NestedClassReturnDependant')
+        c.addItem(MethodDef(
+            type='int', argsString='(const NestedClassesOuter::NestedClassesInner &i)',
+            name='get', pyName='get', items=[ParamDef(
+                type='const NestedClassesOuter::NestedClassesInner &',
+                name='i')]))
+
         c = ClassDef(name='NestedClassesOuter')
         ic = ClassDef(name='NestedClassesInner')
         c.innerclasses = [ic]

@@ -159,3 +159,12 @@ void NestedClassesOuter::NestedClassesInner::overloaded(double f)
     m_i *= f;
 }
 
+NestedClassesOuter::NestedClassesInner NestedClassReturnDependant::get()
+{
+    return NestedClassesOuter::NestedClassesInner();
+}
+
+int NestedClassArgDependant::get(const NestedClassesOuter::NestedClassesInner &i)
+{
+    return i.m_i;
+}
