@@ -9,6 +9,12 @@ double custom_code_global_func();
 int overloaded_func();
 double overloaded_func(double i);
 
+enum BOOLEAN
+{
+    BOOL_TRUE = -1,
+    BOOL_FALSE = -2
+};
+
 class SimpleClass
 {
 public:

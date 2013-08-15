@@ -25,6 +25,7 @@ METHOD_PREFIX = "cffimeth_"
 DEFINE_PREFIX = "cffidefine_"
 MEMBER_VAR_PREFIX = "cffimvar_"
 GLOBAL_VAR_PREFIX = "cffigvar_"
+ENUM_PREFIX = "cffienum_"
 CPPCODE_WRAPPER_SUFIX = "_cppwrapper"
 
 # C basic types -> Python conversion functions
@@ -226,7 +227,7 @@ class CffiModuleGenerator(object):
             MethodDefOverload           : self.processMethodOverload,
             extractors.DefineDef        : self.processDefine,
             extractors.GlobalVarDef     : self.processGlobalVar,
-            #extractors.EnumDef          : self.generateEnum,
+            extractors.EnumDef          : self.processEnum,
             #extractors.WigCode          : self.generateWigCode,
             #extractors.CppMethodDef_sip : self.generateCppMethod_sip,
         }
@@ -474,7 +475,7 @@ class CffiModuleGenerator(object):
             extractors.PropertyDef      : self.processProperty,
             extractors.PyPropertyDef    : self.processPyProperty,
             extractors.MethodDef        : self.processMethod,
-            #extractors.EnumDef          : self.processEnum,
+            extractors.EnumDef          : self.processEnum,
             extractors.CppMethodDef     : self.processCppMethod,
             #extractors.CppMethodDef_sip : self.processCppMethod_sip,
             extractors.PyMethodDef      : self.processPyMethod,
@@ -959,6 +960,18 @@ class CffiModuleGenerator(object):
 
         var.pyImpl.append(var.pyName + ' = ' + var.type.c2py('clib.' + cName))
 
+    def processEnum(self, enum, indent):
+        assert not enum.ignored
+        enum.pyImpl = []
+        enum.cppImpl = []
+
+        for val in enum.items:
+            cdefName = ENUM_PREFIX + val.name
+            self.cdefs.append("extern const int %s;" % cdefName)
+            enum.cppImpl.append('extern "C" const int %s = %s;' % (cdefName,
+                                                                   val.name))
+            enum.pyImpl.append(' ' * indent + '%s = clib.%s' % (val.name,
+                                                                cdefName))
 
     def getTypeInfo(self, item):
         if isinstance(item.type, (str, types.NoneType)):

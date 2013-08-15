@@ -11,7 +11,7 @@ from etgtools import extractors, cffi_bindgen
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
     CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef,
-    PyClassDef, PyCodeDef)
+    PyClassDef, PyCodeDef, EnumDef, EnumValueDef)
 
 class TestBindGen(object):
     @classmethod
@@ -27,6 +27,10 @@ class TestBindGen(object):
 
         module.addItem(DefineDef(
             name='prefixedSOME_INT', pyName='SOME_INT'))
+
+        module.addItem(EnumDef(name='BOOLEAN', items=[
+            EnumValueDef(name='BOOL_TRUE'),
+            EnumValueDef(name='BOOL_FALSE')]))
 
         module.addItem(GlobalVarDef(
             type='const char *', name='global_str', pyName='global_str'))
@@ -299,6 +303,10 @@ class TestBindGen(object):
 
     def test_define(self):
         assert self.mod.SOME_INT == 15
+
+    def test_enums(self):
+        assert self.mod.BOOL_TRUE == -1
+        assert self.mod.BOOL_FALSE == -2
 
     def test_globalvar(self):
         assert self.mod.global_str == 'string'
