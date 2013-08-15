@@ -263,6 +263,12 @@ class TestBindGen(object):
         ic.addAutoProperties()
         module.addItem(c)
 
+        c = ClassDef(name='ClassWithEnum')
+        c.addItem(EnumDef(name='BOOLEAN', items=[
+            EnumValueDef(name='BOOL_TRUE'),
+            EnumValueDef(name='BOOL_FALSE')]))
+        module.addItem(c)
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -304,7 +310,7 @@ class TestBindGen(object):
     def test_define(self):
         assert self.mod.SOME_INT == 15
 
-    def test_enums(self):
+    def test_enum(self):
         assert self.mod.BOOL_TRUE == -1
         assert self.mod.BOOL_FALSE == -2
 
@@ -504,3 +510,7 @@ class TestBindGen(object):
         obj = InnerClassSubclass()
         assert obj.vmeth() == 121
         assert obj.call_vmeth() == 121
+
+    def test_nested_enum(self):
+        assert self.mod.ClassWithEnum.BOOL_TRUE == -10
+        assert self.mod.ClassWithEnum.BOOL_FALSE == -20

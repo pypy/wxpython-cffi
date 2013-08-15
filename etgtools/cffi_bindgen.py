@@ -965,11 +965,18 @@ class CffiModuleGenerator(object):
         enum.pyImpl = []
         enum.cppImpl = []
 
+        cdefPrefix = ENUM_PREFIX
+        cppPrefix = ''
+        if hasattr(enum, 'klass'):
+            cdefPrefix += enum.klass.cName
+            cppPrefix = enum.klass.unscopedName + '::'
+
         for val in enum.items:
-            cdefName = ENUM_PREFIX + val.name
+            cdefName = cdefPrefix + val.name
+            cppName = cppPrefix + val.name
             self.cdefs.append("extern const int %s;" % cdefName)
             enum.cppImpl.append('extern "C" const int %s = %s;' % (cdefName,
-                                                                   val.name))
+                                                                   cppName))
             enum.pyImpl.append(' ' * indent + '%s = clib.%s' % (val.name,
                                                                 cdefName))
 

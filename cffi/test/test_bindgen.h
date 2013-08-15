@@ -147,3 +147,13 @@ class NestedClassArgDependant
 public:
     int get(const NestedClassesOuter::NestedClassesInner &i);
 };
+
+class ClassWithEnum
+{
+public:
+    enum BOOLEAN
+    {
+        BOOL_TRUE = -10,
+        BOOL_FALSE = -20
+    };
+};
