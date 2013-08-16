@@ -285,7 +285,7 @@ class TestBindGen(object):
 
         gen = cffi_bindgen.CffiModuleGenerator(module.name,
                                                str(cls.tmpdir.join('%s.def')))
-        gen.generate({})
+        gen.init({})
         return gen
 
     @classmethod
@@ -300,7 +300,7 @@ class TestBindGen(object):
 
         with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file:
             # Use distutis via cffi to build the cpp code
-            cls.gen.write_files(
+            cls.gen.writeFiles(
                 py_file, cpp_file,
                 'sources=["%s"], include_dirs=["%s"], tmpdir="%s"' %
                 ('", "'.join(sources), '", "'.join(include_dirs), tmpdir))

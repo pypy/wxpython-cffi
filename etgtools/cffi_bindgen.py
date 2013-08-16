@@ -42,6 +42,27 @@ BASIC_CTYPES = {
     'void': None,
 }
 
+def categorize(list, *types):
+    categories = tuple([] for i in range(len(types) + 1))
+    for obj in list:
+        for i, type in enumerate(types):
+            if isinstance(obj, type):
+                categories[i].append(obj)
+                break
+        else:
+            categories[-1].append(obj)
+
+    return categories
+
+def dispatchItems(methodMap, items, *args, **kwargs):
+    i = 0
+    while i < len(items):
+        item = items[i]
+        i += 1
+        if type(item) in methodMap:
+            function = methodMap[type(item)]
+            function(item, *args, **kwargs)
+
 class TypeInfo(object):
     _cache = {}
     def __init__(self, typeName, findItem):
@@ -113,7 +134,6 @@ class TypeInfo(object):
         # the type original type is not
         self.deref = self.cType[-1] == '*' and self.isPtr
 
-        # TODO: Add the hook for MappedTypes here when adding them
         if self.isCBasic:
             if 'char' not in self.cType:
                 # All of the c basics that not strings are numbers
@@ -175,10 +195,6 @@ class TypeInfo(object):
             return "%s(%s)" % (BASIC_CTYPES[self.cdefType], varName)
         raise Exception()
 
-class MethodDefOverload(extractors.MethodDef):
-    def __init__(self, original):
-        self.__dict__ = original.__dict__
-
 class CffiModuleGenerator(object):
     def __init__(self, module_name, path_pattern):
         with open(path_pattern % module_name, 'rb') as f:
@@ -198,7 +214,73 @@ class CffiModuleGenerator(object):
                     getattr(self.module, attr).extend(getattr(mod, attr))
         TypeInfo.clearCache()
 
-    def generate(self, generators):
+        self.dispatchInit = {
+            extractors.FunctionDef      : self.initFunction,
+            extractors.CppMethodDef     : self.initCppMethod,
+            extractors.GlobalVarDef     : self.initGlobalVar,
+            extractors.EnumDef          : self.initEnum,
+            extractors.DefineDef        : self.initDefine,
+        }
+        self.dispatchClassItemInit = {
+            extractors.MemberVarDef     : self.initMemberVar,
+            extractors.MethodDef        : self.initMethod,
+            extractors.CppMethodDef     : self.initCppMethod,
+            extractors.EnumDef          : self.initEnum,
+        }
+        self.dispatchCDefs = {
+            extractors.FunctionDef      : self.printFunctionCDef,
+            extractors.CppMethodDef     : self.printCppMethodCDef,
+            extractors.DefineDef        : self.printDefineCDef,
+            extractors.GlobalVarDef     : self.printGlobalVarCDef,
+            extractors.EnumDef          : self.printEnumCDef,
+        }
+        self.dispatchClassItemCDefs = {
+            extractors.MemberVarDef     : self.printMemberVarCDef,
+            extractors.MethodDef        : self.printMethodCDef,
+            extractors.CppMethodDef     : self.printCppMethodCDef,
+            extractors.EnumDef          : self.printEnumCDef,
+        }
+        self.dispatchPrint = {
+            extractors.FunctionDef      : self.printFunction,
+            extractors.CppMethodDef     : self.printCppMethod,
+            extractors.DefineDef        : self.printDefine,
+            extractors.GlobalVarDef     : self.printGlobalVar,
+            extractors.EnumDef          : self.printEnum,
+        }
+        self.dispatchClassItemPrint = {
+            extractors.MemberVarDef     : self.printMemberVar,
+            extractors.MethodDef        : self.printMethod,
+            extractors.CppMethodDef     : self.printCppMethod,
+            extractors.EnumDef          : self.printEnum,
+            extractors.PropertyDef      : self.printProperty,
+        }
+        self.dispatchFinalize = {
+            extractors.FunctionDef      : self.printFunctionFinalization,
+            extractors.CppMethodDef     : self.printCppMethodFinalization,
+        }
+        self.dispatchClassItemFinalize = {
+            extractors.MethodDef     : self.printMethodFinalization,
+            extractors.CppMethodDef     : self.printCppMethodFinalization,
+        }
+        self.dispatchPrintPyDefs = {
+            extractors.PyClassDef       : self.printPyClass,
+            extractors.PyCodeDef        : self.printPyCode,
+            extractors.PyFunctionDef    : self.printPyFunction,
+        }
+        self.dispatchPrintClassPyDefs = {
+            extractors.PyCodeDef        : self.printPyCode,
+            extractors.PyPropertyDef    : self.printPyProperty,
+            extractors.PyMethodDef      : self.printPyMethod,
+        }
+        self.dispatchPrintPyClassItems = {
+            extractors.PyFunctionDef    : self.printPyFunction,
+            extractors.PyPropertyDef    : self.printPyProperty,
+            extractors.PyCodeDef        : self.printPyCode,
+            extractors.PyClassDef       : self.printPyClass,
+        }
+
+
+    def init(self, generators):
         if self.completed is True:
             return
         self.completed = True
@@ -209,157 +291,114 @@ class CffiModuleGenerator(object):
         self.imports = []
         for import_name in self.module.imports:
             self.imports.append(generators[import_name])
-            generators[import_name].generate(generators)
+            generators[import_name].init(generators)
 
-        self.cdefs = []
+        # Move all global Py*Defs and classes into seperate lists
+        pydefTypes = (extractors.PyClassDef, extractors.PyCodeDef,
+                      extractors.PyFunctionDef)
+        categories = categorize(self.module.items, pydefTypes,
+                                extractors.ClassDef)
+        self.pyItems, self.classes, self.globalItems = categories
 
-        self.preprocessClasses()
-        self.module.items = self.sortItems()
-        self.pyItems = []
-        # Store all of the C++ class bodies in a seperate list so they can be
-        # placed at the top the C++ file easily.
-        self.classDefs = []
+        self.pyItems.sort(key=lambda item: item.order if item.order is not None
+                                                      else sys.maxint)
 
-        methodMap = {
-            extractors.ClassDef         : self.processClass,
-            extractors.FunctionDef      : self.processFunction,
-            extractors.CppMethodDef     : self.processCppMethod,
-            MethodDefOverload           : self.processMethodOverload,
-            extractors.DefineDef        : self.processDefine,
-            extractors.GlobalVarDef     : self.processGlobalVar,
-            extractors.EnumDef          : self.processEnum,
-            #extractors.WigCode          : self.generateWigCode,
-            #extractors.CppMethodDef_sip : self.generateCppMethod_sip,
-        }
+        for klass in self.classes:
+            self.initClass(klass)
+        self.sortClasses()
 
-        for i, item in enumerate(self.module):
-            if isinstance(item, (extractors.PyCodeDef,
-                                 extractors.PyFunctionDef,
-                                 extractors.PyClassDef)):
-                self.pyItems.append(item)
-                self.module.items[i] = extractors.BaseDef()
-            if type(item) in methodMap:
-                function = methodMap[type(item)]
-                function(item, 0)
+        for klass in self.classes:
+            self.initClassItems(klass)
+        dispatchItems(self.dispatchInit, self.globalItems)
 
-        # Process the items that contain raw Python code seperately. These will
-        # need to appear at the end of the module because they assume that all
-        # of generated items already exist.
 
-        pyItemMethodMap = {
-            extractors.PyCodeDef        : self.processPyCode,
-            extractors.PyFunctionDef    : self.processPyFunction,
-            extractors.PyClassDef       : self.processPyClass,
-            extractors.PyMethodDef      : self.processPyMethod,
-            extractors.PyPropertyDef    : self.processPyProperty,
-        }
-
-        self.pyItems.sort(key=lambda item: item.order
-                            if getattr(item, 'order', None) is not None
-                            else sys.maxint)
-        for item in self.pyItems:
-            if type(item) in pyItemMethodMap:
-                function = pyItemMethodMap[type(item)]
-                function(item, 0)
-
-        self.module.items.extend(self.pyItems)
-
-    def write_files(self, pyfile, cppfile, verify_args=''):
+    # TODO: some of the C++ code needs to written to a seperate header file so
+    #       that other modules can access this modules declarations
+    def writeFiles(self, pyfile, cppfile, verify_args=''):
+        # Write the C++ preamble
+        print >> cppfile, "#include <cstring>"
         for attr in ('headerCode', 'cppCode', 'initializerCode',
                      'preInitializerCode', 'postInitializerCode'):
             for line in getattr(self.module, attr):
                 print >> cppfile, line
 
-        print >> cppfile, "#include <cstring>"
-
-        print >> cppfile, '\n'.join(self.classDefs)
-
+        # Write Python preamble
         print >> pyfile, nci("""\
         import cffi
         import numbers
         import wrapper_lib""")
-
         for module in self.module.imports:
             print >> pyfile, "import %s" % module
 
+        # Write cdefs
         print >> pyfile, nci("""\
         ffi = cffi.FFI()
-        cdefs = (
-        """)
-
-        for line in self.cdefs:
-            print >> pyfile, "'''%s'''" % line
+        cdefs = ('''""")
+        for klass in self.classes:
+            self.printClassCDefs(klass, pyfile)
+        dispatchItems(self.dispatchCDefs, self.globalItems, pyfile)
         print >> pyfile, nci("""\
-        )
+        ''')
         ffi.cdef(cdefs)
         clib = ffi.verify(cdefs, %s)
         del cdefs""" % verify_args)
-        self.writeItem(self.module, pyfile, cppfile)
 
-    def writeItem(self, item, pyfile, cppfile):
-        for line in getattr(item, 'pyImpl', []):
-            print >> pyfile, line
-        for line in getattr(item, 'cppImpl', []):
-            print >> cppfile, line
-        for i in item:
-            self.writeItem(i, pyfile, cppfile)
+        # Print classes' C++ bodies, before any method bodies are printed
+        for klass in self.classes:
+            self.printClassCppBody(klass, cppfile)
 
-    def findDefaults(self, item, defaults=set()):
-        for i in item:
-            if isinstance(i, extractors.ParamDef) and i.default != '':
-                defaults.add(i.default)
-            else:
-                self.findDefaults(i, defaults)
+        # Print classes' Python bodies and items
+        for klass in self.classes:
+            self.printClass(klass, pyfile, cppfile)
 
-        return defaults
+        # Print global items
+        dispatchItems(self.dispatchPrint, self.globalItems, pyfile, cppfile)
 
-    def sortItems(self):
+        # Print Python finalization code (finalize multimethods, etc)
+        for klass in self.classes:
+            self.printClassFinalization(klass, pyfile)
+        dispatchItems(self.dispatchFinalize, self.globalItems, pyfile)
+
+        # Print Py*Defs
+        for klass in self.classes:
+            self.printClassPyDefs(klass, pyfile)
+        dispatchItems(self.dispatchPrintPyDefs, self.pyItems, pyfile, 0)
+
+    def sortClasses(self):
         """
-        Sort items list so that every each items dependencies (base classes and 
-        defaults values, so far) occur before the item itself. The dependencies
-        in question only exist in the generated Python code, not the C++ code.
+        Sort clases so that all of a given classes bases occur before it
         """
-        def getDependencies(item):
+        def getDependencies(klass):
             dependencies = []
-            if isinstance(item, (extractors.GlobalVarDef,
-                                extractors.MemberVarDef)):
-                self.getTypeInfo(item)
-                if item.type.typedef is not None:
-                    dependencies.append(item.type.typedef)
-            elif isinstance(item, extractors.ClassDef):
-                for b in item.bases:
-                    b = self.findItem(b)
-                    self.getTypeInfo(b)
-                    if b.type.typedef is not None:
-                        dependencies.append(b.type.typedef)
-                for m in item:
-                    dependencies.extend(getDependencies(m))
-            elif (isinstance(item, extractors.FunctionDef) and
-                  not item.hasOverloads()):
-                for p in item.items:
-                    self.getTypeInfo(p)
-                    if p.type.typedef is not None:
-                        dependencies.append(p.type.typedef)
+            for baseName in klass.bases:
+                baseDef = self.findItem(baseName)
+                if isinstance(baseDef, extractors.ClassDef):
+                    dependencies.append(baseDef)
+                else:
+                    raise Exception("Failed to locate a ClassDef for base '%s'"
+                                    " for class '%s'" % (klass.name, baseName))
+            for ic in klass.innerclasses:
+                dependencies.extend(getDependencies(ic))
             return dependencies
 
         # Map items to items that depend on them
         dependents = {}
-        finalItemOrder = []
-        for item in self.module.items:
-            deps = getDependencies(item)
-            for d in deps:
-                if d not in dependents:
-                    assert isinstance(d, extractors.ClassDef)
-                    dependents[d] = set()
-                dependents[d].add(item)
+        finalClassOrder = []
+        for klass in self.classes:
+            deps = getDependencies(klass)
             if len(deps) == 0:
-                finalItemOrder.append(item)
+                finalClassOrder.append(klass)
             else:
-                item.deps = set(deps)
+                klass.deps = set(deps)
+                for d in deps:
+                    if d not in dependents:
+                        assert isinstance(d, extractors.ClassDef)
+                        dependents[d] = set()
+                    dependents[d].add(klass)
 
         i = 0
-        while i < len(finalItemOrder):
-            item = finalItemOrder[i]
+        while i < len(finalClassOrder):
+            item = finalClassOrder[i]
             i += 1
             items = [item] + getattr(item, 'innerclasses', [])
             for dependency in items:
@@ -369,34 +408,27 @@ class CffiModuleGenerator(object):
                     for dependentItem in dependentItems:
                         dependentItem.deps.remove(dependency)
                         if len(dependentItem.deps) == 0:
-                            finalItemOrder.append(dependentItem)
+                            finalClassOrder.append(dependentItem)
 
-        assert len(finalItemOrder) == len(self.module.items)
-        return finalItemOrder
+        assert set(finalClassOrder) == set(self.classes)
+        assert len(finalClassOrder) == len(self.classes)
+        self.classes == finalClassOrder
 
-    def preprocessClasses(self):
-        for klass in self.module.items:
-            if not isinstance(klass, extractors.ClassDef):
-                continue
-            self.preprocessClass(klass)
-
-    def preprocessClass(self, klass):
-        # Typenames of nested classes used in this class don't have to use the
-        # type's full name. This messes up the type lookup, so replace short
-        # names with the full name. This can be pretty simple because we are
-        # only supporting nesting of a maximum depth of 1.
+    def initClass(self, klass):
         assert not klass.ignored
 
         if not hasattr(klass, 'klass'):
-            klass.type = klass.name
+            klass.unscopedName = klass.name
             klass.pyName = klass.pyName or klass.name
             klass.unscopedPyName = klass.pyName
 
             klass.cName = klass.name
         else:
             klass.cName = klass.klass.name + '_88_' + klass.name
-        klass.unscopedName = klass.type
 
+        klass.briefDoc = klass.briefDoc if klass.briefDoc is not None else ''
+
+        klass.type = klass.unscopedName
         self.getTypeInfo(klass)
 
         # Create a subclass of the C++ type if we have any virtual or
@@ -408,36 +440,28 @@ class CffiModuleGenerator(object):
         klass.cppClassName = (klass.cName if not klass.hasSubClass
                                           else SUBCLASS_PREFIX + klass.cName)
 
+        # Typenames of nested classes used in this class don't have to use the
+        # type's full name. This messes up the type lookup, so replace short
+        # names with the full name. This can be pretty simple because we are
+        # only supporting nesting of a maximum depth of 1.
         for innerclass in klass.innerclasses:
             innerclass.klass = klass
 
             innerclass.pyName = innerclass.pyName or innerclass.name
             innerclass.unscopedPyName = klass.pyName + '.' + innerclass.pyName
-            innerclass.type = klass.name + '::' + innerclass.name
-            replace = r'\1' + innerclass.type
+            innerclass.unscopedName = klass.name + '::' + innerclass.name
+
+            replace = r'\1' + innerclass.unscopedName
             pattern = re.compile(r'( |^)%s' % innerclass.name)
             for item in klass:
                 if isinstance(getattr(item, 'type', None), str):
                     item.type = pattern.sub(replace, item.type)
-            self.preprocessClass(innerclass)
-
-    def processClass(self, klass, indent):
-        assert not klass.ignored
-        klass.cppImpl = []
-        klass.pyImpl = []
+            self.initClass(innerclass)
 
 
-        # While we process the class's items, we'll build a list of the virtual
-        # and protected methods' declarations to place in the subclass's body
-        klass.virtualMethods = []
-        klass.protectedMethods = []
-
-        # In theory we should be able to just do `klass.findItem(klass.name) is
-        # not None` to check if a ctor exists, but there's no guarantee that a
-        # ctor added by the tweaker will have its name set correctly
-        ctors = [m for m in klass if isinstance(m, extractors.MethodDef) and
-                                        m.isCtor]
-        if len(ctors) == 0:
+    def initClassItems(self, klass):
+        ctor = klass.findItem(klass.name)
+        if ctor is None:
             # If the class doesn't have a ctor specified, we need to add a
             # default ctor
             ctor = extractors.MethodDef(
@@ -446,545 +470,552 @@ class CffiModuleGenerator(object):
                 isCtor=True
             )
             klass.addItem(ctor)
+
+        if klass.hasSubClass:
+            # While we init the class's items, we'll build a list of the
+            # virtual and protected methods' declarations to place in the
+            # subclass's body
+            klass.virtualMethods = []
+            klass.protectedMethods = []
+
+        # Move all Py*Def items into a seperate list
+        pydefTypes = (extractors.PyMethodDef, extractors.PyPropertyDef,
+                      extractors.PyCodeDef)
+        klass.pyItems = categorize(klass.items, pydefTypes)[0]
+
+        dispatchItems(self.dispatchClassItemInit, klass.items, parent=klass)
+
+        if klass.hasSubClass:
+            klass.vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
+                                                     len(klass.virtualMethods))
+
+        for ic in klass.innerclasses:
+            self.initClassItems(ic)
+
+    def initFunction(self, func, overload=''):
+        assert not func.ignored
+
+        self.getTypeInfo(func)
+        self.createArgsStrings(func)
+
+        func.pyName = func.pyName or func.name
+        func.cName = FUNC_PREFIX + func.name + overload
+        func.retStmt = 'return ' if func.type.name != 'void' else ''
+        func.briefDoc = func.briefDoc if func.briefDoc is not None else ''
+
+        for i, f in enumerate(func.overloads):
+            self.initFunction(f, '_%d' % i)
+
+    def initMethod(self, method, parent, overload=''):
+        assert not method.ignored
+
+        if method.isCtor:
+            method.type = parent.unscopedName
+            method.pyName = '__init__'
+        if method.isDtor:
+            # We need a special case for the dtor since '~' isn't allowed in an
+            # function name
+            method.pyName = '__del__'
+            method.cName = METHOD_PREFIX + parent.cName + '_88_delete'
         else:
-            assert len(ctors) == 1
-            ctor = ctors[0]
+            method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, parent.cName,
+                                             method.name, overload)
+
+        method.pyName = method.pyName or method.name
+        method.retStmt = 'return ' if method.name != 'void' else ''
+        method.briefDoc = method.briefDoc if method.briefDoc is not None else ''
+
+        if method.isVirtual:
+            method.virtualIndex = len(parent.virtualMethods)
+            parent.virtualMethods.append(method)
+        if method.protection == 'protected':
+            parent.protectedMethods.append(method)
+
+        self.getTypeInfo(method)
+        self.createArgsStrings(method, parent)
+
+        for i, m in enumerate(method.overloads):
+            self.initMethod(m, parent, '_%d' % i)
+
+    def initCppMethod(self, method, parent=None):
+        assert not method.ignored
+
+        method.pyName = method.name
+        method.cppCode = (method.body, 'function')
+
+        # CppMethodDefs have no ParamDefs, just an arg string. Build the list
+        # of ParamDefs to make the CppMethodDef look more like a FunctionDef
+        method.items = self.disassembleArgsString(method.argsString)
+
+        if parent is None:
+            self.initFunction(method)
+        else:
+            self.initMethod(method, parent)
+
+    def initDefine(self, define):
+        assert not define.ignored
+        define.cName = DEFINE_PREFIX + define.name
+
+    def initEnum(self, enum, parent=None):
+        assert not enum.ignored
+        for val in enum.items:
+            assert not val.ignored
+        enum.cPrefix = ENUM_PREFIX + ('' if parent is None
+                                           else (parent.cName + '_88_'))
+        enum.cppPrefix = '' if parent is None else (parent.unscopedName + '::')
+
+    def initGlobalVar(self, var):
+        assert not var.ignored
+        self.getTypeInfo(var)
+        var.cName = GLOBAL_VAR_PREFIX + var.name
+
+    def initMemberVar(self, var, parent):
+        assert not var.ignored
+        self.getTypeInfo(var)
+        prefix = MEMBER_VAR_PREFIX + parent.cName
+        var.getName = prefix + "_88_get_" + var.name
+        var.setName = prefix + "_88_set_" + var.name
+        # TODO: Implement protected member vars. Currently, they are all
+        #       suppressed by the tweakers, so we can wait until that changes
+        #       to add them.
+
+
+    #------------------------------------------------------------------------#
+
+    def printClassCDefs(self, klass, pyfile):
+        if klass.hasSubClass and len(klass.virtualMethods) > 0:
+            pyfile.write(nci("""\
+            {0.vtableDef}
+            void {0.cName}_set_flag(void *, int);
+            void {0.cName}_set_flags(void *, char*);""".format(klass)))
+        dispatchItems(self.dispatchClassItemCDefs, klass.items, pyfile)
+
+        for ic in klass.innerclasses:
+            self.printClassCDefs(ic, pyfile)
+
+    def printFunctionCDef(self, func, pyfile):
+        print >> pyfile, "%s %s%s;" % (func.type.cdefType, func.cName,
+                                       func.cdefArgs)
+        for f in func.overloads:
+            self.printFunctionCDef(f, pyfile)
+
+    def printMethodCDef(self, method, pyfile):
+        self.printFunctionCDef(method, pyfile)
+
+    def printCppMethodCDef(self, method, pyfile):
+        self.printFunctionCDef(method, pyfile)
+
+    def printDefineCDef(self, define, pyfile):
+        print >> pyfile, "extern const int %s;" % define.cName
+
+    def printEnumCDef(self, enum, pyfile):
+        for val in enum:
+            print >> pyfile, "extern const int %s;" % (enum.cPrefix + val.name)
+
+    def printGlobalVarCDef(self, var, pyfile):
+        print >> pyfile, "extern %s %s;" % (var.type.cdefType, var.cName)
+
+    def printMemberVarCDef(self, var, pyfile):
+        print >> pyfile, "%s %s(void*);" % (var.type.cdefType, var.getName)
+        print >> pyfile, "void %s(void*, %s);" % (var.setName,
+                                                  var.type.cdefType)
+
+    #------------------------------------------------------------------------#
+
+    def printClassCppBody(self, klass, cppfile):
+        for ic in klass.innerclasses:
+            self.printClassCppBody(ic, cppfile)
+        if not klass.hasSubClass:
+            return
+
+        cppfile.write(nci("""\
+        class {0} : public {1}
+        {{
+        public:""".format(klass.cppClassName, klass.unscopedName)))
+
+        #ctors = [m for m in klass if getattr(m, 'isCtor', False)][0].all()
+        ctors = klass.findItem(klass.name).all()
+        # Signatures all Ctors
+        for ctor in ctors:
+            cppfile.write(nci("""\
+            {0.cppClassName}{1.cppArgs}
+                : {0.unscopedName}{1.cppCallArgs}
+            {{}};""".format(klass, ctor), 4))
 
         # Add a copy ctor that takes an instance of the original class
-        copyCtor = extractors.MethodDef(
-            name=klass.name,
-            argsString='(const %s &other)' % klass.unscopedName,
-            isCtor=True,
-            items=[extractors.ParamDef(type='const %s &' % klass.unscopedName, name='other')]
-        )
-        ctor.overloads.append(copyCtor)
-        ctors = ctor.all()
+        cppfile.write(nci("""\
+        {0.cppClassName}(const {0.name} &other)
+            : {0.unscopedName}(other)
+        {{}};""".format(klass), 4))
 
+
+        # Signatures for re-implemented virtual methods
+        if len(klass.virtualMethods) > 0:
+            cppfile.write(nci("""\
+            signed char vflags[%d];
+            //Reimplement every virtual method"""
+            % len(klass.virtualMethods), 4))
+        for vmeth in klass.virtualMethods:
+            if vmeth.isDtor:
+                print >> cppfile, "    virtual ~%s();" % klass.cppClassName
+                continue
+            print >> cppfile, ("    virtual {0.type.name} {0.name}{0.cppArgs};"
+                               .format(vmeth))
+
+        # Signatures for protected methods
+        if len(klass.protectedMethods) > 0:
+            print >> cppfile, '    //Reimplement every protected method'
+        for pmeth in klass.protectedMethods:
+            if pmeth.isCtor:
+                continue
+            print >> cppfile, ("    {0.type.name} unprotected_{0.name}"
+                               "{0.cppArgs};").format(pmeth)
+
+        print >> cppfile, "};"
+
+        if len(klass.virtualMethods) > 0:
+            cppfile.write(nci("""\
+            extern "C" {0}
+
+            extern "C" void {1}_set_flag({2} * self, int i)
+            {{
+                self->vflags[i] = 1;
+            }}
+
+            extern "C" void {1}_set_flags({2} * self, char * flags)
+            {{
+                memcpy(self->vflags, flags, sizeof(self->vflags));
+            }}""".format(klass.vtableDef, klass.cName, klass.cppClassName)))
+
+
+    def printClass(self, klass, pyfile, cppfile, parent=None, indent=0):
         pyBases = ', '.join([self.findItem(b).pyName for b in klass.bases])
         if pyBases == '':
             pyBases = 'wrapper_lib.CppWrapper'
-        klass.pyImpl.append(nci("""\
+        pyfile.write(nci("""\
         class %s(%s):
             __metaclass__ = wrapper_lib.WrapperType"""
         % (klass.pyName, pyBases), indent))
 
+        if klass.hasSubClass and len(klass.virtualMethods) > 0:
+            pyfile.write(nci("""\
+            _vtable = clib.{0}_vtable
 
-        dispatch = {
-            extractors.ClassDef         : self.processClass,
-            extractors.MemberVarDef     : self.processMemberVar,
-            extractors.PropertyDef      : self.processProperty,
-            extractors.PyPropertyDef    : self.processPyProperty,
-            extractors.MethodDef        : self.processMethod,
-            extractors.EnumDef          : self.processEnum,
-            extractors.CppMethodDef     : self.processCppMethod,
-            #extractors.CppMethodDef_sip : self.processCppMethod_sip,
-            extractors.PyMethodDef      : self.processPyMethod,
-            #extractors.PyCodeDef        : self.processPyCode,
-            #extractors.WigCode          : self.processWigCode,
-        }
+            def _set_vflag(self, i):
+                clib.{0}_set_flag(wrapper_lib.get_ptr(self), i)
 
-        klass.items.extend(klass.innerclasses)
-        for i, item in enumerate(klass):
-            item.klass = klass
-            if isinstance(item, (extractors.PyMethodDef,
-                                 extractors.PyCodeDef,
-                                 extractors.PyPropertyDef)):
-                self.pyItems.append(item)
-                klass.items[i] = extractors.BaseDef()
-            if not type(item) in dispatch:
-                continue
-            f = dispatch[type(item)]
-            f(item, indent + 4)
+            def _set_vflags(self, flags):
+                clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
+            """.format(klass.cName), indent + 4))
+
+        dispatchItems(self.dispatchClassItemPrint, klass.items, pyfile, cppfile,
+                 indent=indent + 4, parent=klass)
+
+        for ic in klass.innerclasses:
+            self.printClass(ic, pyfile, cppfile, indent=indent + 4,
+                            parent=klass)
 
 
-        if klass.hasSubClass:
-            self.classDefs.append(nci("""\
-            class {0} : public {1}
-            {{
-            public:""".format(klass.cppClassName, klass.unscopedName)))
-
-            # Process all Ctors
-            for ctor in ctors:
-                self.createArgsStrings(ctor)
-                self.classDefs.append(nci("""\
-                {0.cppClassName}{1.cppArgs}
-                 : {0.unscopedName}{1.cppCallArgs}
-                {{}};
-                """.format(klass, ctor), 4))
-
-            # Signatures for re-implemented virtual methods
-            if len(klass.virtualMethods) > 0:
-                self.classDefs.append(nci("""\
-                signed char vflags[%d];
-                //Reimplement every virtual method"""
-                % len(klass.virtualMethods), 4))
-            for vmeth in klass.virtualMethods:
-                    self.classDefs.append(vmeth)
-
-            # Signatures for
-            if len(klass.protectedMethods) > 0:
-                self.classDefs.append(nci("""\
-                    //Reimplement every protected method""", indent))
-            for pmeth in klass.protectedMethods:
-                self.classDefs.append(pmeth)
-
-            self.classDefs.append("};")
-
-            if len(klass.virtualMethods) > 0:
-                vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
-                                                        len(klass.virtualMethods))
-                self.cdefs.append(vtableDef)
-                self.cdefs.append('void %s_set_flag(void *, int);' %
-                                  (klass.cName))
-                self.cdefs.append('void %s_set_flags(void *, char*);' %
-                                   (klass.cName))
-                klass.cppImpl.append(nci("""\
-                extern "C" {0}
-
-                extern "C" void {1}_set_flag({2} * self, int i)
-                {{
-                    self->vflags[i] = 1;
-                }}
-
-                extern "C" void {1}_set_flags({2} * self, char * flags)
-                {{
-                    memcpy(self->vflags, flags, sizeof(self->vflags));
-                }}
-                """.format(vtableDef, klass.cName, klass.cppClassName)))
-
-                klass.pyImpl.append(nci("""\
-                _vtable = clib.{0}_vtable
-
-                def _set_vflag(self, i):
-                    clib.{0}_set_flag(wrapper_lib.get_ptr(self), i)
-
-                def _set_vflags(self, flags):
-                    clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
-                """.format(klass.cName), indent + 4))
-
-
-    def processFunction(self, func, indent, overload=''):
-        assert not func.ignored
-
-        func.pyImpl = []
-        func.cppImpl = []
-        self.getTypeInfo(func)
-        self.createArgsStrings(func)
-
-        if func.cppCode is not None and func.cppCode[1] == 'sip':
-            # Don't actually do anything if this function has sip-specfic
-            # custom code
-            return
-
-        func.cName = FUNC_PREFIX + func.name + overload
-        func.retStmt = 'return ' if func.type.name != 'void' else ''
-
+    def printFunction(self, func, pyfile, cppfile, isOverload=False):
         # Figure out the name of the C++ function that we want to call from our
         # extern C wrapper. By default it is the C++ function we're wrapping,
         # but if we have custom code, it needs to be the name of the wrapper
         # where we're putting the custom code.
         callName = func.name
         if func.cppCode is not None:
-            callName = self.createCppCodeWrapper(func)
+            callName, wrapperBody = self.createCppCodeWrapper(func)
+            cppfile.write(wrapperBody)
 
-        func.cdef = '%s %s%s;' % (func.type.cdefType, func.cName,
-                                  func.cdefArgs)
-        self.cdefs.append(func.cdef)
-
-        func.cppImpl.append(nci("""\
+        cppfile.write(nci("""\
         extern "C" {0.type.cType} {0.cName}{0.cArgs}
         {{
             {0.retStmt}{1}{0.cCallArgs};
         }}""".format(func, callName)))
 
+        docString = '    """\n' + nci(func.briefDoc, 4) + '    """'
         if func.hasOverloads():
-            func.pyImpl.append(nci("""\
+            isOverload = True
+            pyfile.write(nci("""\
             @wrapper_lib.StaticMultimethod
-            def %s():
-                pass
-            """ % func.pyName))
+            def %s():""" % func.pyName))
+            pyfile.write(nci(docString, 4))
 
-        if func.hasOverloads() or overload != '':
-            func.pyImpl.append("@%s.overload%s" % (func.pyName, func.overloadArgs))
-        func.pyImpl.append("def %s%s:" % (func.pyName, func.pyArgs))
+        if isOverload:
+            print >> pyfile, "@%s.overload%s" % (func.pyName,
+                                                 func.overloadArgs)
+        print >> pyfile, "def %s%s:" % (func.pyName, func.pyArgs)
+        if not isOverload:
+            print >> pyfile, docString
 
         if func.type.name == 'void':
-            func.pyImpl.append("    clib.%s%s" % (func.cName, func.pyCallArgs))
+            print >> pyfile, "    clib.%s%s" % (func.cName, func.pyCallArgs)
         else:
-            func.pyImpl.append("    ret_value = " + func.type.c2py("clib.%s%s"
-                               % (func.cName, func.pyCallArgs)))
-            func.pyImpl.append("    return ret_value")
+            print >> pyfile, "    ret_value = " + func.type.c2py("clib.%s%s"
+                               % (func.cName, func.pyCallArgs))
+            # TODO: handle annotations
+            print >> pyfile, "    return ret_value"
 
-        for i, f in enumerate(func.overloads):
-            self.processFunction(f, indent, '_%d' % i)
-            func.pyImpl.extend(f.pyImpl)
-            func.cppImpl.extend(f.cppImpl)
-        self.overloads = []
+        for f in func.overloads:
+            self.printFunction(f, pyfile, cppfile, True)
 
-    def processMethod(self, method, indent, overload=''):
-        assert not method.ignored
-        if method.hasOverloads():
-            # Move The bodies of the overloaded methods are outside of the
-            # class body and place them at the end of the module to ensure that
-            # every type they need has been defined already. Trying to sort
-            # classes so that every dependency has already been defined can't
-            # work because of methods like copy constructors which reference
-            # the class they are defined in.
-            method.klass.items[method.klass.items.index(method)] = extractors.BaseDef()
-            self.module.items.append(MethodDefOverload(method))
-            for i, m in enumerate(method.overloads):
-                m.klass = method.klass
-                m.overloadId = '_%d' % i
-                self.module.items.append(MethodDefOverload(m))
-            m.closeMM = True
-            self.processOverloadBase(method, indent)
-            method.overloadId = ''
-            method.overloads = []
-            return
 
-        method.pyImpl = []
-        method.cppImpl = []
-        if method.cppCode is not None and method.cppCode[1] == 'sip':
-            # Don't actually do anything if this method has sip-specfic
-            # custom code
-            return
-
-        # Even though this method may actually return a pointer to the
-        # subclass of the wrapped type, we'll use base class as the return type
-        # so the TypeInfo code can be simpler
-        if method.isCtor:
-            method.type = method.klass.type
-        method.pyName = '__init__' if method.isCtor else method.pyName
-
-        self.getTypeInfo(method)
-        self.createArgsStrings(method)
-
-        method.retStmt = 'return ' if method.type.name != 'void' else ''
-
-        if method.isDtor:
-            # We need a special case for the dtor since '~' isn't allowed in an
-            # function name
-            method.pyName = '__del__'
-            method.cName = METHOD_PREFIX + method.klass.cName + '_88_delete'
-        else:
-            method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, method.klass.cName,
-                                             method.name, overload)
-
+    def printMethod(self, method, pyfile, cppfile, indent, parent,
+                    isOverload=False):
+        # Write C++ implementation
         if method.isVirtual:
-            self.processVirtualMethod(method, indent, overload)
+            funcPtrName = '%s_%s_FUNCPTR' % (parent.cName, method.virtualIndex)
+            cbCall = ('(({0}){2.cName}_vtable[{1.virtualIndex}]){1.cbCallArgs}'
+                      .format(funcPtrName, method, parent))
 
-        callArgs = method.cCallArgs
+            if not method.isDtor:
+                sig = ("{0.type.name} {1.cppClassName}::{0.name}{0.cppArgs}"
+                        .format(method, parent))
+            else:
+                sig = "{0.cppClassName}::~{0.cppClassName}()".format(parent)
+
+            cppfile.write(nci("""\
+            extern "C" typedef {0.type.cType} (*{2}){0.cArgs};
+            {4}
+            {{
+                if(this->vflags[{0.virtualIndex}])
+                    {0.retStmt}{3};
+                else
+                    {0.retStmt}{1.unscopedName}::{0.name}{0.cppCallArgs};
+            }}"""
+            .format(method, parent, funcPtrName, method.type.c2cpp(cbCall),
+                    sig)))
+
         if method.cppCode is not None:
-            callName = self.createCppCodeWrapper(method)
-            callArgs = method.wrapperCallArgs
-        elif method.protection == 'protected':
+            callName, wrapperBody = self.createCppCodeWrapper(method)
+            print >> cppfile, wrapperBody
+            call = callName + method.wrapperCallArgs
+        elif method.protection == 'protected' and not method.isCtor:
             # We only need to do the special handling of a protected method if
-            # it has not custom code.
-            callName = self.processProtectedMethod(method, indent, overload)
+            # it has no custom code.
+            callName = PROTECTED_PREFIX + method.name
+            cppfile.write(nci("""\
+            {0.type.name} {1.cppClassName}::{2}{0.cppArgs}
+            {{
+                {0.retStmt}{1.unscopedName}::{0.name}{0.cppCallArgs};
+            }}""".format(method, parent, callName)))
+
+            call = "self->" + callName + method.cCallArgs
         elif method.isStatic:
-            callName = "%s::%s" % (method.klass.unscopedName, method.name)
+            call = ("{1.unscopedName}::{0.name}{0.cCallArgs}"
+                    .format(method, parent))
         elif method.isCtor:
-            callName = method.klass.cppClassName
+            call = parent.cppClassName + method.cCallArgs
         else:
             # Just in case, we'll always specify the original implementation,
             # for both regular and virtual methods
-            callName = "self->%s::%s" % (method.klass.unscopedName, method.name)
-
-        method.cdef = '%s %s%s;' % (method.type.cdefType, method.cName,
-                                      method.cdefArgs)
-        self.cdefs.append(method.cdef)
+            call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
+                    .format(method, parent))
 
         operation = 'return ' if method.type.name != 'void' else ''
-
-
-        method.cppImpl.append(nci("""\
-        extern "C" %s %s%s
-        {""" % (method.type.cdefType, method.cName, method.cArgs)))
         if method.isDtor:
-            method.cppImpl.append('    delete self;')
+            body = 'delete self;'
         else:
-            method.cppImpl.append('    ' + operation + method.type.cpp2c(callName +
-                                  callArgs) + ';')
-        method.cppImpl.append('}')
+            body = operation + method.type.cpp2c(call) + ';'
+        cppfile.write(nci("""\
+        extern "C" %s %s%s
+        {
+            %s
+        }""" % (method.type.cdefType, method.cName, method.cArgs, body)))
 
+        # Write Python implementation
+        if method.isVirtual:
+            call = '{0}.{1.pyName}{1.vtdCallArgs}'.format(
+                    parent.type.c2py('self'), method)
+            pyfile.write(nci("""\
+            @wrapper_lib.VirtualDispatcher({0.virtualIndex})
+            @ffi.callback('{0.type.cdefType}(*){0.cdefArgs}')
+            def _virtual__{0.virtualIndex}{0.vtdArgs}:
+                return {1}
+            """.format(method, method.type.py2c(call)), indent))
 
-        if method.isStatic and not method.hasOverloads() and overload == '':
+            pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" %
+                                     method.virtualIndex,
+                                     indent))
+
+        docString = '"""\n' + nci(method.briefDoc) + '"""'
+        if method.hasOverloads():
+            isOverload = True
+            mmType = '' if not method.isStatic else 'Static'
+            pyfile.write(nci("""\
+            @wrapper_lib.{1}Multimethod
+            def {0.pyName}():""".format(method, mmType), indent))
+            print >> pyfile, nci(docString, indent + 4)
+
+        if isOverload:
+            # TODO: uncomment the overload decorator
+            pyfile.write(nci("""\
+            #@{0.pyName}.overload{0.overloadArgs}
+            """.format(method, parent), indent))
+            docString = ''
+
+        if method.isStatic and not isOverload:
             # @staticmethod isn't needed if this is a multimethod because the
             # StaticMutlimethod decorator takes care of it
-            method.pyImpl.append(nci("@staticmethod", indent))
+            pyfile.write(nci("@staticmethod", indent))
+
         call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
         if method.isCtor:
-            method.pyImpl.append(nci("""\
-            def __init__{0.pyArgs}:
-                cpp_obj = {1}
+            pyfile.write(nci("def __init__%s:" % (method.pyArgs), indent))
+            print >> pyfile, nci(docString, indent + 4)
+            pyfile.write(nci("""\
+                cpp_obj = %s
                 wrapper_lib.CppWrapper.__init__(self, cpp_obj)
-            """.format(method, call), indent))
+            """ % call, indent + 4))
         else:
-            method.pyImpl.append(nci("""\
-            def {0.pyName}{0.pyArgs}:
-                return {1}
-            """.format(method, method.type.c2py(call)), indent))
+            pyfile.write(nci("def {0.pyName}{0.pyArgs}:".format(method), indent))
+            pyfile.write(nci(docString, indent + 4))
+            pyfile.write(nci("return %s" % method.type.c2py(call), indent + 4))
 
-    def processVirtualMethod(self, method, indent, overload=''):
-        if method.isDtor:
-            return
-        meth_def = "    virtual {0.type.name} {0.name}{0.cppArgs};".format(
-                    method)
-        method.klass.virtualMethods.append(meth_def)
-        index = len(method.klass.virtualMethods) - 1
-
-        funcPtrName = '%s_%s_FUNCPTR' % (method.klass.cName, index)
-        cbCall = '(({0}){1.klass.cName}_vtable[{2}]){1.cbCallArgs}'.format(
-                  funcPtrName, method, index)
-
-        method.cppImpl.append(nci("""\
-        extern "C" typedef {0.type.cType} (*{1}){0.cArgs};
-        {0.type.name} {0.klass.cppClassName}::{0.name}{0.cppArgs}
-        {{
-            if(this->vflags[{2}])
-                {0.retStmt}{3};
-            else
-                {0.retStmt}{0.klass.unscopedName}::{0.name}{0.cppCallArgs};
-        }}""".format(method, funcPtrName, index, method.type.c2cpp(cbCall))))
-
-        call = '{0}.{1.pyName}{1.vtdCallArgs}'.format(
-                method.klass.type.c2py('self'), method)
-        method.pyImpl.append(nci("""\
-        @wrapper_lib.VirtualDispatcher({0})
-        @ffi.callback('{1.type.cdefType}(*){1.cdefArgs}')
-        def _virtual__{0}{1.vtdArgs}:
-            return {2}
-        """.format(index, method, method.type.py2c(call)), indent))
-
-        method.pyImpl.append(nci("@wrapper_lib.VirtualMethod(%d)" %
-                                 (len(method.klass.virtualMethods) - 1),
-                                  indent))
-
-    def processProtectedMethod(self, method, indent, overload=''):
-        if method.isCtor:
-            # We don't need any special code for protected ctors; they're
-            # already exposed when we create a new ctor that call the old one
-            return method.klass.cppClassName
-        callName = PROTECTED_PREFIX + method.name
-        meth_def = "    {0.type.name} unprotected_{0.name}{0.cppArgs};".format(method)
-        method.klass.protectedMethods.append(meth_def)
-        method.cppImpl.append(nci("""\
-        {0.type.name} {0.klass.cppClassName}::{1}{0.cppArgs}
-        {{
-            {0.retStmt}{0.klass.unscopedName}::{0.name}{0.cppCallArgs};
-        }}""".format(method, callName)))
-
-        return "self->" + callName
+        for m in method.overloads:
+            self.printMethod(m, pyfile, cppfile, indent, parent, True)
 
 
-    def processCppMethod(self, method, indent):
-        assert not method.ignored
-        # Temporarily ignore methods if they are likely sip or CPython specific
-        if 'sip' in method.body or 'Py' in method.body:
-            return
-
-        method.pyName = method.name
-        method.cppCode = (method.body, 'function')
-
-        # CppMethodDefs have no ParamDefs, just an arg string. Build the list
-        # of ParamDefs to make the CppMethodDefs more lke FunctionDefs
-        method.items = self.disassembleArgsString(method.argsString)
-
-        # Some CppMethodDefs are not inside classes, but are global functions
-        # instead.
-        if getattr(method, 'klass', None) is not None:
-            self.processMethod(method, indent)
+    def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
+        if parent is None:
+            self.printFunction(func, pyfile, cppfile)
         else:
-            self.processFunction(method, indent)
+            self.printMethod(func, pyfile, cppfile, indent, parent)
 
-    def processOverloadBase(self, method, indent):
-        if method.isCtor:
-            method.pyName = '__init__'
-        mmType = '' if not method.isStatic else 'Static'
-        method.klass.pyImpl.append(nci("""\
-        @wrapper_lib.{1}Multimethod
-        def {0.pyName}():
-            #TODO: docstring here
-            pass
-        """.format(method, mmType), indent))
+    def printProperty(self, property, pyfile, cppfile, indent, parent):
+        pyfile.write(nci("{0.name} = property({0.getter}, {0.setter})"
+                         .format(property), indent))
 
-    def processMethodOverload(self, method, indent):
-        self.processMethod(method, indent, method.overloadId)
-        self.cppImpl = []
-        method.pyImpl = [nci("""\
-        @{0.klass.unscopedPyName}.{0.pyName}.overload{0.overloadArgs}
-        """.format(method), indent)] + method.pyImpl
 
-        if hasattr(method, 'closeMM'):
-            method.pyImpl.append(nci("""\
-            {0.klass.unscopedPyName}.{0.pyName}.finish()
-            """.format(method), indent))
+    def printDefine(self, define, pyfile, cppfile):
+        print >> pyfile, "%s = clib.%s" % (define.pyName, define.cName)
+        print >> cppfile, ("""extern "C" const int %s = %s;""" %
+                              (define.cName, define.name))
 
-    def processMemberVar(self, var, indent):
-        assert not var.ignored
-        var.pyImpl = []
-        var.cppImpl = []
-        self.getTypeInfo(var)
+    def printEnum(self, enum, pyfile, cppfile, indent=0, parent=None):
+        for val in enum.items:
+            cName = enum.cPrefix + val.name
+            cppName = enum.cppPrefix + val.name
+            print >> cppfile, ('extern "C" const int %s = %s;' % (cName, cppName))
+            print >> pyfile, (' ' * indent + '%s = clib.%s' % (val.name, cName))
 
-        # TODO: implement protected member vars. Currently, they are all
-        #       suppressed by the tweakers, so wehcan wait until that changes
-        #       to add them.
+    def printGlobalVar(self, var, pyfile, cppfile):
+        print >> cppfile, ('extern "C" {0.type.cType} {0.cName} = {1};'.
+                            format(var, var.type.cpp2c(var.name)))
+        print >> pyfile, var.pyName + ' = ' + var.type.c2py('clib.' + var.cName)
 
-        getName = MEMBER_VAR_PREFIX + var.klass.cName + "_88_get_" + var.name
-        self.cdefs.append("%s %s(void*);" % (var.type.cdefType, getName))
-        var.cppImpl.append(nci("""\
-        extern "C" {0.type.cType} {1}({0.klass.unscopedName} * self)
+    def printMemberVar(self, var, pyfile, cppfile, indent, parent):
+        cppfile.write(nci("""\
+        extern "C" {0.type.cType} {0.getName}({1.unscopedName} * self)
         {{
             return self->{0.name};
         }}
-        """.format(var, getName)))
 
-        setName = MEMBER_VAR_PREFIX + var.klass.cName + "_88_set_" + var.name
-        self.cdefs.append("void %s(void*, %s);" % (setName, var.type.cdefType))
-        var.cppImpl.append(nci("""\
-        extern "C" void {1}({0.klass.unscopedName} * self, {0.type.cType} value)
+        extern "C" void {0.setName}({1.unscopedName} * self, {0.type.cType} value)
         {{
             self->{0.name} = value;
         }}
-        """.format(var, setName)))
+        """.format(var, parent)))
 
-        var.pyImpl.append(nci("""\
+        pyfile.write(nci("""\
         {0.pyName} = property(
-            lambda self: clib.{1}(wrapper_lib.get_ptr(self)),
-            lambda self, value: clib.{2}(wrapper_lib.get_ptr(self), {3}))
-        """.format(var, getName, setName, var.type.py2c('value')), indent))
+            lambda self: clib.{0.getName}(wrapper_lib.get_ptr(self)),
+            lambda self, value: clib.{0.setName}(wrapper_lib.get_ptr(self), {1}))
+        """.format(var, var.type.py2c('value')), indent))
 
-    def processProperty(self, property, indent):
-        assert not property.ignored
-        property.pyImpl = []
-        property.pyImpl.append(nci("""\
-        {0.name} = property({0.getter}, {0.setter})
-        """.format(property), indent))
+    #------------------------------------------------------------------------#
 
-    def processPyProperty(self, property, indent):
-        assert not property.ignored
-        klass = getattr(property, 'klass', None)
-        if isinstance(klass, extractors.ClassDef):
-            property.pyImpl = [
-                nci("{0.klass.unscopedPyName}.{0.name} = "
-                    "property({0.klass.unscopedPyName}.{0.getter}, "
-                    "{0.klass.unscopedPyName}.{0.setter})".format(property))
-            ]
+    def printClassFinalization(self, klass, pyfile):
+        dispatchItems(self.dispatchClassItemFinalize, klass.items, pyfile, klass)
+        for ic in klass.items:
+            self.printClassFinalization(ic, pyfile)
+
+    def printFunctionFinalization(self, func, pyfile):
+        if not func.hasOverloads():
+            return
+
+    def printMethodFinalization(self, method, pyfile, parent):
+        if not method.hasOverloads():
+            return
+        #print >> pyfile, ("{1.unscopedPyName}.{0.pyName}.finish()"
+        #                   .format(method, parent))
+
+
+    def printCppMethodFinalization(self, method, pyfile, parent=None):
+        if parent is None:
+            self.printFunctionFinalization(method, pyfile)
         else:
-            assert isinstance(klass, extractors.PyClassDef)
-            self.processProperty(property, indent)
+            self.printMethodFinalization(method, pyfile, parent)
 
-    def processPyMethod(self, method, indent):
-        assert not method.ignored
+    #------------------------------------------------------------------------#
 
+    def printClassPyDefs(self, klass, pyfile):
+        dispatchItems(self.dispatchPrintClassPyDefs, klass.pyItems, pyfile,
+                      0, klass)
+
+        for ic in klass.innerclasses:
+            self.printClassPyDefs(ic, pyfile)
+
+    def printPyClass(self, klass, pyfile, indent):
+        if len(klass.bases) == 0:
+            klass.bases.append('object')
+        pyfile.write(nci('''\
+        class {0.name}({1}):
+            """'''.format(klass, ', '.join(klass.bases)), indent))
+        pyfile.write(nci(klass.briefDoc or '', indent + 4))
+        pyfile.write(nci('"""', indent + 4))
+
+        dispatchItems(self.dispatchPrintPyClassItems, klass.items, pyfile,
+                      indent + 4)
+
+
+    def printPyFunction(self, func, pyfile, indent):
+        pyfile.write(nci('''\
+            def {0.name}{0.argsString}:
+                """'''.format(func), indent))
+        pyfile.write(nci(func.briefDoc or '', indent + 4))
+        pyfile.write(nci('"""', indent + 4))
+        pyfile.write(nci(func.body, indent + 4))
+
+    def printPyCode(self, code, pyfile, indent):
+        pyfile.write(nci(code.code, indent))
+
+    def printPyProperty(self, property, pyfile, indent, parent=None):
+        if parent is not None:
+            isinstance(parent, extractors.ClassDef)
+            pyfile.write(nci(
+            "{1.unscopedPyName}.{0.name} = "
+            "property({1.unscopedPyName}.{0.getter}, "
+            "{1.unscopedPyName}.{0.setter})".format(property, parent)))
+        else:
+            self.printProperty(property, pyfile, None, indent, parent)
+
+    def printPyMethod(self, method, pyfile, indent, parent):
         escapedPyName = method.klass.unscopedPyName.replace('.', '__')
         methName = "_{1}_{0.name}".format(method, escapedPyName)
         assignName = methName
         if method.isStatic:
             assignName = "staticmethod(" + assignName + ")"
         if method.deprecated:
+            # XXX: this is wxPython specific, maybe it should be more general?
             assignName = "wx.deprecated(" + assignName + ")"
 
-        method.pyImpl = [
-            'def {1}{0.argsString}:'.format(method, methName),
-            '    """',
-            nci(method.briefDoc or '', 4),
-            '    """',
-            nci(method.body, 4),
-            nci("""\
-                {0.klass.unscopedPyName}.{0.name} = {1}
-                del {2}""".format(method, assignName, methName))
-        ]
+        pyfile.write(nci('''\
+        def {1}{0.argsString}:
+            """'''.format(method, methName)))
+        pyfile.write(nci(method.briefDoc or '', 4))
+        print >> pyfile, '    """'
+        pyfile.write(nci(method.body, 4))
+        pyfile.write(nci("""\
+        {0.klass.unscopedPyName}.{0.name} = {1}
+        del {2}""".format(method, assignName, methName)))
 
-    def processPyFunction(self, func, indent):
-        func.pyImpl = [
-            nci('''\
-                def {0.name}{0.argsString}:
-                    """'''.format(func), indent),
-            nci(func.briefDoc or '', indent + 4),
-            nci('"""', indent + 4),
-            nci(func.body, indent + 4)
-        ]
-
-    def processPyClass(self, klass, indent):
-        klass.pyImpl = []
-
-        if len(klass.bases) == 0:
-            klass.bases.append('object')
-        klass.pyImpl.append(nci('''\
-        class {0.name}({1}):
-            """
-            {0.briefDoc}
-            """'''.format(klass, ', '.join(klass.bases)), indent))
-
-        dispatch = {
-            extractors.PyFunctionDef    : self.processPyFunction,
-            extractors.PyPropertyDef    : self.processPyProperty,
-            extractors.PyCodeDef        : self.processPyCode,
-            extractors.PyClassDef       : self.processPyClass,
-        }
-
-        for item in klass:
-            if not type(item) in dispatch:
-                continue
-            item.klass = klass
-            f = dispatch[type(item)]
-            f(item, indent + 4)
-
-    def processPyCode(self, code, indent):
-        code.pyImpl = [nci(code.code, indent)]
-
-    def processDefine(self, define, indent):
-        assert not define.ignored
-        define.pyImpl = []
-        define.cppImpl = []
-
-        cName = DEFINE_PREFIX + define.name
-        # Let's assume that defines are always integers for now.
-        self.cdefs.append("extern const int %s;" % cName)
-        define.pyImpl.append("%s = clib.%s" %
-                             (define.pyName, cName))
-        define.cppImpl.append("""extern "C" const int %s = %s;""" %
-                              (cName, define.name))
-
-    def processGlobalVar(self, var, indent):
-        assert not var.ignored
-        var.pyImpl = []
-        var.cppImpl = []
-        self.getTypeInfo(var)
-
-        cName = GLOBAL_VAR_PREFIX + var.name
-        self.cdefs.append('extern %s %s;' % (var.type.cdefType, cName))
-        var.cppImpl.append('extern "C" {0.type.cType} {1} = {2};'.
-                            format(var, cName, var.type.cpp2c(var.name)))
-
-        var.pyImpl.append(var.pyName + ' = ' + var.type.c2py('clib.' + cName))
-
-    def processEnum(self, enum, indent):
-        assert not enum.ignored
-        enum.pyImpl = []
-        enum.cppImpl = []
-
-        cdefPrefix = ENUM_PREFIX
-        cppPrefix = ''
-        if hasattr(enum, 'klass'):
-            cdefPrefix += enum.klass.cName
-            cppPrefix = enum.klass.unscopedName + '::'
-
-        for val in enum.items:
-            cdefName = cdefPrefix + val.name
-            cppName = cppPrefix + val.name
-            self.cdefs.append("extern const int %s;" % cdefName)
-            enum.cppImpl.append('extern "C" const int %s = %s;' % (cdefName,
-                                                                   cppName))
-            enum.pyImpl.append(' ' * indent + '%s = clib.%s' % (val.name,
-                                                                cdefName))
+    #------------------------------------------------------------------------#
 
     def getTypeInfo(self, item):
         if isinstance(item.type, (str, types.NoneType)):
             item.type = TypeInfo.new(item.type, self.findItem)
 
-    def createArgsStrings(self, func):
+    def createArgsStrings(self, func, parent=None):
         """
         Functions need 5 or 7 different args strings:
             - `cArgs`: For the extern "C" function
@@ -1029,11 +1060,11 @@ class CffiModuleGenerator(object):
         func.cppCallArgs = []
         func.overloadArgs = []
 
-        if getattr(func, 'klass', None) is not None and not func.isStatic:
+        if parent is not None and not func.isStatic:
             func.pyArgs.append('self')
             if not func.isCtor:
                 func.pyCallArgs.append('wrapper_lib.get_ptr(self)')
-                func.cArgs.append('%s *self' % func.klass.cppClassName)
+                func.cArgs.append('%s *self' % parent.cppClassName)
                 func.cdefArgs.append('void *self')
                 func.cbCallArgs.append('this')
                 func.vtdArgs.append('self')
@@ -1070,11 +1101,11 @@ class CffiModuleGenerator(object):
             func.overloadArgs.append(overloadArg)
 
 
-        if getattr(func, 'klass', None) is not None and not func.isStatic:
+        if parent is not None and not func.isStatic:
             # We're generating a wrapper function that needs a `self` pointer
             # in its args string if this function has custom C++ code or is
             # protected and not static
-            func.wrapperArgs = ([func.klass.cppClassName + " *self"] +
+            func.wrapperArgs = ([parent.cppClassName + " *self"] +
                                 func.cppArgs)
             func.wrapperCallArgs = ['self'] + func.cppCallArgs
         else:
@@ -1105,7 +1136,6 @@ class CffiModuleGenerator(object):
         """
         # XXX This really doesn't need to be a method. Maybe make it a global
         #     function later?
-        # TODO: This may also be used for cppSignature when we get around it
         params = []
         args = argsString.rsplit(')')[0].strip('(').split(',')
         for arg in args:
@@ -1132,14 +1162,13 @@ class CffiModuleGenerator(object):
         function and not the types the extern "C" function uses.
         """
         wrapperName = func.cName + CPPCODE_WRAPPER_SUFIX
-        func.cppImpl.append(nci("""\
-        %s %s%s
-        {
-        """ % (func.type.name, wrapperName, func.wrapperArgs)))
-        func.cppImpl.append(func.cppCode[0])
-        func.cppImpl.append("}")
+        wrapperBody = nci("""\
+        {0.type.name} {1}{0.wrapperArgs}
+        {{
+        {2}
+        }}""".format(func, wrapperName, nci(func.cppCode[0], 4)))
 
-        return wrapperName
+        return (wrapperName, wrapperBody)
 
     def findItem(self, name):
         item = self.module.findItem(name)
