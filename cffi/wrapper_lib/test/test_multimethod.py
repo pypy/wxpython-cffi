@@ -134,18 +134,21 @@ class ClassWithMMs(object):
         numb = Number.mm_type.convert(numb)
         return (numb,)
 
-    outofbody = Multimethod(True)
+    delayed = Multimethod()
 
-@ClassWithMMs.outofbody.overload(i=int, n=int)
-def outofbody(self, i=9, n=10):
-    return i * n
+    @delayed.overload(i='int')
+    def delayed(self, i):
+        return i * 2
 
-@ClassWithMMs.outofbody.overload(i=int, n=float)
-def outofbody(self, i=9, n=10):
-    return i / n
+    @delayed.overload(i='SomeClass')
+    def delayed(self, i):
+        return i.i / 2
 
-del outofbody
-ClassWithMMs.outofbody.finish()
+class SomeClass(object):
+    def __init__(self, i):
+        self.i = i
+
+ClassWithMMs.delayed.finalize(globals())
 
 
 class TestMultimethods(object):
@@ -209,7 +212,7 @@ class TestMultimethods(object):
         assert mm_obj.usertypes([2, 4]) == (2, 4)
         assert mm_obj.usertypes(Seq(2, 4)) == (2, 4)
 
-    def test_outofbody(self):
+    def test_delayedtypes(self):
         mm_obj = ClassWithMMs()
-        assert mm_obj.outofbody(i=1, n=2) == 2
-        assert mm_obj.outofbody(i=11, n=.5) == 22
+        assert mm_obj.delayed(14) == 28
+        assert mm_obj.delayed(SomeClass(24)) == 12

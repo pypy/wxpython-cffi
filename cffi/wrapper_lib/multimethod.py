@@ -1,4 +1,5 @@
 import inspect
+import functools
 
 class MMTypeCheckMeta(type):
     def __instancecheck__(self, instance):
@@ -8,32 +9,36 @@ class MMTypeCheckMeta(type):
         return issubclass(cls, self.getclass())
 
 class Multimethod(object):
-    def __init__(self, outofbody_overloads=False):
-        self.overloads = []
-        if outofbody_overloads:
-            self.get = self.get_self
-        else:
-            self.get = self.get_partial
+    _skip_first = True
+    def __init__(self, func=None):
+        self._overloads = []
+        self._get = self._get_partial
+        if func is not None:
+            functools.update_wrapper(self, func)
 
     def overload(self, **kwargs):
         """
         Add a new overload to the multimethod.
         """
+        if any(isinstance(a, str) for a in kwargs.itervalues()):
+            self._get = self._get_self
         def closure(func):
-            self.overloads.append(Overload(func, True, kwargs))
+            self._overloads.append(Overload(func, self._skip_first, kwargs))
             return self
         return closure
 
-    def finish(self):
+    def finalize(self, scope):
         """
         Stop accepting overloads from outside the class body and instead return
         a partial when accessed.
         """
-        self.get = self.get_partial
+        self._get = self._get_partial
+        for overload in self._overloads:
+            overload.finalize(scope)
 
-    def resolve_overload(self, args, kwargs):
+    def _resolve_overload(self, args, kwargs):
         errmsgs = []
-        for overload in self.overloads:
+        for overload in self._overloads:
             match = overload.check_match(args, kwargs)
             if match is True:
                 return overload
@@ -43,34 +48,26 @@ class Multimethod(object):
                             errmsgs)
 
     def __call__(self, *args, **kwargs):
-        overload = self.resolve_overload(args, kwargs)
+        overload = self._resolve_overload(args, kwargs)
         return overload.func(*args, **kwargs)
 
-    def get_self(self, instance, owner):
+    def _get_self(self, instance, owner):
         return self
 
-    def get_partial(self, instance, owner):
-        return MultimethodPartial(self.resolve_overload, instance)
+    def _get_partial(self, instance, owner):
+        return MultimethodPartial(self._resolve_overload, instance)
 
     def __get__(self, instance, owner):
-        return self.get(instance, owner)
+        return self._get(instance, owner)
 
 class StaticMultimethod(Multimethod):
-    def get_partial(self, instance, owner):
+    _skip_first = False
+    def _get_partial(self, instance, owner):
         return self
 
-    def overload(self, **kwargs):
-        """
-        Add a new overload to the multimethod.
-        """
-        def closure(func):
-            self.overloads.append(Overload(func, False, kwargs))
-            return self
-        return closure
-
 class ClassMultimethod(Multimethod):
-    def get_partial(self, instance, owner):
-        return MultimethodPartial(self.resolve_overload, owner)
+    def _get_partial(self, instance, owner):
+        return MultimethodPartial(self._resolve_overload, owner)
 
 class MultimethodPartial(object):
     def __init__(self, resolve, instance):
@@ -149,3 +146,10 @@ class Overload(object):
             return "some required arguments are missing"
 
         return True
+
+    def finalize(self, scope):
+        for arg_name, arg_type in self.kwargs.iteritems():
+            if isinstance(arg_type, str):
+                self.kwargs[arg_name] = eval(arg_type, scope)
+        self.args = [(name, self.kwargs[name]) for name, type in self.args]
+
