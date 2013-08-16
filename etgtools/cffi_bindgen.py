@@ -38,6 +38,8 @@ BASIC_CTYPES = {
     'float': 'float',
     'double': 'float',
     'char': 'str',
+    'char*': 'str',
+    'char *': 'str',
     'bool': 'bool',
     'void': None,
 }
@@ -256,10 +258,6 @@ class CffiModuleGenerator(object):
         }
         self.dispatchFinalize = {
             extractors.FunctionDef      : self.printFunctionFinalization,
-            extractors.CppMethodDef     : self.printCppMethodFinalization,
-        }
-        self.dispatchClassItemFinalize = {
-            extractors.MethodDef     : self.printMethodFinalization,
             extractors.CppMethodDef     : self.printCppMethodFinalization,
         }
         self.dispatchPrintPyDefs = {
@@ -567,11 +565,13 @@ class CffiModuleGenerator(object):
     def initGlobalVar(self, var):
         assert not var.ignored
         self.getTypeInfo(var)
+        var.pyName = var.pyName or var.name
         var.cName = GLOBAL_VAR_PREFIX + var.name
 
     def initMemberVar(self, var, parent):
         assert not var.ignored
         self.getTypeInfo(var)
+        var.pyName = var.pyName or var.name
         prefix = MEMBER_VAR_PREFIX + parent.cName
         var.getName = prefix + "_88_get_" + var.name
         var.setName = prefix + "_88_set_" + var.name
@@ -849,7 +849,7 @@ class CffiModuleGenerator(object):
         if isOverload:
             # TODO: uncomment the overload decorator
             pyfile.write(nci("""\
-            #@{0.pyName}.overload{0.overloadArgs}
+            @{0.pyName}.overload{0.overloadArgs}
             """.format(method, parent), indent))
             docString = ''
 
@@ -925,26 +925,21 @@ class CffiModuleGenerator(object):
     #------------------------------------------------------------------------#
 
     def printClassFinalization(self, klass, pyfile):
-        dispatchItems(self.dispatchClassItemFinalize, klass.items, pyfile, klass)
-        for ic in klass.items:
+        print >> pyfile, ('wrapper_lib.eval_class_attrs(%s)' %
+                          klass.unscopedPyName)
+        for ic in klass.innerclasses:
             self.printClassFinalization(ic, pyfile)
 
     def printFunctionFinalization(self, func, pyfile):
-        if not func.hasOverloads():
-            return
-
-    def printMethodFinalization(self, method, pyfile, parent):
-        if not method.hasOverloads():
-            return
-        #print >> pyfile, ("{1.unscopedPyName}.{0.pyName}.finish()"
-        #                   .format(method, parent))
-
+        if func.hasOverloads():
+            print >> pyfile, "%s.finalize()" % func.pyName
+        elif any(p.default != '' for p in func.items):
+            print >> pyfile, ("wrapper_lib.eval_func_defaults(%s)" %
+                               func.pyName)
 
     def printCppMethodFinalization(self, method, pyfile, parent=None):
         if parent is None:
             self.printFunctionFinalization(method, pyfile)
-        else:
-            self.printMethodFinalization(method, pyfile, parent)
 
     #------------------------------------------------------------------------#
 
@@ -1081,12 +1076,19 @@ class CffiModuleGenerator(object):
             cppArg = "%s %s" % (param.type.name, param.name)
             cppCallArg = "%s" % param.name
 
-            pyArg = "%s%s%s" % (param.name, '=' if param.default else '',
-                                defValueMap.get(param.default, param.default))
+            pyArg = param.name
+            if param.default != '':
+                pyArg += '=' + defValueMap.get(param.default,
+                               'wrapper_lib.LD("%s")' % param.default)
+
             pyCallArg = param.type.py2c(param.name)
             vtdArg = param.name
             vtdCallArg = param.type.c2py(param.name)
-            overloadArg = param.name + '=' + param.type.overloadType
+
+            if param.type.typedef is None:
+                overloadArg = param.name + '=' + param.type.overloadType
+            else:
+                overloadArg = param.name + "='" + param.type.overloadType + "'"
 
             func.cArgs.append(cArg)
             func.cdefArgs.append(cdefArg)

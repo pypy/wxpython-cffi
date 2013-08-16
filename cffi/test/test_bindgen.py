@@ -46,6 +46,11 @@ class TestBindGen(object):
             name='global_func_with_args', pyName='global_func_with_args',
             items=[ParamDef(type='int', name='i'),
                    ParamDef(type='double', name='j')]))
+        module.addItem(FunctionDef(
+            type='int', argsString='(const char *s)',
+            name='global_func_with_default', pyName='global_func_with_default',
+            items=[ParamDef(type='const char *', name='s',
+                           default='other_global_str')]))
         f = FunctionDef(
             type='double', argsString='()',
             name='custom_code_global_func', pyName='custom_code_global_func')
@@ -64,6 +69,7 @@ class TestBindGen(object):
 
         module.addPyFunction('global_pyfunc', '()', 'return "42"')
 
+        module.addGlobalStr("other_global_str")
 
         c = ClassDef(name='SimpleClass')
         c.addItem(MethodDef(
@@ -324,6 +330,10 @@ class TestBindGen(object):
         assert self.mod.global_func_with_args(10, 2.0) == 20
         assert self.mod.global_func_with_args(12, .25) == 3
         assert self.mod.global_func_with_args(14, .25) == (14 * .25)
+
+    def test_global_func_with_default(self):
+        assert self.mod.global_func_with_default() == 5
+        assert self.mod.global_func_with_default('test') == 4
 
     def test_custom_code_func(self):
         assert self.mod.custom_code_global_func() == 1

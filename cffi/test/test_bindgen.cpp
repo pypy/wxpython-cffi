@@ -1,7 +1,9 @@
 #include <ctype.h>
+#include <cstring>
 #include "test_bindgen.h"
 
 const char *global_str = "string";
+const char *other_global_str = "other";
 CtorsClass global_wrapped_obj(13);
 
 int simple_global_func()
@@ -12,6 +14,11 @@ int simple_global_func()
 float global_func_with_args(int i, double j)
 {
     return i * j;
+}
+
+int global_func_with_default(const char *str)
+{
+    return strlen(str);
 }
 
 double custom_code_global_func()

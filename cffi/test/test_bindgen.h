@@ -1,9 +1,11 @@
 #define prefixedSOME_INT 15
 
 extern const char *global_str;
+extern const char *other_global_str;
 
 int simple_global_func();
 float global_func_with_args(int i, double j);
+int global_func_with_default(const char *str);
 double custom_code_global_func();
 
 int overloaded_func();
