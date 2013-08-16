@@ -1,7 +1,8 @@
 import pytest
 
 from wrapper_lib import (
-    Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta)
+    Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta, LD,
+    eval_class_attrs)
 
 class Seq(object):
     def __init__(self, x, y):
@@ -144,11 +145,17 @@ class ClassWithMMs(object):
     def delayed(self, i):
         return i.i / 2
 
+    @delayed.overload(f=float)
+    def delayed(self, f=LD('some_float')):
+        return f / 3
+
 class SomeClass(object):
     def __init__(self, i):
         self.i = i
 
-ClassWithMMs.delayed.finalize(globals())
+some_float = 9.9
+
+eval_class_attrs(ClassWithMMs)
 
 
 class TestMultimethods(object):
@@ -216,3 +223,5 @@ class TestMultimethods(object):
         mm_obj = ClassWithMMs()
         assert mm_obj.delayed(14) == 28
         assert mm_obj.delayed(SomeClass(24)) == 12
+        assert mm_obj.delayed(3.0) == 1.0
+        assert mm_obj.delayed() == some_float / 3

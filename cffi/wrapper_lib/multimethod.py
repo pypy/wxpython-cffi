@@ -1,6 +1,8 @@
 import inspect
 import functools
 
+from lazy_defaults import eval_func_defaults
+
 class MMTypeCheckMeta(type):
     def __instancecheck__(self, instance):
         return self.__instancecheck__(instance)
@@ -27,14 +29,14 @@ class Multimethod(object):
             return self
         return closure
 
-    def finalize(self, scope):
+    def finalize(self):
         """
         Stop accepting overloads from outside the class body and instead return
         a partial when accessed.
         """
         self._get = self._get_partial
         for overload in self._overloads:
-            overload.finalize(scope)
+            overload.finalize()
 
     def _resolve_overload(self, args, kwargs):
         errmsgs = []
@@ -147,9 +149,11 @@ class Overload(object):
 
         return True
 
-    def finalize(self, scope):
+    def finalize(self):
+        scope = self.func.func_globals
         for arg_name, arg_type in self.kwargs.iteritems():
             if isinstance(arg_type, str):
                 self.kwargs[arg_name] = eval(arg_type, scope)
         self.args = [(name, self.kwargs[name]) for name, type in self.args]
 
+        eval_func_defaults(self.func)
