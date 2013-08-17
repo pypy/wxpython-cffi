@@ -738,20 +738,20 @@ class CffiModuleGenerator(object):
             {0.retStmt}{1}{0.cCallArgs};
         }}""".format(func, callName)))
 
-        docString = '    """\n' + nci(func.briefDoc, 4) + '    """'
         if func.hasOverloads():
             isOverload = True
             pyfile.write(nci("""\
             @wrapper_lib.StaticMultimethod
             def %s():""" % func.pyName))
-            pyfile.write(nci(docString, 4))
+            self.printDocString(func, pyfile)
+            print >> pyfile, ' ' * 4 + 'pass'
 
         if isOverload:
             print >> pyfile, "@%s.overload%s" % (func.pyName,
                                                  func.overloadArgs)
         print >> pyfile, "def %s%s:" % (func.pyName, func.pyArgs)
         if not isOverload:
-            print >> pyfile, docString
+            self.printDocString(func, pyfile)
 
         if func.type.name == 'void':
             print >> pyfile, "    clib.%s%s" % (func.cName, func.pyCallArgs)
@@ -844,21 +844,19 @@ class CffiModuleGenerator(object):
                                      method.virtualIndex,
                                      indent))
 
-        docString = '"""\n' + nci(method.briefDoc) + '"""'
         if method.hasOverloads():
             isOverload = True
             mmType = '' if not method.isStatic else 'Static'
             pyfile.write(nci("""\
             @wrapper_lib.{1}Multimethod
             def {0.pyName}():""".format(method, mmType), indent))
-            print >> pyfile, nci(docString, indent + 4)
+            self.printDocString(method, pyfile, indent)
+            print >> pyfile, ' ' * (indent + 4) + 'pass'
 
         if isOverload:
-            # TODO: uncomment the overload decorator
             pyfile.write(nci("""\
             @{0.pyName}.overload{0.overloadArgs}
             """.format(method, parent), indent))
-            docString = ''
 
         if method.isStatic and not isOverload:
             # @staticmethod isn't needed if this is a multimethod because the
@@ -868,14 +866,16 @@ class CffiModuleGenerator(object):
         call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
         if method.isCtor:
             pyfile.write(nci("def __init__%s:" % (method.pyArgs), indent))
-            print >> pyfile, nci(docString, indent + 4)
+            if not isOverload:
+                self.printDocString(method, pyfile, indent)
             pyfile.write(nci("""\
-                cpp_obj = %s
-                wrapper_lib.CppWrapper.__init__(self, cpp_obj)
+            cpp_obj = %s
+            wrapper_lib.CppWrapper.__init__(self, cpp_obj)
             """ % call, indent + 4))
         else:
             pyfile.write(nci("def {0.pyName}{0.pyArgs}:".format(method), indent))
-            pyfile.write(nci(docString, indent + 4))
+            if not isOverload:
+                self.printDocString(method, pyfile, indent)
             pyfile.write(nci("return %s" % method.type.c2py(call), indent + 4))
 
         for m in method.overloads:
@@ -960,22 +960,17 @@ class CffiModuleGenerator(object):
     def printPyClass(self, klass, pyfile, indent):
         if len(klass.bases) == 0:
             klass.bases.append('object')
-        pyfile.write(nci('''\
-        class {0.name}({1}):
-            """'''.format(klass, ', '.join(klass.bases)), indent))
-        pyfile.write(nci(klass.briefDoc or '', indent + 4))
-        pyfile.write(nci('"""', indent + 4))
+        bases = ', '.join(klass.bases)
+        pyfile.write(nci("class %s(%s):" % (klass.name, bases), indent))
+        self.printDocString(klass, pyfile, indent)
 
         dispatchItems(self.dispatchPrintPyClassItems, klass.items, pyfile,
                       indent + 4)
 
 
     def printPyFunction(self, func, pyfile, indent):
-        pyfile.write(nci('''\
-            def {0.name}{0.argsString}:
-                """'''.format(func), indent))
-        pyfile.write(nci(func.briefDoc or '', indent + 4))
-        pyfile.write(nci('"""', indent + 4))
+        pyfile.write(nci('def {0.name}{0.argsString}:'.format(func), indent))
+        self.printDocString(func, indent)
         pyfile.write(nci(func.body, indent + 4))
 
     def printPyCode(self, code, pyfile, indent):
@@ -1001,11 +996,8 @@ class CffiModuleGenerator(object):
             # XXX: this is wxPython specific, maybe it should be more general?
             assignName = "wx.deprecated(" + assignName + ")"
 
-        pyfile.write(nci('''\
-        def {1}{0.argsString}:
-            """'''.format(method, methName)))
-        pyfile.write(nci(method.briefDoc or '', 4))
-        print >> pyfile, '    """'
+        print >> pyfile, 'def %s%s:' % (methName, method.argsString)
+        self.printDocString(method, pyfile)
         pyfile.write(nci(method.body, 4))
         pyfile.write(nci("""\
         {0.klass.unscopedPyName}.{0.name} = {1}
@@ -1135,6 +1127,14 @@ class CffiModuleGenerator(object):
         func.wrapperCallArgs = '(' + ', '.join(func.wrapperCallArgs) + ')'
         func.overloadArgs = '(' + ', '.join(func.overloadArgs) + ')'
 
+    def printDocString(self, item, pyfile, indent=0):
+        if item.briefDoc == '' or item.briefDoc is None:
+            return
+
+        quote = ' ' * (indent + 4) + '"""'
+        print >> pyfile, quote
+        pyfile.write(nci(item.briefDoc, indent + 4))
+        print >> pyfile, quote
 
     def disassembleArgsString(self, argsString):
         """
