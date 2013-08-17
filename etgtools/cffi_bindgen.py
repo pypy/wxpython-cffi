@@ -9,6 +9,7 @@ import cStringIO
 import etgtools.extractors as extractors
 import etgtools.generators as generators
 from etgtools.generators import nci, Utf8EncodingStream, textfile_open, wrapText
+from etgtools.tweaker_tools import magicMethods
 
 from buildtools.config import Config
 cfg = Config(noWxConfig=True)
@@ -515,6 +516,11 @@ class CffiModuleGenerator(object):
             # function name
             method.pyName = '__del__'
             method.cName = METHOD_PREFIX + parent.cName + '_88_delete'
+        elif method.name in magicMethods:
+            method.pyName = magicMethods[method.name]
+            method.cName = ('%s%s_88_operator%s%s' %
+                            (METHOD_PREFIX, parent.cName,
+                             method.pyName.strip('_'), overload))
         else:
             method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, parent.cName,
                                              method.name, overload)
@@ -804,7 +810,8 @@ class CffiModuleGenerator(object):
             call = ("{1.unscopedName}::{0.name}{0.cCallArgs}"
                     .format(method, parent))
         elif method.isCtor:
-            call = parent.cppClassName + method.cCallArgs
+            # method.type.cpp2c will add the ClassName() part, so use the args
+            call = method.cCallArgs[1:-1]
         else:
             # Just in case, we'll always specify the original implementation,
             # for both regular and virtual methods

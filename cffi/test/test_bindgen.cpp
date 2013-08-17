@@ -175,3 +175,17 @@ int NestedClassArgDependant::get(const NestedClassesOuter::NestedClassesInner &i
 {
     return i.m_i;
 }
+
+OperatorsClass& OperatorsClass::operator+=(const OperatorsClass &rhs)
+{
+    x += rhs.x;
+    y += rhs.y;
+    return *this;
+}
+
+OperatorsClass& OperatorsClass::operator-=(const OperatorsClass &rhs)
+{
+    x -= rhs.x;
+    y -= rhs.y;
+    return *this;
+}

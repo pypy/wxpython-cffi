@@ -269,6 +269,24 @@ class TestBindGen(object):
         ic.addAutoProperties()
         module.addItem(c)
 
+        c = ClassDef(name='OperatorsClass')
+        c.addItem(MethodDef(
+            type='', argsString='(int x, int y)',
+            name='OperatorsClass', isCtor=True, items=[
+                ParamDef(type='int', name='x'),
+                ParamDef(type='int', name='y')]))
+        c.addItem(MethodDef(
+            type='OperatorsClass &', argsString='(const OperatorsClass &rhs)',
+            name='operator+=', items=[
+                ParamDef(type='const OperatorsClass &', name='rhs')]))
+        c.addItem(MethodDef(
+            type='OperatorsClass &', argsString='(const OperatorsClass &rhs)',
+            name='operator-=', items=[
+                ParamDef(type='const OperatorsClass &', name='rhs')]))
+        c.addItem(MemberVarDef(name='x', type='int'))
+        c.addItem(MemberVarDef(name='y', type='int'))
+        module.addItem(c)
+
         c = ClassDef(name='ClassWithEnum')
         c.addItem(EnumDef(name='BOOLEAN', items=[
             EnumValueDef(name='BOOL_TRUE'),
@@ -524,3 +542,13 @@ class TestBindGen(object):
     def test_nested_enum(self):
         assert self.mod.ClassWithEnum.BOOL_TRUE == -10
         assert self.mod.ClassWithEnum.BOOL_FALSE == -20
+
+    def test_operators(self):
+        obj = self.mod.OperatorsClass(10, 10)
+        obj += self.mod.OperatorsClass(2, 1)
+        assert obj.x == 12
+        assert obj.y == 11
+
+        obj -= self.mod.OperatorsClass(20, 3)
+        assert obj.x == -8
+        assert obj.y == 8
