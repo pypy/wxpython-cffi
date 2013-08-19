@@ -177,4 +177,7 @@ public:
     char onReturn(char c) { return c; };
     char onParameter(char c) { return c; };
     char onBoth(char c) { return c; };
+
+    char overloaded() { return 'c'; }
+    char overloaded(char c) { return c; }
 };

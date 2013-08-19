@@ -151,7 +151,7 @@ class TypeInfo(object):
         self.deref = self.cType[-1] == '*' and self.isPtr
 
         if self.isCBasic:
-            if 'char' not in self.cType:
+            if 'char' not in self.cType or self.pyInt:
                 # All of the c basics that not strings are numbers
                 self.overloadType = 'numbers.Number'
             else:

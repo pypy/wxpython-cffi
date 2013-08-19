@@ -306,6 +306,13 @@ class TestBindGen(object):
         c.addItem(MethodDef(
             type='char', argsString='(char c)', name='onBoth', pyInt=True,
             items=[ParamDef(type='char', name='c', pyInt=True)]))
+        c.addItem(MethodDef(
+            type='char', argsString='()', name='overloaded', pyInt=True,
+            overloads=[
+                MethodDef(
+                    type='char', argsString='(char c)', name='overloaded',
+                    pyInt=True,
+                    items=[ParamDef(type='char', name='c', pyInt=True)])]))
         module.addItem(c)
 
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
@@ -574,3 +581,6 @@ class TestBindGen(object):
         assert obj.onReturn('c') == ord('c')
         assert obj.onParameter(10) == chr(10)
         assert obj.onBoth(10) == 10
+
+        assert obj.overloaded() == ord('c')
+        assert obj.overloaded(11) == 11
