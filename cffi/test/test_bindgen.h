@@ -169,3 +169,12 @@ public:
     OperatorsClass& operator+=(const OperatorsClass &rhs);
     OperatorsClass& operator-=(const OperatorsClass &rhs);
 };
+
+class PyIntClass
+{
+public:
+    char noPyInt(char c) { return c; };
+    char onReturn(char c) { return c; };
+    char onParameter(char c) { return c; };
+    char onBoth(char c) { return c; };
+};

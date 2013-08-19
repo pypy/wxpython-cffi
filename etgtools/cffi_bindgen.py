@@ -41,6 +41,8 @@ BASIC_CTYPES = {
     'char': 'str',
     'char*': 'str',
     'char *': 'str',
+    'signed char': 'int',
+    'unsigned char': 'int',
     'bool': 'bool',
     'void': None,
 }
@@ -68,13 +70,14 @@ def dispatchItems(methodMap, items, *args, **kwargs):
 
 class TypeInfo(object):
     _cache = {}
-    def __init__(self, typeName, findItem):
+    def __init__(self, typeName, findItem, pyInt=False):
         if typeName == '' or typeName is None:
             typeName = 'void'
         self.name = typeName
         self.isRef = False
         self.isPtr = False
         self.isConst = 'const ' in typeName
+        self.pyInt = pyInt
 
         # Loop until we find either a typedef that isn't a TypedefDef or we
         # find that their isn't any typedef for this type
@@ -127,6 +130,16 @@ class TypeInfo(object):
             self.cdefType = 'int'
         elif isinstance(typedef, extractors.ClassDef):
             self.cdefType = 'void'
+        elif self.pyInt:
+            assert typeName in ('char', 'signed char', 'unsigned char')
+            self.cdefType = 'signed char'
+        elif typeName == 'unsigned char':
+            # For compatibility, we want to treat all char types like strings,
+            # which is different from cffi's default behavior for (un)signed
+            # chars.
+            self.cdefType = typeName.replace('unsigned char', 'char')
+        elif typeName == 'signed char':
+            self.cdefType = typeName.replace('signed char', 'char')
         else:
             self.cdefType = typeName
         if self.isRef or self.isPtr or isinstance(self.typedef,
@@ -147,12 +160,13 @@ class TypeInfo(object):
             self.overloadType = self.typedef.unscopedPyName
 
     @classmethod
-    def new(cls, typeName, findItem):
-        if typeName not in cls._cache:
-            typeInfo = TypeInfo(typeName, findItem)
+    def new(cls, typeName, findItem, **kwargs):
+        key = (typeName, frozenset(kwargs.items()))
+        if key not in cls._cache:
+            typeInfo = TypeInfo(typeName, findItem, **kwargs)
             cls._cache[typeName] = typeInfo
             return typeInfo
-        return cls._cache[typeName]
+        return cls._cache[key]
 
     @classmethod
     def clearCache(cls):
@@ -1007,7 +1021,8 @@ class CffiModuleGenerator(object):
 
     def getTypeInfo(self, item):
         if isinstance(item.type, (str, types.NoneType)):
-            item.type = TypeInfo.new(item.type, self.findItem)
+            item.type = TypeInfo.new(item.type, self.findItem,
+                                     pyInt=getattr(item, 'pyInt', False))
 
     def createArgsStrings(self, func, parent=None):
         """

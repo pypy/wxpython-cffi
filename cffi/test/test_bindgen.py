@@ -293,6 +293,21 @@ class TestBindGen(object):
             EnumValueDef(name='BOOL_FALSE')]))
         module.addItem(c)
 
+        c = ClassDef(name='PyIntClass')
+        c.addItem(MethodDef(
+            type='char', argsString='(char c)', name='noPyInt',
+            items=[ParamDef(type='char', name='c')]))
+        c.addItem(MethodDef(
+            type='char', argsString='(char c)', name='onReturn', pyInt=True,
+            items=[ParamDef(type='char', name='c')]))
+        c.addItem(MethodDef(
+            type='char', argsString='(char c)', name='onParameter',
+            items=[ParamDef(type='char', name='c', pyInt=True)]))
+        c.addItem(MethodDef(
+            type='char', argsString='(char c)', name='onBoth', pyInt=True,
+            items=[ParamDef(type='char', name='c', pyInt=True)]))
+        module.addItem(c)
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -552,3 +567,10 @@ class TestBindGen(object):
         obj -= self.mod.OperatorsClass(20, 3)
         assert obj.x == -8
         assert obj.y == 8
+
+    def test_pyint(self):
+        obj = self.mod.PyIntClass()
+        assert obj.noPyInt('c') == 'c'
+        assert obj.onReturn('c') == ord('c')
+        assert obj.onParameter(10) == chr(10)
+        assert obj.onBoth(10) == 10
