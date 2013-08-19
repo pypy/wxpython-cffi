@@ -181,3 +181,13 @@ public:
     char overloaded() { return 'c'; }
     char overloaded(char c) { return c; }
 };
+
+class ArrayClass
+{
+public:
+    ArrayClass() : m_i(0) {}
+    ArrayClass(int i) : m_i(i) {}
+    int m_i;
+
+    static int sum(ArrayClass *objs, int len);
+};

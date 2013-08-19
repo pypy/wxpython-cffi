@@ -189,3 +189,12 @@ OperatorsClass& OperatorsClass::operator-=(const OperatorsClass &rhs)
     y -= rhs.y;
     return *this;
 }
+
+int ArrayClass::sum(ArrayClass *objs, int len)
+{
+    int total = 0;
+    for(int i = 0; i < len; i++)
+        total += objs[i].m_i;
+
+    return total;
+}

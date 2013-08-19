@@ -70,7 +70,8 @@ def dispatchItems(methodMap, items, *args, **kwargs):
 
 class TypeInfo(object):
     _cache = {}
-    def __init__(self, typeName, findItem, pyInt=False):
+    def __init__(self, typeName, findItem, pyInt=False, array=False,
+                 arraySize=False):
         if typeName == '' or typeName is None:
             typeName = 'void'
         self.name = typeName
@@ -78,6 +79,8 @@ class TypeInfo(object):
         self.isPtr = False
         self.isConst = 'const ' in typeName
         self.pyInt = pyInt
+        self.array = array
+        self.arraySize = arraySize
 
         # Loop until we find either a typedef that isn't a TypedefDef or we
         # find that their isn't any typedef for this type
@@ -206,6 +209,10 @@ class TypeInfo(object):
         raise Exception()
 
     def py2c(self, varName):
+        if self.array:
+            return varName
+        elif self.arraySize:
+            return '_array_size_'
         if isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.get_ptr(%s)' % varName
         elif self.isCBasic:
@@ -471,10 +478,15 @@ class CffiModuleGenerator(object):
                     item.type = pattern.sub(replace, item.type)
             self.initClass(innerclass)
 
+        ctor = klass.findItem(klass.name)
+        klass.hasDefaultCtor = (ctor is None or
+                                any(len(m.items) == 0 for m in ctor.all()))
+
 
     def initClassItems(self, klass):
         ctor = klass.findItem(klass.name)
         if ctor is None:
+            assert klass.hasDefaultCtor
             # If the class doesn't have a ctor specified, we need to add a
             # default ctor
             ctor = extractors.MethodDef(
@@ -608,6 +620,13 @@ class CffiModuleGenerator(object):
             {0.vtableDef}
             void {0.cName}_set_flag(void *, int);
             void {0.cName}_set_flags(void *, char*);""".format(klass)))
+        if klass.hasDefaultCtor:
+            # These functions are used to support the Array annotation, which
+            # is only supported if the class has a default ctor.
+            pyfile.write(nci("""\
+            void {0.cName}_assign(void *, int, void *);
+            void * {0.cName}_new_array(int);
+            void {0.cName}_delete_array(void *);""".format(klass)))
         dispatchItems(self.dispatchClassItemCDefs, klass.items, pyfile)
 
         for ic in klass.innerclasses:
@@ -707,7 +726,6 @@ class CffiModuleGenerator(object):
                 memcpy(self->vflags, flags, sizeof(self->vflags));
             }}""".format(klass.vtableDef, klass.cName, klass.cppClassName)))
 
-
     def printClass(self, klass, pyfile, cppfile, parent=None, indent=0):
         pyBases = ', '.join([self.findItem(b).pyName for b in klass.bases])
         if pyBases == '':
@@ -730,6 +748,28 @@ class CffiModuleGenerator(object):
 
         dispatchItems(self.dispatchClassItemPrint, klass.items, pyfile, cppfile,
                  indent=indent + 4, parent=klass)
+
+
+        if klass.hasDefaultCtor:
+            # These functions are used to support the Array annotation, which
+            # is only supported if the class has a default ctor.
+            cppfile.write(nci("""\
+            extern "C" void {0.cName}_assign({0.cppClassName} *dst, int index,
+                                            {0.cppClassName} *src)
+            {{
+                dst[index] = *src;
+            }}
+
+            extern "C" void * {0.cName}_new_array(int count)
+            {{
+                return new {0.cppClassName}[count];
+            }}
+
+            extern "C" void {0.cName}_delete_array({0.cppClassName} *a)
+            {{
+                delete a;
+            }}
+            """.format(klass)))
 
         for ic in klass.innerclasses:
             self.printClass(ic, pyfile, cppfile, indent=indent + 4,
@@ -877,19 +917,20 @@ class CffiModuleGenerator(object):
             # StaticMutlimethod decorator takes care of it
             pyfile.write(nci("@staticmethod", indent))
 
+        pyfile.write(nci("def {0.pyName}{0.pyArgs}:".format(method), indent))
+        if not isOverload:
+            self.printDocString(method, pyfile, indent)
+
+        for p in method.items:
+            self.printParam(p, method, pyfile, indent + 4)
+
         call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
         if method.isCtor:
-            pyfile.write(nci("def __init__%s:" % (method.pyArgs), indent))
-            if not isOverload:
-                self.printDocString(method, pyfile, indent)
             pyfile.write(nci("""\
             cpp_obj = %s
             wrapper_lib.CppWrapper.__init__(self, cpp_obj)
             """ % call, indent + 4))
         else:
-            pyfile.write(nci("def {0.pyName}{0.pyArgs}:".format(method), indent))
-            if not isOverload:
-                self.printDocString(method, pyfile, indent)
             pyfile.write(nci("return %s" % method.type.c2py(call), indent + 4))
 
         for m in method.overloads:
@@ -942,6 +983,13 @@ class CffiModuleGenerator(object):
             lambda self: clib.{0.getName}(wrapper_lib.get_ptr(self)),
             lambda self, value: clib.{0.setName}(wrapper_lib.get_ptr(self), {1}))
         """.format(var, var.type.py2c('value')), indent))
+
+    def printParam(self, param, parent, pyfile, indent):
+        if param.array:
+            pyfile.write(nci(
+                "{0.name}, _array_size_ = wrapper_lib.annotations."
+                "array({0.name}, clib.{1}_new_array, clib.{1}_assign)"
+                .format(param, param.type.typedef.name), indent))
 
     #------------------------------------------------------------------------#
 
@@ -1021,8 +1069,11 @@ class CffiModuleGenerator(object):
 
     def getTypeInfo(self, item):
         if isinstance(item.type, (str, types.NoneType)):
-            item.type = TypeInfo.new(item.type, self.findItem,
-                                     pyInt=getattr(item, 'pyInt', False))
+            item.type = TypeInfo.new(
+                item.type, self.findItem,
+                pyInt=getattr(item, 'pyInt', False),
+                array=getattr(item, 'array', False),
+                arraySize=getattr(item, 'arraySize', False))
 
     def createArgsStrings(self, func, parent=None):
         """
@@ -1099,7 +1150,9 @@ class CffiModuleGenerator(object):
             vtdArg = param.name
             vtdCallArg = param.type.c2py(param.name)
 
-            if param.type.typedef is None:
+            if param.array:
+                overloadArg = param.name + '=' + 'collections.Sequence'
+            elif param.type.typedef is None:
                 overloadArg = param.name + '=' + param.type.overloadType
             else:
                 overloadArg = param.name + "='" + param.type.overloadType + "'"
@@ -1110,11 +1163,15 @@ class CffiModuleGenerator(object):
             func.cbCallArgs.append(cbCallArg)
             func.cppArgs.append(cppArg)
             func.cppCallArgs.append(cppCallArg)
-            func.pyArgs.append(pyArg)
+            #func.pyArgs.append(pyArg)
             func.pyCallArgs.append(pyCallArg)
             func.vtdArgs.append(vtdArg)
             func.vtdCallArgs.append(vtdCallArg)
-            func.overloadArgs.append(overloadArg)
+            #func.overloadArgs.append(overloadArg)
+
+            if not param.arraySize:
+                func.pyArgs.append(pyArg)
+                func.overloadArgs.append(overloadArg)
 
 
         if parent is not None and not func.isStatic:

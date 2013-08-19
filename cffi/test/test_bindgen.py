@@ -315,6 +315,19 @@ class TestBindGen(object):
                     items=[ParamDef(type='char', name='c', pyInt=True)])]))
         module.addItem(c)
 
+        c = ClassDef(name='ArrayClass')
+        c.addItem(MethodDef(
+            name='ArrayClass', argsString='()', isCtor=True, overloads=[
+                MethodDef(name='ArrayClass', argsString='(int i)', isCtor=True,
+                         items=[ParamDef(type='int', name='i')])]))
+        c.addItem(MethodDef(
+            type='int', argsString='(ArrayClass *objs, int len)',
+            name='sum', isStatic=True,
+            items=[ParamDef(type='ArrayClass *', name='objs', array=True),
+                   ParamDef(type='int', name='len', arraySize=True)]))
+        c.addItem(MemberVarDef(type='int', name='m_i'))
+        module.addItem(c)
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -584,3 +597,9 @@ class TestBindGen(object):
 
         assert obj.overloaded() == ord('c')
         assert obj.overloaded(11) == 11
+
+    def test_array(self):
+        AC = self.mod.ArrayClass
+
+        objs = [AC(1), AC(2), AC(3)]
+        assert AC.sum(objs) == 6

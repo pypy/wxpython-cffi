@@ -4,6 +4,7 @@ from cppwrapper import (
 from multimethod import (
     Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta)
 from lazy_defaults import LD, eval_func_defaults
+import annotations
 
 def eval_class_attrs(cls):
     for attr in cls.__dict__.itervalues():
