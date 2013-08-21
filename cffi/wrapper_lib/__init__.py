@@ -1,6 +1,7 @@
 from cppwrapper import (
     CppWrapper, WrapperType, VirtualMethod, VirtualDispatcher, obj_from_ptr,
     get_ptr, forget_ptr, take_ownership, give_ownership)
+from mapped_type import MappedBase, create_mapped_type_seq
 from multimethod import (
     Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta)
 from lazy_defaults import LD, eval_func_defaults
