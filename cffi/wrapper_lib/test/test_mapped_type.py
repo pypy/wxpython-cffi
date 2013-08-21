@@ -31,8 +31,8 @@ class StringMappedType(wrapper_lib.MappedBase):
         clib.free(obj)
         return string
 
-StringMappedTypeSeq = wrapper_lib.create_mapped_type_seq(
-    StringMappedType, "char *", ffi)
+StringMappedTypeSeq = wrapper_lib.create_array_type(
+    StringMappedType, ctype="char *")
 
 def string_len(s):
     assert isinstance(s, StringMappedType)
@@ -40,8 +40,8 @@ def string_len(s):
 
 def total_string_len(s):
     assert isinstance(s, StringMappedTypeSeq)
-    s, s_keepalive = StringMappedTypeSeq.py2c(s)
-    return clib.cffifunc_total_string_len(s, len(s))
+    s, _array_length_, s_keepalive = StringMappedTypeSeq.py2c(s)
+    return clib.cffifunc_total_string_len(s, _array_length_)
 
 global_string = StringMappedType.c2py(clib.cffigvar_global_string)
 

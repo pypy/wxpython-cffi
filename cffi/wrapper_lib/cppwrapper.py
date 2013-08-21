@@ -299,3 +299,19 @@ def _attach_to_parent(obj, parent):
 
     obj._next_sibling = parent._child
     parent._child = obj
+
+
+class MappedType(type):
+    def __new__(cls, name, bases, attrs):
+        if len(bases) == 1 and (bases[0] == object or bases[0] == MappedBase):
+            return super(MappedType, cls).__new__(cls, name, bases, attrs)
+        raise TypeError('mapped types may not be subclassed.')
+
+    def __instancecheck__(self, instance):
+        return self.__instancecheck__(instance)
+
+class MappedBase(object):
+    __metaclass__ = MappedType
+
+    def __init__(self, *args, **kwargs):
+        raise TypeError('mapped types may not be instantiated.')
