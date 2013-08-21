@@ -37,8 +37,9 @@ class MappedTypeSeq(object):
     def py2c(self, seq):
         def test(cdata):
             print ffi.string(cdata)
-        keepalive = [self._cls.py2c(obj) for obj in seq]
-        array = ffi.new(self._array_ctype, keepalive)
+        for obj in seq:
+            keepalive = [self._cls.py2c(obj) for obj in seq]
+        array = ffi.new(self._array_ctype, [i[0] for i in keepalive])
         return array, len(seq), keepalive
 
     @classmethod

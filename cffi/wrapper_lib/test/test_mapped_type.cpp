@@ -4,7 +4,7 @@
 
 using std::string;
 
-string* cffimtype_string_c2cpp(char *c_obj)
+extern "C" string* cffimtype_string_c2cpp(char *c_obj)
 {
     return new string(c_obj);
 }
@@ -30,6 +30,26 @@ int total_string_len(string *strs, int len)
     for(int i = 0; i < len; i++)
         total += strs[i].size();
     return total;
+}
+
+extern "C" string * (*get_string_fake_virtual_ptr)();
+string string_len_fake_virtual()
+{
+    string *virtual_res = get_string_fake_virtual_ptr();
+    string tmp(*virtual_res);
+    delete virtual_res;
+    return tmp;
+}
+
+int string_len_cb()
+{
+    return string_len_fake_virtual().size();
+}
+
+
+extern "C" int cffifunc_string_len_cb()
+{
+    return string_len_cb();
 }
 
 extern "C" int cffifunc_string_len(char *s)
