@@ -14,6 +14,10 @@ from etgtools.extractors import (
     CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef,
     PyClassDef, PyCodeDef, EnumDef, EnumValueDef, MappedTypeDef_cffi)
 
+from buildtools.config import Config
+cfg = Config(noWxConfig=True).ROOT_DIR
+INCLUDES_DIR = os.path.join(cfg, 'cffi', 'include')
+
 class TestBindGen(object):
     @classmethod
     def setup_class(cls):
@@ -401,7 +405,7 @@ class TestBindGen(object):
 
         test_dir = os.path.dirname(__file__)
         sources = [str(cpp_path), os.path.join(test_dir, 'test_bindgen.cpp')]
-        include_dirs = [test_dir]
+        include_dirs = [test_dir, INCLUDES_DIR]
         tmpdir = str(cls.tmpdir)
 
         with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file:

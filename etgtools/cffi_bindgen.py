@@ -244,7 +244,7 @@ class TypeInfo(object):
                 self.convertedType, varName, self.typedef.arrayFunc)
         elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
             return '{0} {1}_converted = {2}({1});'.format(  
-                        self.convertedType, varName, self.typedef.c2cppFunc)
+                self.convertedType, varName, self.typedef.c2cppFunc)
         return None
 
     def c2cppCleanup(self, varName):
@@ -285,7 +285,7 @@ class TypeInfo(object):
             return nci("""\
             {0}, {0}s_keepalive = {1}.py2c({0})
             {0} = clib.{2}({0})
-            """.format(varName, self.typedef.pyName, self.typedef.c2cppFunc))
+            """.format(varName, self.typedef.pyName, self.typedef.c2cppPyFunc))
         elif isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.get_ptr(%s)' % varName
         # TODO: handle array annotation
@@ -414,6 +414,7 @@ class CffiModuleGenerator(object):
     def writeFiles(self, pyfile, cppfile, verify_args=''):
         # Write the C++ preamble
         print >> cppfile, "#include <cstring>"
+        print >> cppfile, "#include <wrapper_lib.h>"
         for attr in ('headerCode', 'cppCode', 'initializerCode',
                      'preInitializerCode', 'postInitializerCode'):
             for line in getattr(self.module, attr):
@@ -536,7 +537,7 @@ class CffiModuleGenerator(object):
 
         klass.briefDoc = klass.briefDoc if klass.briefDoc is not None else ''
 
-        klass.arrayFunc = "%s_new_array" % klass.cName
+        klass.arrayFunc = "cfficonvert_wrappedtype_c2cpp_array"
         klass.type = klass.unscopedName
         self.getTypeInfo(klass)
 
@@ -611,11 +612,17 @@ class CffiModuleGenerator(object):
         mType.unscopedName = mType.name
         mType.unscopedPyName = mType.name
 
-        mType.arrayFunc = '%s_new_array' % mType.name
+        templateClass = "cfficonvert_mappedtype<%s, %s>::" % (mType.name,
+                                                              mType.cType)
+
+        mType.arrayFunc = templateClass + 'c2cpp_array'
         mType.py2cFunc = '%s_py2c' % mType.name
-        mType.c2cppFunc = '%s_c2cpp' % mType.name
-        mType.cpp2cFunc = '%s_cpp2c' % mType.name
+        mType.cpp2cFunc = templateClass + 'cpp2c'
         mType.c2pyFunc = '%s_c2py' % mType.name
+
+        # Because c2cpp must be called from Python, we need two versions of it
+        mType.c2cppPyFunc = '%s_c2cpp' % mType.name
+        mType.c2cppFunc = templateClass + 'c2cpp'
 
     def initFunction(self, func, overload=''):
         assert not func.ignored
@@ -753,25 +760,13 @@ class CffiModuleGenerator(object):
                                                   var.type.cdefType)
 
     def printMappedTypeCDef(self, mType, pyfile):
-        print >> pyfile, "void * %s(void *);" % mType.c2cppFunc
+        print >> pyfile, "void * %s(void *);" % mType.c2cppPyFunc
 
     #------------------------------------------------------------------------#
 
     def printClassCppBody(self, klass, cppfile):
         for ic in klass.innerclasses:
             self.printClassCppBody(ic, cppfile)
-
-        if klass.hasDefaultCtor:
-            # This functions is used to support the Array annotation
-            cppfile.write(nci("""\
-            {0.unscopedName} * {0.arrayFunc}({0.unscopedName} **objs, int count)
-            {{
-                {0.unscopedName} * array = new {0.unscopedName}[count];
-                for(int i = 0; i < count; i++)
-                    array[i] = *objs[i];
-                return array;
-            }}
-            """.format(klass)))
 
         if not klass.hasSubClass:
             return
@@ -1145,31 +1140,23 @@ class CffiModuleGenerator(object):
 
     def printMappedType(self, mType, pyfile, cppfile, indent):
         cppfile.write(nci("""\
-        {0.cType} {0.cpp2cFunc}({0.name} * cpp_obj)
+        template<>
+        {0.cType} cfficonvert_mappedtype<{0.name}, {0.cType}>::
+            cpp2c({0.name} *cpp_obj)
         {{
 {1}
         }}
 
-        {0.cType} {0.cpp2cFunc}({0.name} &cpp_obj)
-        {{
-            return {0.cpp2cFunc}(&cpp_obj);
-        }}
-
-        extern "C" {0.name} * {0.c2cppFunc}({0.cType} cdata)
+        template<>
+        {0.name} * cfficonvert_mappedtype<{0.name}, {0.cType}>::
+            c2cpp({0.cType} cdata)
         {{
 {2}
         }}
 
-        {0.name} * {0.arrayFunc}({0.cType} * cdata, int count)
+        extern "C" {0.name} * {0.c2cppPyFunc}({0.cType} cdata)
         {{
-            {0.name} * array = new {0.name}[count];
-            for(int i = 0; i < count; i++)
-            {{
-                {0.name} *tmp = {0.c2cppFunc}(cdata[i]);
-                array[i] = *tmp;
-                delete tmp;
-            }}
-            return array;
+            return {0.c2cppFunc}(cdata);
         }}
         """.format(mType, nci(mType.cpp2c, 12), nci(mType.c2cpp, 12))))
 
