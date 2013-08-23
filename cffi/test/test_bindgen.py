@@ -8,10 +8,11 @@ import pytest
 # modules
 sys.path.append("../..")
 from etgtools import extractors, cffi_bindgen
+from etgtools.generators import nci
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
     CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef,
-    PyClassDef, PyCodeDef, EnumDef, EnumValueDef)
+    PyClassDef, PyCodeDef, EnumDef, EnumValueDef, MappedTypeDef_cffi)
 
 class TestBindGen(object):
     @classmethod
@@ -328,6 +329,52 @@ class TestBindGen(object):
         c.addItem(MemberVarDef(type='int', name='m_i'))
         module.addItem(c)
 
+        module.addItem(MappedTypeDef_cffi(
+            name='string', cType='char *',
+            headerCode=["#include <string>\nusing std::string;"],
+            py2c="return (ffi.new('char[]', py_obj), None)",
+            c2py="""
+            ret = ffi.string(cdata)
+            clib.free(cdata)
+            return ret
+            """,
+            c2cpp="return new string(cdata);",
+            cpp2c="""\
+            char *cdata = (char*)malloc(cpp_obj->length());
+            strcpy(cdata, cpp_obj->c_str());
+            return cdata;""",
+            instancecheck='return isinstance(obj, (str, unicode))',))
+
+        module.addItem(FunctionDef(
+            type='int', argsString='(string *str)', name='std_string_len',
+            items=[ParamDef(name='str', type='string *')],
+            overloads=[FunctionDef(
+            type='int', argsString='(string *str), int len',
+            name='std_string_len', items=[
+                ParamDef(name='str', type='string *', array=True),
+                ParamDef(name='len', type='int', arraySize=True)])]))
+
+        c = ClassDef(name='MappedTypeClass')
+        c.addItem(MethodDef(
+            type='string', argsString='()', name='get_name', isVirtual=True))
+        c.addItem(MethodDef(
+            type='string', argsString='()', name='call_get_name'))
+        '''
+        c.addItem(MethodDef(
+            type='string', argsString='(string *s, int len)',
+            name='concat', isVirtual=True, items=[
+                ParamDef(type='string *', name='s', array=True),
+                ParamDef(type='int', name='len', arraySize=True)]))
+        c.addItem(MethodDef(
+            type='string', argsString='(string *s, int len)',
+            name='call_concat', items=[
+                ParamDef(type='string *', name='s', array=True),
+                ParamDef(type='int', name='len', arraySize=True)]))
+        '''
+        c.addItem(MemberVarDef(
+            type='string', name='m_name'))
+        module.addItem(c)
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -603,3 +650,20 @@ class TestBindGen(object):
 
         objs = [AC(1), AC(2), AC(3)]
         assert AC.sum(objs) == 6
+
+    def test_mappedtype(self):
+        assert self.mod.std_string_len("Test") == 4
+        assert self.mod.std_string_len(["Test", "Two"]) == 7
+
+        obj = self.mod.MappedTypeClass()
+        obj.m_name = "name"
+        assert obj.m_name == "name"
+        assert obj.m_name == obj.get_name()
+        assert obj.m_name == obj.call_get_name()
+
+        class MappedTypeSubclass(self.mod.MappedTypeClass):
+            def get_name(self):
+                return "new name"
+
+        obj = MappedTypeSubclass()
+        assert obj.call_get_name() == 'new name'

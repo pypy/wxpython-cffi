@@ -1203,6 +1203,22 @@ class WigCode(BaseDef):
 
 #---------------------------------------------------------------------------
 
+class MappedTypeDef_cffi(BaseDef):
+    def __init__(self, name, **kw):
+        super(MappedTypeDef_cffi, self).__init__()
+        self.name = name
+        self.headerCode = []
+        self.py2c = None
+        self.c2cpp = None
+        self.cpp2c = None
+        self.c2py = None
+        self.cType = None
+        self.instancecheck = None
+        self.__dict__.update(kw)
+
+
+#---------------------------------------------------------------------------
+
 class PyCodeDef(BaseDef):
     """
     This code held by this class will be written to a Python module

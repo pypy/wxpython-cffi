@@ -1,4 +1,4 @@
-from cppwrapper import CppWrapper, MappedBase, ffi, get_ptr
+from cppwrapper import CppWrapper, MappedBase, ffi, get_ptr, obj_from_ptr
 import collections
 
 #----------------------------------------------------------------------------#
@@ -20,15 +20,15 @@ class CppWrapperSeq(object):
     @classmethod
     def py2c(self, seq):
         seq_len = len(seq)
-        array = self._array_func(seq_len)
+        array = ffi.new('void*[]', seq_len)
         for i in range(seq_len):
-            assign_func(array, i, get_ptr(seq[i]))
+            array[i] = get_ptr(seq[i])
 
-        return array, array_len, None
+        return array, seq_len, array
 
     @classmethod
     def c2py(self, array, len):
-        raise NotImplementedError()
+        return [obj_from_ptr(array[i], cls) for i in range(len)]
 
 class MappedTypeSeq(object):
     __metaclass__ = SeqType
@@ -48,7 +48,7 @@ class MappedTypeSeq(object):
 
 seq_type_cache = {}
 
-def create_array_type(cls, ctype=None, array_func=None, assign_func=None):
+def create_array_type(cls, ctype=None):
     if cls in seq_type_cache:
         return seq_type_cache[cls]
 
@@ -62,7 +62,5 @@ def create_array_type(cls, ctype=None, array_func=None, assign_func=None):
     elif issubclass(cls, CppWrapper):
         class Seq(CppWrapperSeq):
             _cls = cls
-            _array_func = array_func
-            _assign_func = assign_func
         seq_type_cache[cls] = Seq
         return Seq

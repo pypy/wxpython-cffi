@@ -27,6 +27,7 @@ DEFINE_PREFIX = "cffidefine_"
 MEMBER_VAR_PREFIX = "cffimvar_"
 GLOBAL_VAR_PREFIX = "cffigvar_"
 ENUM_PREFIX = "cffienum_"
+CONVERT_PREFIX = "cfficonvert_"
 CPPCODE_WRAPPER_SUFIX = "_cppwrapper"
 
 # C basic types -> Python conversion functions
@@ -96,6 +97,7 @@ class TypeInfo(object):
                 break
 
         if not isinstance(typedef, (extractors.EnumDef, extractors.ClassDef,
+                                    extractors.MappedTypeDef_cffi,
                                     types.NoneType)):
             raise Exception("Unexpected typedef '%s' found for type '%s'" %
                             (str(type(typedef)), self.name))
@@ -131,6 +133,8 @@ class TypeInfo(object):
         # but must also treat all pointers to wrapped classes as `void *`
         if isinstance(typedef, extractors.EnumDef) or typeName == 'bool':
             self.cdefType = 'int'
+        elif isinstance(typedef, extractors.MappedTypeDef_cffi):
+            self.cType = self.cdefType = self.typedef.cType
         elif isinstance(typedef, extractors.ClassDef):
             self.cdefType = 'void'
         elif self.pyInt:
@@ -145,9 +149,14 @@ class TypeInfo(object):
             self.cdefType = typeName.replace('signed char', 'char')
         else:
             self.cdefType = typeName
-        if self.isRef or self.isPtr or isinstance(self.typedef,
-                                                  extractors.ClassDef):
+
+        if ((self.isRef or self.isPtr or
+             isinstance(self.typedef, extractors.ClassDef)) and
+            not isinstance(self.typedef, extractors.MappedTypeDef_cffi)):
             self.cdefType += ' *'
+
+        if self.array:
+            self.cType += ' *'
 
         # We need to dereference the pointer if our c type is a pointer but the
         # the type original type is not
@@ -159,8 +168,18 @@ class TypeInfo(object):
                 self.overloadType = 'numbers.Number'
             else:
                 self.overloadType = '(str, unicode)'
+            self.convertedType = self.cType
         else:
-            self.overloadType = self.typedef.unscopedPyName
+            if self.array:
+                if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+                    cTypeArg = ', ctype="' + self.cType + '"'
+                else:
+                    cTypeArg = ''
+                self.overloadType = ("wrapper_lib.create_array_type(%s%s)" %
+                                     (self.typedef.unscopedPyName, cTypeArg))
+            else:
+                self.overloadType = self.typedef.unscopedPyName
+            self.convertedType = self.typedef.name + ' *'
 
     @classmethod
     def new(cls, typeName, findItem, **kwargs):
@@ -186,6 +205,8 @@ class TypeInfo(object):
                 return '&' + varName
             else:
                 return "new %s(%s)" % (self.typedef.cppClassName, varName)
+        elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            return '%s(%s)' % (self.typedef.cpp2cFunc, varName)
         elif self.isCBasic:
             # C basic types don't need anything special
             return varName
@@ -195,29 +216,80 @@ class TypeInfo(object):
         if isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.obj_from_ptr(%s, %s)' % (varName,
                                                          self.typedef.unscopedPyName)
+        elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            return '%s.c2py(%s)' % (self.typedef.name, varName)
         elif self.isCBasic:
             if 'char *' in self.name or 'char*' in self.name:
                 return "ffi.string(%s)" % varName
             return varName
         raise Exception()
 
-    def c2cpp(self, varName):
-        if isinstance(self.typedef, extractors.ClassDef):
+    def c2cppParam(self, varName):
+        if (self.array or
+            isinstance(self.typedef, extractors.MappedTypeDef_cffi)):
+            varName += '_converted'
+
+        if self.array:
+            return varName
+        elif isinstance(self.typedef, (extractors.ClassDef,
+                                       extractors.MappedTypeDef_cffi)):
             return ('*' if not self.deref else '') + varName
         elif self.isCBasic:
             return varName
         raise Exception()
 
-    def py2c(self, varName):
+    def c2cppConversion(self, varName):
+        if self.array:
+            return "{0} {1}_converted = {2}({1}, array_length_);".format(
+                self.convertedType, varName, self.typedef.arrayFunc)
+        elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            return '{0} {1}_converted = {2}({1});'.format(  
+                        self.convertedType, varName, self.typedef.c2cppFunc)
+        return None
+
+    def c2cppCleanup(self, varName):
+        if self.array:
+            return 'delete[] %s_converted;' % varName
+        if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            return 'delete %s_converted;' % varName
+        return None
+
+    def py2cParam(self, varName):
         if self.array:
             return varName
         elif self.arraySize:
-            return '_array_size_'
-        if isinstance(self.typedef, extractors.ClassDef):
+            return 'array_size_'
+        elif isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.get_ptr(%s)' % varName
+        elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            return varName
         elif self.isCBasic:
             return "%s(%s)" % (BASIC_CTYPES[self.cdefType], varName)
         raise Exception()
+
+    def py2cConversion(self, varName, inplace=False):
+        if self.array:
+            assert not inplace
+            return ("{0}, array_size_, {0}_keepalive = "
+                    "wrapper_lib.create_array_type({1}, ctype='{2}').py2c({0})"
+                    .format(varName, self.typedef.pyName, self.cType))
+        if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            if inplace:
+                return "{1}.py2c({0})[0]".format(varName, self.typedef.pyName)
+            return ("{0}, {0}s_keepalive = {1}.py2c({0})"
+                    .format(varName, self.typedef.pyName))
+        return None
+
+    def py2cReturn(self, varName):
+        if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            return nci("""\
+            {0}, {0}s_keepalive = {1}.py2c({0})
+            {0} = clib.{2}({0})
+            """.format(varName, self.typedef.pyName, self.typedef.c2cppFunc))
+        elif isinstance(self.typedef, extractors.ClassDef):
+            return 'wrapper_lib.get_ptr(%s)' % varName
+        # TODO: handle array annotation
+        return None
 
 class CffiModuleGenerator(object):
     def __init__(self, module_name, path_pattern):
@@ -265,11 +337,12 @@ class CffiModuleGenerator(object):
             extractors.EnumDef          : self.printEnumCDef,
         }
         self.dispatchPrint = {
-            extractors.FunctionDef      : self.printFunction,
-            extractors.CppMethodDef     : self.printCppMethod,
-            extractors.DefineDef        : self.printDefine,
-            extractors.GlobalVarDef     : self.printGlobalVar,
-            extractors.EnumDef          : self.printEnum,
+            extractors.FunctionDef          : self.printFunction,
+            extractors.CppMethodDef         : self.printCppMethod,
+            extractors.DefineDef            : self.printDefine,
+            extractors.GlobalVarDef         : self.printGlobalVar,
+            extractors.EnumDef              : self.printEnum,
+            extractors.EnumDef              : self.printEnum,
         }
         self.dispatchClassItemPrint = {
             extractors.MemberVarDef     : self.printMemberVar,
@@ -317,8 +390,9 @@ class CffiModuleGenerator(object):
         pydefTypes = (extractors.PyClassDef, extractors.PyCodeDef,
                       extractors.PyFunctionDef)
         categories = categorize(self.module.items, pydefTypes,
-                                extractors.ClassDef)
-        self.pyItems, self.classes, self.globalItems = categories
+                                extractors.ClassDef,
+                                extractors.MappedTypeDef_cffi)
+        self.pyItems, self.classes, self.mappedTypes, self.globalItems = categories
 
         self.pyItems.sort(key=lambda item: item.order if item.order is not None
                                                       else sys.maxint)
@@ -326,6 +400,9 @@ class CffiModuleGenerator(object):
         for klass in self.classes:
             self.initClass(klass)
         self.sortClasses()
+
+        for mType in self.mappedTypes:
+            self.initMappedType(mType)
 
         for klass in self.classes:
             self.initClassItems(klass)
@@ -342,6 +419,10 @@ class CffiModuleGenerator(object):
             for line in getattr(self.module, attr):
                 print >> cppfile, line
 
+        for item in self.module.items:
+            for line in  getattr(item, 'headerCode', []):
+                print >> cppfile, line
+
         # Write Python preamble
         print >> pyfile, nci("""\
         import cffi
@@ -353,9 +434,13 @@ class CffiModuleGenerator(object):
         # Write cdefs
         print >> pyfile, nci("""\
         ffi = cffi.FFI()
-        cdefs = ('''""")
+        cdefs = ('''
+        void* malloc(size_t);
+        void free(void*);""")
         for klass in self.classes:
             self.printClassCDefs(klass, pyfile)
+        for mType in self.mappedTypes:
+            self.printMappedTypeCDef(mType, pyfile)
         dispatchItems(self.dispatchCDefs, self.globalItems, pyfile)
         print >> pyfile, nci("""\
         ''')
@@ -366,6 +451,9 @@ class CffiModuleGenerator(object):
         # Print classes' C++ bodies, before any method bodies are printed
         for klass in self.classes:
             self.printClassCppBody(klass, cppfile)
+
+        for mType in self.mappedTypes:
+            self.printMappedType(mType, pyfile, cppfile, 0)
 
         # Print classes' Python bodies and items
         for klass in self.classes:
@@ -448,6 +536,7 @@ class CffiModuleGenerator(object):
 
         klass.briefDoc = klass.briefDoc if klass.briefDoc is not None else ''
 
+        klass.arrayFunc = "%s_new_array" % klass.cName
         klass.type = klass.unscopedName
         self.getTypeInfo(klass)
 
@@ -517,6 +606,17 @@ class CffiModuleGenerator(object):
         for ic in klass.innerclasses:
             self.initClassItems(ic)
 
+    def initMappedType(self, mType):
+        mType.pyName = mType.name
+        mType.unscopedName = mType.name
+        mType.unscopedPyName = mType.name
+
+        mType.arrayFunc = '%s_new_array' % mType.name
+        mType.py2cFunc = '%s_py2c' % mType.name
+        mType.c2cppFunc = '%s_c2cpp' % mType.name
+        mType.cpp2cFunc = '%s_cpp2c' % mType.name
+        mType.c2pyFunc = '%s_c2py' % mType.name
+
     def initFunction(self, func, overload=''):
         assert not func.ignored
 
@@ -535,7 +635,7 @@ class CffiModuleGenerator(object):
         assert not method.ignored
 
         if method.isCtor:
-            method.type = parent.unscopedName
+            method.type = parent.unscopedName + '*'
             method.pyName = '__init__'
         if method.isDtor:
             # We need a special case for the dtor since '~' isn't allowed in an
@@ -620,13 +720,6 @@ class CffiModuleGenerator(object):
             {0.vtableDef}
             void {0.cName}_set_flag(void *, int);
             void {0.cName}_set_flags(void *, char*);""".format(klass)))
-        if klass.hasDefaultCtor:
-            # These functions are used to support the Array annotation, which
-            # is only supported if the class has a default ctor.
-            pyfile.write(nci("""\
-            void {0.cName}_assign(void *, int, void *);
-            void * {0.cName}_new_array(int);
-            void {0.cName}_delete_array(void *);""".format(klass)))
         dispatchItems(self.dispatchClassItemCDefs, klass.items, pyfile)
 
         for ic in klass.innerclasses:
@@ -659,11 +752,27 @@ class CffiModuleGenerator(object):
         print >> pyfile, "void %s(void*, %s);" % (var.setName,
                                                   var.type.cdefType)
 
+    def printMappedTypeCDef(self, mType, pyfile):
+        print >> pyfile, "void * %s(void *);" % mType.c2cppFunc
+
     #------------------------------------------------------------------------#
 
     def printClassCppBody(self, klass, cppfile):
         for ic in klass.innerclasses:
             self.printClassCppBody(ic, cppfile)
+
+        if klass.hasDefaultCtor:
+            # This functions is used to support the Array annotation
+            cppfile.write(nci("""\
+            {0.unscopedName} * {0.arrayFunc}({0.unscopedName} **objs, int count)
+            {{
+                {0.unscopedName} * array = new {0.unscopedName}[count];
+                for(int i = 0; i < count; i++)
+                    array[i] = *objs[i];
+                return array;
+            }}
+            """.format(klass)))
+
         if not klass.hasSubClass:
             return
 
@@ -749,32 +858,34 @@ class CffiModuleGenerator(object):
         dispatchItems(self.dispatchClassItemPrint, klass.items, pyfile, cppfile,
                  indent=indent + 4, parent=klass)
 
-
-        if klass.hasDefaultCtor:
-            # These functions are used to support the Array annotation, which
-            # is only supported if the class has a default ctor.
-            cppfile.write(nci("""\
-            extern "C" void {0.cName}_assign({0.cppClassName} *dst, int index,
-                                            {0.cppClassName} *src)
-            {{
-                dst[index] = *src;
-            }}
-
-            extern "C" void * {0.cName}_new_array(int count)
-            {{
-                return new {0.cppClassName}[count];
-            }}
-
-            extern "C" void {0.cName}_delete_array({0.cppClassName} *a)
-            {{
-                delete a;
-            }}
-            """.format(klass)))
-
         for ic in klass.innerclasses:
             self.printClass(ic, pyfile, cppfile, indent=indent + 4,
                             parent=klass)
 
+    def printExternCWrapper(self, func, call, cppfile):
+        cppfile.write(nci("""\
+        extern "C" {0.type.cType} {0.cName}{0.cArgs}
+        {{""".format(func)))
+        # XXX I don't like handling ArraySize here rather than in TypeInfo, but
+        #     it needs to be printed before the Array annotated parameter.
+        for param in [i for i in func.items if i.arraySize]:
+            print >> cppfile, '    int array_length_ = %s;' % param.name
+
+        for param in func.items:
+            convertCode = param.type.c2cppConversion(param.name)
+            if convertCode is not None:
+                cppfile.write(nci(convertCode, 4))
+
+        if func.type.name == 'void':
+            cppfile.write(nci(call + ';', 4))
+        else:
+            cppfile.write(nci("%s return_tmp = %s;" % (func.type.name, call), 4))
+            for param in func.items:
+                cleanupCode = param.type.c2cppCleanup(param.name)
+                if cleanupCode is not None:
+                    cppfile.write(nci(cleanupCode, 4))
+            cppfile.write(nci("return %s;" % func.type.cpp2c("return_tmp"), 4))
+        print >> cppfile, "}"
 
     def printFunction(self, func, pyfile, cppfile, isOverload=False):
         # Figure out the name of the C++ function that we want to call from our
@@ -786,11 +897,7 @@ class CffiModuleGenerator(object):
             callName, wrapperBody = self.createCppCodeWrapper(func)
             cppfile.write(wrapperBody)
 
-        cppfile.write(nci("""\
-        extern "C" {0.type.cType} {0.cName}{0.cArgs}
-        {{
-            {0.retStmt}{1}{0.cCallArgs};
-        }}""".format(func, callName)))
+        self.printExternCWrapper(func, callName + func.cCallArgs, cppfile)
 
         if func.hasOverloads():
             isOverload = True
@@ -800,6 +907,7 @@ class CffiModuleGenerator(object):
             self.printDocString(func, pyfile)
             print >> pyfile, ' ' * 4 + 'pass'
 
+        call = "clib." + func.cName + func.pyCallArgs
         if isOverload:
             print >> pyfile, "@%s.overload%s" % (func.pyName,
                                                  func.overloadArgs)
@@ -807,12 +915,16 @@ class CffiModuleGenerator(object):
         if not isOverload:
             self.printDocString(func, pyfile)
 
+        for p in func.items:
+            convertCode = p.type.py2cConversion(p.name)
+            if convertCode is not None:
+                pyfile.write(nci(convertCode, 4))
+
         if func.type.name == 'void':
             print >> pyfile, "    clib.%s%s" % (func.cName, func.pyCallArgs)
         else:
             print >> pyfile, "    ret_value = " + func.type.c2py("clib.%s%s"
                                % (func.cName, func.pyCallArgs))
-            # TODO: handle annotations
             print >> pyfile, "    return ret_value"
 
         for f in func.overloads:
@@ -834,16 +946,45 @@ class CffiModuleGenerator(object):
                 sig = "{0.cppClassName}::~{0.cppClassName}()".format(parent)
 
             cppfile.write(nci("""\
-            extern "C" typedef {0.type.cType} (*{2}){0.cArgs};
-            {4}
+            extern "C" typedef {0.type.convertedType} (*{2}){0.cArgs};
+            {3}
             {{
                 if(this->vflags[{0.virtualIndex}])
-                    {0.retStmt}{3};
+                {{
+            """
+            .format(method, parent, funcPtrName, sig)))
+
+            if method.type.name == 'void':
+                cppfile.write(nci(cbCall + ';', 8))
+            else:
+                cppfile.write(nci("""\
+                    {0.type.convertedType} py_return = {1};
+                """.format(method, cbCall), 8))
+
+                Class = extractors.ClassDef
+                MappedType = extractors.MappedTypeDef_cffi
+                if method.type.isCBasic or (method.type.isPtr and
+                   isinstance(method.type.typedef, (Class, MappedType))):
+                    cppfile.write(nci("return py_return;", 8))
+                elif (isinstance(method.type.typedef, Class) or
+                      isinstance(method.type.typedef, MappedType) and
+                      method.type.isRef):
+                    cppfile.write(nci("return *py_return;", 8))
+                else:
+                    assert isinstance(method.type.typedef, MappedType)
+                    assert not method.type.isPtr and not method.type.isRef
+                    cppfile.write(nci("""\
+                    {0} return_instance = *py_return;
+                    delete py_return;
+                    return return_instance;
+                    """.format(method.type.name), 8))
+
+            cppfile.write(nci("""\
+                }}
                 else
-                    {0.retStmt}{1.unscopedName}::{0.name}{0.cppCallArgs};
-            }}"""
-            .format(method, parent, funcPtrName, method.type.c2cpp(cbCall),
-                    sig)))
+                    {0.retStmt}{1.unscopedName}::{0.name}{0.cppCallArgs};"""
+            .format(method, parent), 4))
+            print >> cppfile, '}'
 
         if method.cppCode is not None:
             callName, wrapperBody = self.createCppCodeWrapper(method)
@@ -864,24 +1005,16 @@ class CffiModuleGenerator(object):
             call = ("{1.unscopedName}::{0.name}{0.cCallArgs}"
                     .format(method, parent))
         elif method.isCtor:
-            # method.type.cpp2c will add the ClassName() part, so use the args
-            call = method.cCallArgs[1:-1]
+            call = "new " + parent.cppClassName +  method.cCallArgs
         else:
             # Just in case, we'll always specify the original implementation,
             # for both regular and virtual methods
             call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
                     .format(method, parent))
 
-        operation = 'return ' if method.type.name != 'void' else ''
         if method.isDtor:
-            body = 'delete self;'
-        else:
-            body = operation + method.type.cpp2c(call) + ';'
-        cppfile.write(nci("""\
-        extern "C" %s %s%s
-        {
-            %s
-        }""" % (method.type.cdefType, method.cName, method.cArgs, body)))
+            call = 'delete self'
+        self.printExternCWrapper(method, call, cppfile)
 
         # Write Python implementation
         if method.isVirtual:
@@ -891,8 +1024,13 @@ class CffiModuleGenerator(object):
             @wrapper_lib.VirtualDispatcher({0.virtualIndex})
             @ffi.callback('{0.type.cdefType}(*){0.cdefArgs}')
             def _virtual__{0.virtualIndex}{0.vtdArgs}:
-                return {1}
-            """.format(method, method.type.py2c(call)), indent))
+                return_tmp = {1}
+            """.format(method, call), indent))
+
+            convertCode = method.type.py2cReturn('return_tmp')
+            if convertCode is not None:
+                pyfile.write(nci(convertCode, indent + 4))
+            pyfile.write(nci('return return_tmp', indent + 4))
 
             pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" %
                                      method.virtualIndex,
@@ -922,7 +1060,9 @@ class CffiModuleGenerator(object):
             self.printDocString(method, pyfile, indent)
 
         for p in method.items:
-            self.printParam(p, method, pyfile, indent + 4)
+            convertCode = p.type.py2cConversion(p.name)
+            if convertCode is not None:
+                pyfile.write(nci(convertCode, indent + 4))
 
         call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
         if method.isCtor:
@@ -966,36 +1106,100 @@ class CffiModuleGenerator(object):
         print >> pyfile, var.pyName + ' = ' + var.type.c2py('clib.' + var.cName)
 
     def printMemberVar(self, var, pyfile, cppfile, indent, parent):
+        varName = "self->" + var.name
+
+        convertCode = var.type.c2cppConversion('value')
+        if convertCode is None:
+            convertCode = ''
+
+        cleanupCode = var.type.c2cppCleanup('value')
+        if cleanupCode is None:
+            cleanupCode = ''
+
         cppfile.write(nci("""\
         extern "C" {0.type.cType} {0.getName}({1.unscopedName} * self)
         {{
-            return self->{0.name};
+            return {2};
         }}
 
         extern "C" void {0.setName}({1.unscopedName} * self, {0.type.cType} value)
         {{
-            self->{0.name} = value;
+            {3}
+            self->{0.name} = {5};
+            {4}
         }}
-        """.format(var, parent)))
+        """.format(var, parent, var.type.cpp2c(varName), convertCode,
+                   cleanupCode, var.type.c2cppParam('value'))))
 
+        py2cCode = var.type.py2cConversion('value', inplace=True)
+        if py2cCode is None:
+            py2cCode = 'value'
+
+        c2pyCode = var.type.c2py('clib.%s(wrapper_lib.get_ptr(self))' %
+                                 (var.getName))
         pyfile.write(nci("""\
         {0.pyName} = property(
-            lambda self: clib.{0.getName}(wrapper_lib.get_ptr(self)),
-            lambda self, value: clib.{0.setName}(wrapper_lib.get_ptr(self), {1}))
-        """.format(var, var.type.py2c('value')), indent))
+            lambda self: {1},
+            lambda self, value: clib.{0.setName}(wrapper_lib.get_ptr(self), {2}))
+        """.format(var, c2pyCode, py2cCode), indent))
 
-    def printParam(self, param, parent, pyfile, indent):
-        if param.array:
-            pyfile.write(nci(
-                "{0.name}, _array_size_ = wrapper_lib.annotations."
-                "array({0.name}, clib.{1}_new_array, clib.{1}_assign)"
-                .format(param, param.type.typedef.name), indent))
+    def printMappedType(self, mType, pyfile, cppfile, indent):
+        cppfile.write(nci("""\
+        {0.cType} {0.cpp2cFunc}({0.name} * cpp_obj)
+        {{
+{1}
+        }}
+
+        {0.cType} {0.cpp2cFunc}({0.name} &cpp_obj)
+        {{
+            return {0.cpp2cFunc}(&cpp_obj);
+        }}
+
+        extern "C" {0.name} * {0.c2cppFunc}({0.cType} cdata)
+        {{
+{2}
+        }}
+
+        {0.name} * {0.arrayFunc}({0.cType} * cdata, int count)
+        {{
+            {0.name} * array = new {0.name}[count];
+            for(int i = 0; i < count; i++)
+            {{
+                {0.name} *tmp = {0.c2cppFunc}(cdata[i]);
+                array[i] = *tmp;
+                delete tmp;
+            }}
+            return array;
+        }}
+        """.format(mType, nci(mType.cpp2c, 12), nci(mType.c2cpp, 12))))
+
+        checkCode = nci(mType.instancecheck or 'pass', 8)
+        c2pyCode = nci(mType.c2py or 'pass', 8)
+        py2cCode = nci(mType.py2c or 'pass', 8)
+        pyfile.write(nci("""\
+        class {0.name}(wrapper_lib.MappedBase):
+            @classmethod
+            def __instancecheck__(cls, obj):
+            {1}
+            @classmethod
+            def c2py(cls, cdata):
+            {2}
+            @classmethod
+            def py2c(cls, py_obj):
+            {3}
+        """.format(mType, checkCode, c2pyCode, py2cCode)))
 
     #------------------------------------------------------------------------#
 
     def printClassFinalization(self, klass, pyfile):
         print >> pyfile, ('wrapper_lib.eval_class_attrs(%s)' %
                           klass.unscopedPyName)
+        '''
+        if klass.hasDefaultCtor:
+            pyfile.write(nci("""\
+            {0}Seq = wrapper_lib.create_array_type({0})"""
+            .format(klass.unscopedPyName, klass.cName)))
+        '''
         for ic in klass.innerclasses:
             self.printClassFinalization(ic, pyfile)
 
@@ -1130,12 +1334,12 @@ class CffiModuleGenerator(object):
                 func.vtdArgs.append('self')
 
 
-        for param in func.items:
+        for i, param in enumerate(func.items):
             self.getTypeInfo(param)
 
             cArg = "%s %s" % (param.type.cType, param.name)
             cdefArg = "%s %s" % (param.type.cdefType, param.name)
-            cCallArg = param.type.c2cpp(param.name)
+            cCallArg = param.type.c2cppParam(param.name)
             cbCallArg = param.type.cpp2c(param.name)
 
             cppArg = "%s %s" % (param.type.name, param.name)
@@ -1146,13 +1350,11 @@ class CffiModuleGenerator(object):
                 pyArg += '=' + defValueMap.get(param.default,
                                'wrapper_lib.LD("%s")' % param.default)
 
-            pyCallArg = param.type.py2c(param.name)
+            pyCallArg = param.type.py2cParam(param.name)
             vtdArg = param.name
             vtdCallArg = param.type.c2py(param.name)
 
-            if param.array:
-                overloadArg = param.name + '=' + 'collections.Sequence'
-            elif param.type.typedef is None:
+            if param.type.typedef is None:
                 overloadArg = param.name + '=' + param.type.overloadType
             else:
                 overloadArg = param.name + "='" + param.type.overloadType + "'"

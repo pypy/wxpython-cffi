@@ -26,6 +26,19 @@ double custom_code_global_func()
     return 2.0;
 }
 
+int std_string_len(string *str)
+{
+    return str->size();
+}
+
+int std_string_len(string *str, int len)
+{
+    int total = 0;
+    for(int i = 0; i < len; i++)
+        total += str[i].size();
+    return total;
+}
+
 int overloaded_func()
 {
     return 20;
@@ -197,4 +210,27 @@ int ArrayClass::sum(ArrayClass *objs, int len)
         total += objs[i].m_i;
 
     return total;
+}
+
+string MappedTypeClass::get_name()
+{
+    return m_name;
+}
+
+string MappedTypeClass::call_get_name()
+{
+    return get_name();
+}
+
+string MappedTypeClass::concat(string *s, int len)
+{
+    string out;
+    for(int i = 0; i < len; i++)
+        out += s[i];
+    return out;
+}
+
+string MappedTypeClass::call_concat(string *s, int len)
+{
+    return concat(s, len);
 }

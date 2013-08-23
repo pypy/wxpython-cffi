@@ -1,3 +1,6 @@
+#include <string>
+using std::string;
+
 #define prefixedSOME_INT 15
 
 extern const char *global_str;
@@ -10,6 +13,9 @@ double custom_code_global_func();
 
 int overloaded_func();
 double overloaded_func(double i);
+
+int std_string_len(string *str);
+int std_string_len(string *str, int len);
 
 enum BOOLEAN
 {
@@ -190,4 +196,15 @@ public:
     int m_i;
 
     static int sum(ArrayClass *objs, int len);
+};
+
+class MappedTypeClass
+{
+public:
+    string m_name;
+    virtual string get_name();
+    string call_get_name();
+
+    virtual string concat(string *s, int len);
+    string call_concat(string *s, int len);
 };
