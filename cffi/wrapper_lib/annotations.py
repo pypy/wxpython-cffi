@@ -28,7 +28,7 @@ class CppWrapperSeq(object):
 
     @classmethod
     def c2py(self, array, len):
-        return [obj_from_ptr(array[i], cls) for i in range(len)]
+        return [obj_from_ptr(array[i], self._cls) for i in range(len)]
 
 class MappedTypeSeq(object):
     __metaclass__ = SeqType
@@ -55,12 +55,12 @@ def create_array_type(cls, ctype=None):
     if issubclass(cls, MappedBase):
         class Seq(MappedTypeSeq):
             _cls = cls
-            _array_ctype = ctype + '[]'
+            #_array_ctype = ctype + '[]'
+            _array_ctype = ctype
         seq_type_cache[cls] = Seq
-        return Seq
 
     elif issubclass(cls, CppWrapper):
         class Seq(CppWrapperSeq):
             _cls = cls
         seq_type_cache[cls] = Seq
-        return Seq
+    return Seq

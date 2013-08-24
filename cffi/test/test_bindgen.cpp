@@ -212,6 +212,20 @@ int ArrayClass::sum(ArrayClass *objs, int len)
     return total;
 }
 
+int ArrayClass::sum_virt(ArrayClass *objs, int len)
+{
+    int total = 0;
+    for(int i = 0; i < len; i++)
+        total += objs[i].m_i;
+
+    return total;
+}
+
+int ArrayClass::call_sum_virt(ArrayClass *objs, int len)
+{
+    return sum_virt(objs, len);
+}
+
 string MappedTypeClass::get_name()
 {
     return m_name;

@@ -330,6 +330,16 @@ class TestBindGen(object):
             name='sum', isStatic=True,
             items=[ParamDef(type='ArrayClass *', name='objs', array=True),
                    ParamDef(type='int', name='len', arraySize=True)]))
+        c.addItem(MethodDef(
+            type='int', argsString='(ArrayClass *objs, int len)',
+            name='sum_virt', isVirtual=True,
+            items=[ParamDef(type='ArrayClass *', name='objs', array=True),
+                   ParamDef(type='int', name='len', arraySize=True)]))
+        c.addItem(MethodDef(
+            type='int', argsString='(ArrayClass *objs, int len)',
+            name='call_sum_virt',
+            items=[ParamDef(type='ArrayClass *', name='objs', array=True),
+                   ParamDef(type='int', name='len', arraySize=True)]))
         c.addItem(MemberVarDef(type='int', name='m_i'))
         module.addItem(c)
 
@@ -344,7 +354,7 @@ class TestBindGen(object):
             """,
             c2cpp="return new string(cdata);",
             cpp2c="""\
-            char *cdata = (char*)malloc(cpp_obj->length());
+            char *cdata = (char*)malloc(cpp_obj->length() + 1);
             strcpy(cdata, cpp_obj->c_str());
             return cdata;""",
             instancecheck='return isinstance(obj, (str, unicode))',))
@@ -363,7 +373,6 @@ class TestBindGen(object):
             type='string', argsString='()', name='get_name', isVirtual=True))
         c.addItem(MethodDef(
             type='string', argsString='()', name='call_get_name'))
-        '''
         c.addItem(MethodDef(
             type='string', argsString='(string *s, int len)',
             name='concat', isVirtual=True, items=[
@@ -374,7 +383,6 @@ class TestBindGen(object):
             name='call_concat', items=[
                 ParamDef(type='string *', name='s', array=True),
                 ParamDef(type='int', name='len', arraySize=True)]))
-        '''
         c.addItem(MemberVarDef(
             type='string', name='m_name'))
         module.addItem(c)
@@ -659,15 +667,33 @@ class TestBindGen(object):
         assert self.mod.std_string_len("Test") == 4
         assert self.mod.std_string_len(["Test", "Two"]) == 7
 
+        class MappedTypeSubclass(self.mod.MappedTypeClass):
+            def get_name(self):
+                return "new name"
+
         obj = self.mod.MappedTypeClass()
         obj.m_name = "name"
         assert obj.m_name == "name"
         assert obj.m_name == obj.get_name()
         assert obj.m_name == obj.call_get_name()
-
-        class MappedTypeSubclass(self.mod.MappedTypeClass):
-            def get_name(self):
-                return "new name"
+        assert obj.concat(['10', '20']) == '1020'
 
         obj = MappedTypeSubclass()
         assert obj.call_get_name() == 'new name'
+
+    def test_virtual_array(self):
+        class ArraySubclass(self.mod.ArrayClass):
+            def sum_virt(self, objs):
+                return sum([-i.m_i for i in objs])
+
+        class MappedTypeSubclass(self.mod.MappedTypeClass):
+            def concat(self, obj):
+                return ''.join(reversed(obj))
+
+        obj = MappedTypeSubclass()
+        assert obj.call_concat(['10', '20']) == '2010'
+
+        AC = ArraySubclass
+        obj = ArraySubclass()
+        objs = [AC(1), AC(2), AC(3)]
+        assert obj.call_sum_virt(objs) == -6

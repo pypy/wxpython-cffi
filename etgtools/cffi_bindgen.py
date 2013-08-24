@@ -30,6 +30,8 @@ ENUM_PREFIX = "cffienum_"
 CONVERT_PREFIX = "cfficonvert_"
 CPPCODE_WRAPPER_SUFIX = "_cppwrapper"
 
+ARRAY_SIZE_PARAM = 'array_size_'
+
 # C basic types -> Python conversion functions
 BASIC_CTYPES = {
     'int': 'int',
@@ -157,6 +159,7 @@ class TypeInfo(object):
 
         if self.array:
             self.cType += ' *'
+            self.cdefType += '[]'
 
         # We need to dereference the pointer if our c type is a pointer but the
         # the type original type is not
@@ -172,7 +175,7 @@ class TypeInfo(object):
         else:
             if self.array:
                 if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
-                    cTypeArg = ', ctype="' + self.cType + '"'
+                    cTypeArg = ', ctype="' + self.cdefType + '"'
                 else:
                     cTypeArg = ''
                 self.overloadType = ("wrapper_lib.create_array_type(%s%s)" %
@@ -195,6 +198,9 @@ class TypeInfo(object):
         cls._cache = {}
 
     def cpp2c(self, varName):
+        if self.array:
+            return "%s(%s, %s)" % (self.typedef.arraycpp2c, varName,
+                                   ARRAY_SIZE_PARAM)
         if isinstance(self.typedef, extractors.ClassDef):
             # Always pass wrapped classes as pointers. If this is by value or
             # a const reference, it needs to be copy constructored onto the
@@ -213,6 +219,10 @@ class TypeInfo(object):
         raise Exception()
 
     def c2py(self, varName):
+        if self.array:
+            return ("wrapper_lib.create_array_type({2}, ctype='{3}').c2py({0}, {1})"
+                    .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName,
+                            self.cdefType))
         if isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.obj_from_ptr(%s, %s)' % (varName,
                                                          self.typedef.unscopedPyName)
@@ -240,8 +250,9 @@ class TypeInfo(object):
 
     def c2cppConversion(self, varName):
         if self.array:
-            return "{0} {1}_converted = {2}({1}, array_length_);".format(
-                self.convertedType, varName, self.typedef.arrayFunc)
+            return "{0} {1}_converted = {2}({1}, {3});".format(
+                self.convertedType, varName, self.typedef.arrayc2cpp,
+                ARRAY_SIZE_PARAM)
         elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
             return '{0} {1}_converted = {2}({1});'.format(  
                 self.convertedType, varName, self.typedef.c2cppFunc)
@@ -258,7 +269,7 @@ class TypeInfo(object):
         if self.array:
             return varName
         elif self.arraySize:
-            return 'array_size_'
+            return ARRAY_SIZE_PARAM
         elif isinstance(self.typedef, extractors.ClassDef):
             return 'wrapper_lib.get_ptr(%s)' % varName
         elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
@@ -270,9 +281,10 @@ class TypeInfo(object):
     def py2cConversion(self, varName, inplace=False):
         if self.array:
             assert not inplace
-            return ("{0}, array_size_, {0}_keepalive = "
-                    "wrapper_lib.create_array_type({1}, ctype='{2}').py2c({0})"
-                    .format(varName, self.typedef.pyName, self.cType))
+            return ("{0}, {1}, {0}_keepalive = "
+                    "wrapper_lib.create_array_type({2}, ctype='{3}').py2c({0})"
+                    .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName,
+                            self.cdefType))
         if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
             if inplace:
                 return "{1}.py2c({0})[0]".format(varName, self.typedef.pyName)
@@ -537,7 +549,8 @@ class CffiModuleGenerator(object):
 
         klass.briefDoc = klass.briefDoc if klass.briefDoc is not None else ''
 
-        klass.arrayFunc = "cfficonvert_wrappedtype_c2cpp_array"
+        klass.arrayc2cpp = "cfficonvert_wrappedtype_c2cpp_array"
+        klass.arraycpp2c = "cfficonvert_wrappedtype_cpp2c_array"
         klass.type = klass.unscopedName
         self.getTypeInfo(klass)
 
@@ -615,7 +628,8 @@ class CffiModuleGenerator(object):
         templateClass = "cfficonvert_mappedtype<%s, %s>::" % (mType.name,
                                                               mType.cType)
 
-        mType.arrayFunc = templateClass + 'c2cpp_array'
+        mType.arrayc2cpp = templateClass + 'c2cpp_array'
+        mType.arraycpp2c = templateClass + 'cpp2c_array'
         mType.py2cFunc = '%s_py2c' % mType.name
         mType.cpp2cFunc = templateClass + 'cpp2c'
         mType.c2pyFunc = '%s_c2py' % mType.name
@@ -863,9 +877,6 @@ class CffiModuleGenerator(object):
         {{""".format(func)))
         # XXX I don't like handling ArraySize here rather than in TypeInfo, but
         #     it needs to be printed before the Array annotated parameter.
-        for param in [i for i in func.items if i.arraySize]:
-            print >> cppfile, '    int array_length_ = %s;' % param.name
-
         for param in func.items:
             convertCode = param.type.c2cppConversion(param.name)
             if convertCode is not None:
@@ -1320,12 +1331,16 @@ class CffiModuleGenerator(object):
                 func.cbCallArgs.append('this')
                 func.vtdArgs.append('self')
 
-
         for i, param in enumerate(func.items):
+            if param.arraySize:
+                # Rename the ArraySize parameter so we don't have to look for
+                # in the param list elsewhere
+                param.name = ARRAY_SIZE_PARAM
             self.getTypeInfo(param)
 
             cArg = "%s %s" % (param.type.cType, param.name)
-            cdefArg = "%s %s" % (param.type.cdefType, param.name)
+            #cdefArg = "%s %s" % (param.type.cdefType, param.name)
+            cdefArg = param.type.cdefType
             cCallArg = param.type.c2cppParam(param.name)
             cbCallArg = param.type.cpp2c(param.name)
 
@@ -1355,12 +1370,13 @@ class CffiModuleGenerator(object):
             #func.pyArgs.append(pyArg)
             func.pyCallArgs.append(pyCallArg)
             func.vtdArgs.append(vtdArg)
-            func.vtdCallArgs.append(vtdCallArg)
+            #func.vtdCallArgs.append(vtdCallArg)
             #func.overloadArgs.append(overloadArg)
 
             if not param.arraySize:
                 func.pyArgs.append(pyArg)
                 func.overloadArgs.append(overloadArg)
+                func.vtdCallArgs.append(vtdCallArg)
 
 
         if parent is not None and not func.isStatic:

@@ -196,6 +196,8 @@ public:
     int m_i;
 
     static int sum(ArrayClass *objs, int len);
+    virtual int sum_virt(ArrayClass *objs, int len);
+    int call_sum_virt(ArrayClass *objs, int len);
 };
 
 class MappedTypeClass
