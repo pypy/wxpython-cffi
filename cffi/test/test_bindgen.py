@@ -368,6 +368,35 @@ class TestBindGen(object):
                 ParamDef(name='str', type='string *', array=True),
                 ParamDef(name='len', type='int', arraySize=True)])]))
 
+        module.addItem(FunctionDef(
+            type='int', argsString='(int *x, int *y)', name='get_coords',
+            items=[ParamDef(type='int *', name='x', out=True),
+                   ParamDef(type='int *', name='y')]))
+        module.addItem(FunctionDef(
+            type='int', argsString='(int *x, int *y)', name='get_coords_ref',
+            items=[ParamDef(type='int &', name='x', out=True),
+                   ParamDef(type='int &', name='y')]))
+        module.addItem(FunctionDef(
+            type='void', argsString='(CtorsClass *x, CtorsClass **y)',
+            name='get_wrappedtype',
+            items=[ParamDef(type='CtorsClass *', name='x', out=True),
+                   ParamDef(type='CtorsClass **', name='y')]))
+        module.addItem(FunctionDef(
+            type='void', argsString='(CtorsClass &x, CtorsClass *&y)',
+            name='get_wrappedtype_ref',
+            items=[ParamDef(type='CtorsClass &', name='x', out=True),
+                   ParamDef(type='CtorsClass *&', name='y')]))
+        module.addItem(FunctionDef(
+            type='void', argsString='(string *x, string **y)',
+            name='get_mappedtype',
+            items=[ParamDef(type='string *', name='x', out=True),
+                   ParamDef(type='string **', name='y')]))
+        module.addItem(FunctionDef(
+            type='void', argsString='(string &x, string *&y)',
+            name='get_mappedtype_ref',
+            items=[ParamDef(type='string &', name='x', out=True),
+                   ParamDef(type='string *&', name='y')]))
+
         c = ClassDef(name='MappedTypeClass')
         c.addItem(MethodDef(
             type='string', argsString='()', name='get_name', isVirtual=True))
@@ -697,3 +726,30 @@ class TestBindGen(object):
         obj = ArraySubclass()
         objs = [AC(1), AC(2), AC(3)]
         assert obj.call_sum_virt(objs) == -6
+
+    def test_out_parameter(self):
+        a, b, c = self.mod.get_coords()
+        assert a == 9
+        assert b == 3
+        assert c == 6
+
+        a, b, c = self.mod.get_coords_ref()
+        assert a == 9
+        assert b == 3
+        assert c == 6
+
+        a, b = self.mod.get_wrappedtype()
+        assert a.get() == 15
+        assert b.get() == 30
+
+        a, b = self.mod.get_wrappedtype_ref()
+        assert a.get() == 45
+        assert b.get() == 60
+
+        a, b = self.mod.get_mappedtype()
+        assert a == "15"
+        assert b == "30"
+
+        a, b = self.mod.get_mappedtype_ref()
+        assert a == "45"
+        assert b == "60"

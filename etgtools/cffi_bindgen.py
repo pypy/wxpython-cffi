@@ -31,6 +31,7 @@ CONVERT_PREFIX = "cfficonvert_"
 CPPCODE_WRAPPER_SUFIX = "_cppwrapper"
 
 ARRAY_SIZE_PARAM = 'array_size_'
+OUT_PARAM_SUFFIX = '_ptr'
 
 # C basic types -> Python conversion functions
 BASIC_CTYPES = {
@@ -74,16 +75,19 @@ def dispatchItems(methodMap, items, *args, **kwargs):
 class TypeInfo(object):
     _cache = {}
     def __init__(self, typeName, findItem, pyInt=False, array=False,
-                 arraySize=False):
+                 arraySize=False, out=False, inOut=False):
         if typeName == '' or typeName is None:
             typeName = 'void'
         self.name = typeName
         self.isRef = False
+        self.ptrCount = typeName.count('*')
         self.isPtr = False
         self.isConst = 'const ' in typeName
         self.pyInt = pyInt
         self.array = array
         self.arraySize = arraySize
+        self.out = out
+        self.inOut = inOut
 
         # Loop until we find either a typedef that isn't a TypedefDef or we
         # find that their isn't any typedef for this type
@@ -172,6 +176,12 @@ class TypeInfo(object):
             else:
                 self.overloadType = '(str, unicode)'
             self.convertedType = self.cType
+
+            if not self.inOut and not self.array and (self.isRef or
+               self.isPtr and 'char' not in self.cType):
+                # Pointers to non-char basics and references to all basics are
+                # out parameters by default
+                self.out = True
         else:
             if self.array:
                 if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
@@ -182,7 +192,15 @@ class TypeInfo(object):
                                      (self.typedef.unscopedPyName, cTypeArg))
             else:
                 self.overloadType = self.typedef.unscopedPyName
+
+            if (self.ptrCount == 2 or (self.isPtr and self.isRef) and
+                not self.inOut):
+                self.out = True
             self.convertedType = self.typedef.name + ' *'
+
+        if not self.isCBasic and self.out:
+            self.cType += '*'
+            self.cdefType += '*'
 
     @classmethod
     def new(cls, typeName, findItem, **kwargs):
@@ -219,13 +237,21 @@ class TypeInfo(object):
         raise Exception()
 
     def c2py(self, varName):
+        if self.out or self.inOut:
+            if self.isCBasic:
+                return varName + '[0]'
+            elif isinstance(self.typedef, extractors.ClassDef):
+                return 'wrapper_lib.obj_from_ptr(%s[0], %s)' % (
+                        varName, self.typedef.unscopedPyName)
+            elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+                return '%s.c2py(%s[0])' % (self.typedef.name, varName)
         if self.array:
             return ("wrapper_lib.create_array_type({2}, ctype='{3}').c2py({0}, {1})"
                     .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName,
                             self.cdefType))
         if isinstance(self.typedef, extractors.ClassDef):
-            return 'wrapper_lib.obj_from_ptr(%s, %s)' % (varName,
-                                                         self.typedef.unscopedPyName)
+            return 'wrapper_lib.obj_from_ptr(%s, %s)' % (
+                    varName, self.typedef.unscopedPyName)
         elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
             return '%s.c2py(%s)' % (self.typedef.name, varName)
         elif self.isCBasic:
@@ -238,17 +264,40 @@ class TypeInfo(object):
         if (self.array or
             isinstance(self.typedef, extractors.MappedTypeDef_cffi)):
             varName += '_converted'
-
         if self.array:
             return varName
+        elif self.out and isinstance(self.typedef, extractors.ClassDef):
+            if self.isRef:
+                return '*' * (2 - self.ptrCount) + varName
+            elif self.ptrCount == 1:
+                return '*' + varName
+            else:
+                return varName
+        elif self.out and isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            if self.isRef:
+                return varName
+            else:
+                return '&' + varName
         elif isinstance(self.typedef, (extractors.ClassDef,
                                        extractors.MappedTypeDef_cffi)):
             return ('*' if not self.deref else '') + varName
-        elif self.isCBasic:
+        if self.isCBasic:
+            if self.out and self.isRef:
+                return "*" + varName
             return varName
         raise Exception()
 
     def c2cppConversion(self, varName):
+        if self.out and not self.isCBasic:
+            if isinstance(self.typedef, extractors.MappedTypeDef_cffi) :
+                if self.isRef and self.ptrCount == 1 or self.ptrCount == 2:
+                    return ('{0} *{1}_converted;'
+                            .format(self.typedef.name, varName))
+                else:
+                    return ('{0} {1}_converted;'
+                            .format(self.typedef.name, varName))
+            if self.ptrCount != 2 and not (self.ptrCount == 1 and self.isRef):
+                return "*{0} = new {1};".format(varName, self.typedef.name)
         if self.array:
             return "{0} {1}_converted = {2}({1}, {3});".format(
                 self.convertedType, varName, self.typedef.arrayc2cpp,
@@ -262,10 +311,15 @@ class TypeInfo(object):
         if self.array:
             return 'delete[] %s_converted;' % varName
         if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            if self.out:
+                return "*{0} = {1}({0}_converted);".format(varName,
+                       self.typedef.cpp2cFunc)
             return 'delete %s_converted;' % varName
         return None
 
     def py2cParam(self, varName):
+        if self.out:
+            return varName + OUT_PARAM_SUFFIX
         if self.array:
             return varName
         elif self.arraySize:
@@ -279,6 +333,9 @@ class TypeInfo(object):
         raise Exception()
 
     def py2cConversion(self, varName, inplace=False):
+        if self.out:
+            return "{0}{1} = ffi.new('{2}')".format(varName, OUT_PARAM_SUFFIX,
+                                                      self.cdefType)
         if self.array:
             assert not inplace
             return ("{0}, {1}, {0}_keepalive = "
@@ -644,6 +701,16 @@ class CffiModuleGenerator(object):
         self.getTypeInfo(func)
         self.createArgsStrings(func)
 
+        returnVars = []
+        if func.type.name != 'void':
+            returnVars.append('return_val')
+        returnVars.extend([p.type.c2py(p.name + OUT_PARAM_SUFFIX) for p in func
+                           if p.type.out or p.type.inOut])
+        if len(returnVars) > 0:
+            func.returnVars = '(' + ', '.join(returnVars) + ')'
+        else:
+            func.returnVars = None
+
         func.pyName = func.pyName or func.name
         func.cName = FUNC_PREFIX + func.name + overload
         func.retStmt = 'return ' if func.type.name != 'void' else ''
@@ -684,6 +751,16 @@ class CffiModuleGenerator(object):
 
         self.getTypeInfo(method)
         self.createArgsStrings(method, parent)
+
+        returnVars = []
+        if method.type.name != 'void':
+            returnVars.append('return_tmp')
+        returnVars.extend([p.name + OUT_PARAM_SUFFIX for p in method
+                           if p.type.out or p.type.inOut])
+        if len(returnVars) > 0:
+            method.returnVars = '(' + ', '.join(returnVars) + ')'
+        else:
+            method.returnVars = None
 
         for i, m in enumerate(method.overloads):
             self.initMethod(m, parent, '_%d' % i)
@@ -886,10 +963,13 @@ class CffiModuleGenerator(object):
             cppfile.write(nci(call + ';', 4))
         else:
             cppfile.write(nci("%s return_tmp = %s;" % (func.type.name, call), 4))
-            for param in func.items:
-                cleanupCode = param.type.c2cppCleanup(param.name)
-                if cleanupCode is not None:
-                    cppfile.write(nci(cleanupCode, 4))
+
+        for param in func.items:
+            cleanupCode = param.type.c2cppCleanup(param.name)
+            if cleanupCode is not None:
+                cppfile.write(nci(cleanupCode, 4))
+
+        if func.type.name != 'void':
             cppfile.write(nci("return %s;" % func.type.cpp2c("return_tmp"), 4))
         print >> cppfile, "}"
 
@@ -926,12 +1006,12 @@ class CffiModuleGenerator(object):
             if convertCode is not None:
                 pyfile.write(nci(convertCode, 4))
 
-        if func.type.name == 'void':
+        if func.returnVars is None:
             print >> pyfile, "    clib.%s%s" % (func.cName, func.pyCallArgs)
         else:
-            print >> pyfile, "    ret_value = " + func.type.c2py("clib.%s%s"
-                               % (func.cName, func.pyCallArgs))
-            print >> pyfile, "    return ret_value"
+            print >> pyfile, "    return_val = " + func.type.c2py("clib.%s%s"
+                             % (func.cName, func.pyCallArgs))
+            print >> pyfile, "    return " + func.returnVars
 
         for f in func.overloads:
             self.printFunction(f, pyfile, cppfile, True)
@@ -1275,7 +1355,9 @@ class CffiModuleGenerator(object):
                 item.type, self.findItem,
                 pyInt=getattr(item, 'pyInt', False),
                 array=getattr(item, 'array', False),
-                arraySize=getattr(item, 'arraySize', False))
+                arraySize=getattr(item, 'arraySize', False),
+                out=getattr(item, 'out', False),
+                inOut=getattr(item, 'inOut', False))
 
     def createArgsStrings(self, func, parent=None):
         """
@@ -1336,6 +1418,7 @@ class CffiModuleGenerator(object):
                 # Rename the ArraySize parameter so we don't have to look for
                 # in the param list elsewhere
                 param.name = ARRAY_SIZE_PARAM
+
             self.getTypeInfo(param)
 
             cArg = "%s %s" % (param.type.cType, param.name)
@@ -1373,9 +1456,11 @@ class CffiModuleGenerator(object):
             #func.vtdCallArgs.append(vtdCallArg)
             #func.overloadArgs.append(overloadArg)
 
-            if not param.arraySize:
+            if not param.type.out and not param.type.arraySize:
                 func.pyArgs.append(pyArg)
                 func.overloadArgs.append(overloadArg)
+
+            if not param.arraySize:
                 func.vtdCallArgs.append(vtdCallArg)
 
 

@@ -17,6 +17,12 @@ double overloaded_func(double i);
 int std_string_len(string *str);
 int std_string_len(string *str, int len);
 
+int get_coords(int *x, int *y);
+int get_coords_ref(int &x, int &y);
+
+void get_mappedtype(string *x, string **y);
+void get_mappedtype_ref(string &x, string *&y);
+
 enum BOOLEAN
 {
     BOOL_TRUE = -1,
@@ -80,6 +86,9 @@ private:
 };
 
 extern CtorsClass global_wrapped_obj;
+
+void get_wrappedtype(CtorsClass *x, CtorsClass **y);
+void get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y);
 
 class PCtorClass
 {

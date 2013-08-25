@@ -49,6 +49,34 @@ double overloaded_func(double i)
     return i / 2;
 }
 
+int get_coords(int *x, int *y)
+{
+    *x = 3;
+    *y = 6;
+
+    return 9;
+}
+
+int get_coords_ref(int &x, int &y)
+{
+    x = 3;
+    y = 6;
+
+    return 9;
+}
+
+void get_mappedtype(string *x, string **y)
+{
+    *x = string("15");
+    *y = new string("30");
+}
+
+void get_mappedtype_ref(string &x, string *&y)
+{
+    x = string("45");
+    y = new string("60");
+}
+
 int SimpleClass::simple_method(double f)
 {
     return f;
@@ -87,6 +115,18 @@ int CtorsClass::get()
 void CtorsClass::set(int i)
 {
     m_i = i;
+}
+
+void get_wrappedtype(CtorsClass *x, CtorsClass **y)
+{
+    *x = CtorsClass(15);
+    *y = new CtorsClass(30);
+}
+
+void get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y)
+{
+    x = CtorsClass(45);
+    y = new CtorsClass(60);
 }
 
 int PCtorClass::get()

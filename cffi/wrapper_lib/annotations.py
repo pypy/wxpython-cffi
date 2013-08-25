@@ -55,7 +55,6 @@ def create_array_type(cls, ctype=None):
     if issubclass(cls, MappedBase):
         class Seq(MappedTypeSeq):
             _cls = cls
-            #_array_ctype = ctype + '[]'
             _array_ctype = ctype
         seq_type_cache[cls] = Seq
 
