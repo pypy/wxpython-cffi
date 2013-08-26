@@ -288,3 +288,35 @@ string MappedTypeClass::call_concat(string *s, int len)
 {
     return concat(s, len);
 }
+
+void InOutClass::double_ptr(int *i)
+{
+    *i *= 2;
+}
+
+void InOutClass::double_ref(int &i)
+{
+    i *= 2;
+}
+
+void InOutClass::double_ptr(CtorsClass *i)
+{
+    *i = CtorsClass(i->get() * 2);
+}
+
+void InOutClass::double_ref(CtorsClass &i)
+{
+    i = CtorsClass(i.get() * 2);
+}
+
+void InOutClass::double_ptr(Vector *i)
+{
+    i->i *= 2;
+    i->j *= 2;
+}
+
+void InOutClass::double_ref(Vector &i)
+{
+    i.i *= 2;
+    i.j *= 2;
+}

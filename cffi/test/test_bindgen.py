@@ -343,6 +343,33 @@ class TestBindGen(object):
         c.addItem(MemberVarDef(type='int', name='m_i'))
         module.addItem(c)
 
+        c = ClassDef(name='InOutClass')
+        c.addItem(MethodDef(
+            type='void', argsString='(int *num)', name='double_ptr',
+            items=[ParamDef(type='int *', name='num', inOut=True)],
+            overloads=[
+                MethodDef(
+                    type='void', argsString='(CtorsClass *num)',
+                    name='double_ptr', items=[
+                    ParamDef(type='CtorsClass *', name='num', inOut=True)]),
+                MethodDef(
+                type='void', argsString='(Vector *vec)',
+                name='double_ptr', items=[
+                    ParamDef(type='Vector *', name='vec', inOut=True)])]))
+        c.addItem(MethodDef(
+            type='void', argsString='(int &num)', name='double_ref',
+            items=[ParamDef(type='int &', name='num', inOut=True)],
+            overloads=[
+                MethodDef(
+                type='void', argsString='(CtorsClass *num)',
+                name='double_ref', items=[
+                    ParamDef(type='CtorsClass &', name='num', inOut=True)]),
+                MethodDef(
+                type='void', argsString='(Vector &vec)',
+                name='double_ref', items=[
+                    ParamDef(type='Vector &', name='vec', inOut=True)])]))
+        module.addItem(c)
+
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
@@ -358,6 +385,29 @@ class TestBindGen(object):
             strcpy(cdata, cpp_obj->c_str());
             return cdata;""",
             instancecheck='return isinstance(obj, (str, unicode))',))
+
+        module.addItem(MappedTypeDef_cffi(
+            name='Vector', cType='int *',
+            py2c="""\
+            array = ffi.new('int []', [int(py_obj[0]), int(py_obj[1])])
+            return (array, array)""",
+            c2py="""\
+            ret = (cdata[0], cdata[1])
+            clib.free(cdata)
+            return ret
+            """,
+            c2cpp="return new Vector(cdata[0], cdata[1]);",
+            cpp2c="""\
+            int *cdata = (int*)malloc(sizeof(int) * 2);
+            cdata[0] = cpp_obj->i;
+            cdata[1] = cpp_obj->j;
+            return cdata;""",
+            instancecheck="""\
+            import collections
+            return (isinstance(obj, collections.Sequence) and len(obj) >= 2 and
+                    isinstance(obj[0], numbers.Number) and
+                    isinstance(obj[1], numbers.Number))
+            """,))
 
         module.addItem(FunctionDef(
             type='int', argsString='(string *str)', name='std_string_len',
@@ -753,3 +803,20 @@ class TestBindGen(object):
         a, b = self.mod.get_mappedtype_ref()
         assert a == "45"
         assert b == "60"
+
+    def test_inout_parameter(self):
+        obj = self.mod.InOutClass()
+        assert obj.double_ptr(10.0) == 20
+        assert obj.double_ref(11) == 22
+
+        obj = self.mod.InOutClass()
+        assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
+        assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
+
+        obj = self.mod.InOutClass()
+        assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
+        assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
+
+        obj = self.mod.InOutClass()
+        assert obj.double_ptr((1, 2)) == (2, 4)
+        assert obj.double_ref((4, 8)) == (8, 16)

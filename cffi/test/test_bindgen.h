@@ -219,3 +219,24 @@ public:
     virtual string concat(string *s, int len);
     string call_concat(string *s, int len);
 };
+
+struct Vector
+{
+    Vector() { }
+    Vector(int i_, int j_) : i(i_), j(j_) { }
+    int i;
+    int j;
+};
+
+class InOutClass
+{
+public:
+    void double_ptr(int *i);
+    void double_ref(int &i);
+
+    void double_ptr(CtorsClass *i);
+    void double_ref(CtorsClass &i);
+
+    void double_ptr(Vector *i);
+    void double_ref(Vector &i);
+};

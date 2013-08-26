@@ -198,7 +198,7 @@ class TypeInfo(object):
                 self.out = True
             self.convertedType = self.typedef.name + ' *'
 
-        if not self.isCBasic and self.out:
+        if (self.out or self.inOut) and not self.isCBasic:
             self.cType += '*'
             self.cdefType += '*'
 
@@ -241,6 +241,8 @@ class TypeInfo(object):
             if self.isCBasic:
                 return varName + '[0]'
             elif isinstance(self.typedef, extractors.ClassDef):
+                # TODO: if this is * or &, make it py-owned, and if it is ** or
+                #       *&, make it cpp-owned
                 return 'wrapper_lib.obj_from_ptr(%s[0], %s)' % (
                         varName, self.typedef.unscopedPyName)
             elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
@@ -266,23 +268,31 @@ class TypeInfo(object):
             varName += '_converted'
         if self.array:
             return varName
-        elif self.out and isinstance(self.typedef, extractors.ClassDef):
+        elif ((self.out or self.inOut) and
+               isinstance(self.typedef, extractors.ClassDef)):
             if self.isRef:
                 return '*' * (2 - self.ptrCount) + varName
             elif self.ptrCount == 1:
                 return '*' + varName
             else:
                 return varName
-        elif self.out and isinstance(self.typedef, extractors.MappedTypeDef_cffi):
-            if self.isRef:
-                return varName
-            else:
-                return '&' + varName
+        elif ((self.out or self.inOut) and
+               isinstance(self.typedef, extractors.MappedTypeDef_cffi)):
+            if self.out:
+                if self.isRef:
+                    return varName
+                else:
+                    return '&' + varName
+            elif self.inOut:
+                if self.isRef:
+                    return '*' + varName
+                else:
+                    return varName
         elif isinstance(self.typedef, (extractors.ClassDef,
                                        extractors.MappedTypeDef_cffi)):
             return ('*' if not self.deref else '') + varName
         if self.isCBasic:
-            if self.out and self.isRef:
+            if (self.out or self.inOut) and self.isRef:
                 return "*" + varName
             return varName
         raise Exception()
@@ -303,14 +313,18 @@ class TypeInfo(object):
                 self.convertedType, varName, self.typedef.arrayc2cpp,
                 ARRAY_SIZE_PARAM)
         elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
-            return '{0} {1}_converted = {2}({1});'.format(  
-                self.convertedType, varName, self.typedef.c2cppFunc)
+            deref = '*' if self.inOut else ''
+            return '{0} {1}_converted = {2}({3}{1});'.format(
+                self.convertedType, varName, self.typedef.c2cppFunc, deref)
         return None
 
     def c2cppCleanup(self, varName):
         if self.array:
             return 'delete[] %s_converted;' % varName
         if isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+            if self.inOut:
+                return ("*{0} = {1}({0}_converted);\ndelete {0}_converted;"
+                        .format(varName, self.typedef.cpp2cFunc))
             if self.out:
                 return "*{0} = {1}({0}_converted);".format(varName,
                        self.typedef.cpp2cFunc)
@@ -318,7 +332,7 @@ class TypeInfo(object):
         return None
 
     def py2cParam(self, varName):
-        if self.out:
+        if self.out or self.inOut:
             return varName + OUT_PARAM_SUFFIX
         if self.array:
             return varName
@@ -336,6 +350,18 @@ class TypeInfo(object):
         if self.out:
             return "{0}{1} = ffi.new('{2}')".format(varName, OUT_PARAM_SUFFIX,
                                                       self.cdefType)
+        if self.inOut:
+            if isinstance(self.typedef, extractors.ClassDef):
+                conversion = "{0} = wrapper_lib.get_ptr({0})".format(varName)
+            elif isinstance(self.typedef, extractors.MappedTypeDef_cffi):
+                conversion = ("{0}, {0}s_keepalive = {1}.py2c({0})"
+                              .format(varName, self.typedef.pyName))
+            else:
+                assert self.isCBasic
+                conversion = "{0} = {1}({0})".format(
+                             varName, BASIC_CTYPES[self.cdefType.strip('*& ')])
+            return conversion + "\n{0}{1} = ffi.new('{2}', {0})".format(
+                   varName, OUT_PARAM_SUFFIX, self.cdefType)
         if self.array:
             assert not inplace
             return ("{0}, {1}, {0}_keepalive = "
@@ -703,7 +729,7 @@ class CffiModuleGenerator(object):
 
         returnVars = []
         if func.type.name != 'void':
-            returnVars.append('return_val')
+            returnVars.append('return_tmp')
         returnVars.extend([p.type.c2py(p.name + OUT_PARAM_SUFFIX) for p in func
                            if p.type.out or p.type.inOut])
         if len(returnVars) > 0:
@@ -755,7 +781,7 @@ class CffiModuleGenerator(object):
         returnVars = []
         if method.type.name != 'void':
             returnVars.append('return_tmp')
-        returnVars.extend([p.name + OUT_PARAM_SUFFIX for p in method
+        returnVars.extend([p.type.c2py(p.name + OUT_PARAM_SUFFIX) for p in method
                            if p.type.out or p.type.inOut])
         if len(returnVars) > 0:
             method.returnVars = '(' + ', '.join(returnVars) + ')'
@@ -1009,7 +1035,7 @@ class CffiModuleGenerator(object):
         if func.returnVars is None:
             print >> pyfile, "    clib.%s%s" % (func.cName, func.pyCallArgs)
         else:
-            print >> pyfile, "    return_val = " + func.type.c2py("clib.%s%s"
+            print >> pyfile, "    return_tmp = " + func.type.c2py("clib.%s%s"
                              % (func.cName, func.pyCallArgs))
             print >> pyfile, "    return " + func.returnVars
 
@@ -1156,8 +1182,12 @@ class CffiModuleGenerator(object):
             cpp_obj = %s
             wrapper_lib.CppWrapper.__init__(self, cpp_obj)
             """ % call, indent + 4))
+        elif method.returnVars is None:
+            pyfile.write(nci(call, indent + 4))
         else:
-            pyfile.write(nci("return %s" % method.type.c2py(call), indent + 4))
+            pyfile.write(nci("return_tmp = " + method.type.c2py(call),
+                             indent + 4))
+            pyfile.write(nci("return " +  method.returnVars, indent + 4))
 
         for m in method.overloads:
             self.printMethod(m, pyfile, cppfile, indent, parent, True)
@@ -1251,20 +1281,20 @@ class CffiModuleGenerator(object):
         }}
         """.format(mType, nci(mType.cpp2c, 12), nci(mType.c2cpp, 12))))
 
-        checkCode = nci(mType.instancecheck or 'pass', 8)
-        c2pyCode = nci(mType.c2py or 'pass', 8)
-        py2cCode = nci(mType.py2c or 'pass', 8)
+        checkCode = nci(mType.instancecheck or 'pass', 16)
+        c2pyCode = nci(mType.c2py or 'pass', 16)
+        py2cCode = nci(mType.py2c or 'pass', 16)
         pyfile.write(nci("""\
         class {0.name}(wrapper_lib.MappedBase):
             @classmethod
             def __instancecheck__(cls, obj):
-            {1}
+{1}
             @classmethod
             def c2py(cls, cdata):
-            {2}
+{2}
             @classmethod
             def py2c(cls, py_obj):
-            {3}
+{3}
         """.format(mType, checkCode, c2pyCode, py2cCode)))
 
     #------------------------------------------------------------------------#
@@ -1462,7 +1492,6 @@ class CffiModuleGenerator(object):
 
             if not param.arraySize:
                 func.vtdCallArgs.append(vtdCallArg)
-
 
         if parent is not None and not func.isStatic:
             # We're generating a wrapper function that needs a `self` pointer
