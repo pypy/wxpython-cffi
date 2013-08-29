@@ -2,6 +2,8 @@ import cffi
 import weakref
 import collections
 
+from multimethod import Multimethod
+
 ffi = cffi.FFI()
 
 class WrapperType(type):
@@ -129,6 +131,18 @@ class VirtualMethod(object):
             # Python create the object
             for i in self.indices:
                 obj._vdata.set_vflag(obj, i)
+
+    def finalize(self):
+        if hasattr(self.func, 'finalize'):
+            self.func.finalize()
+
+    def overload(self, *args, **kwargs):
+        if not isinstance(self.func, Multimethod):
+            raise TypeError('overload may only used on virtual multimethods')
+        def closure(func):
+            self.func.overload(*args, **kwargs)(func)
+            return self
+        return closure
 
 class VirtualDispatcher(object):
     def __init__(self, index):

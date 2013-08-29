@@ -9,7 +9,7 @@ from annotations import create_array_type
 def eval_class_attrs(cls):
     for attr in cls.__dict__.itervalues():
         eval_func_defaults(attr)
-        if isinstance(attr, Multimethod):
+        if isinstance(attr, (Multimethod, VirtualMethod)):
             attr.finalize()
 
 classname_registry = {}

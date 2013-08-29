@@ -86,6 +86,8 @@ class MultimethodPartial(object):
 
         return overload.func(instance, *args, **kwargs)
 
+    __func__ = property(lambda self: self.resolve.__self__)
+
 class Overload(object):
     def __init__(self, func, ignore_first, kwargs):
         argspec = inspect.getargspec(func)
