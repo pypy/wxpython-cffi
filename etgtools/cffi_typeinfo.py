@@ -1,3 +1,5 @@
+from binascii import crc32
+
 import etgtools.extractors as extractors
 
 # C basic types -> Python conversion functions
@@ -80,7 +82,7 @@ class TypeInfo(object):
     def py2cParam(self, varName):
         return varName
 
-    def py2cPostcall(self, varName):
+    def py2cPostcall(self, inVar, outVar):
         # Formerly called py2cReturn
         return None
 
@@ -98,6 +100,12 @@ class TypeInfo(object):
 
     def cpp2c(self, varName):
         return varName
+
+    def virtualPreCallback(self, varName):
+        return None
+
+    def virtualPostCallback(self, varName):
+        return None
 
 
 
@@ -148,6 +156,10 @@ class WrappedTypeInfo(TypeInfo):
             return varName
         return 'wrapper_lib.get_ptr(%s)' % varName
 
+    def py2cPostcall(self, inVar, outVar):
+        if self.out or self.inOut:
+            return "%s[0] = wrapper_lib.get_ptr(%s)" % (outVar, inVar)
+
     def c2py(self, varName):
         if self.out or self.inOut:
             # TODO: if this is * or &, make it py-owned, and if it is ** or
@@ -164,6 +176,8 @@ class WrappedTypeInfo(TypeInfo):
         if self.array:
             return "%s(%s, %s)" % (self.typedef.arraycpp2c, varName,
                                    ARRAY_SIZE_PARAM)
+        if self.inOut:
+            return "&%s_ptr" % varName
         # Always pass wrapped classes as pointers. If this is by value or
         # a const reference, it needs to be copy constructored onto the
         # heap, with Python taking ownership of the new object.
@@ -202,6 +216,25 @@ class WrappedTypeInfo(TypeInfo):
         if self.array:
             return 'delete[] %s_converted;' % varName
         return None
+
+    def virtualPreCallback(self, varName):
+        if self.array:
+            return None
+
+        if self.inOut:
+            initValue = 'NULL'
+            if self.isRef:
+                initValue = '&' + varName
+            elif self.isPtr:
+                initValue = varName
+            return "%s %s_ptr = %s;" % (self.cReturnType, varName, initValue)
+
+    def virtualPostCallback(self, varName):
+        if self.out or self.inOut:
+            deref = '*' if self.isPtr else ''
+            return """\
+            if({1}_ptr != NULL)
+                {0}{1} = *{1}_ptr;""".format(deref, varName)
 
 class MappedTypeInfo(TypeInfo):
     def __init__(self, typeName, typedef, **kwargs):
@@ -252,11 +285,19 @@ class MappedTypeInfo(TypeInfo):
             return varName + OUT_PARAM_SUFFIX
         return varName
 
-    def py2cPostcall(self, varName):
+    def py2cPostcall(self, inVar, outVar):
+        tmpVar = "tmp_" + hex(crc32(inVar + outVar) & 0xffffffff)
+        if self.out or self.inOut:
+            return """\
+            {2}, {2}_keepalive = {3}.py2c({0})
+            {1}[0] = clib.{4}({2})
+            """.format(inVar, outVar, tmpVar, self.typedef.pyName,
+                   self.typedef.c2cppPyFunc)
         return """\
-        {0}, {0}s_keepalive = {1}.py2c({0})
-        {0} = clib.{2}({0})
-        """.format(varName, self.typedef.pyName, self.typedef.c2cppPyFunc)
+        {2}, {2}_keepalive = {3}.py2c({0})
+        {1} = clib.{4}({2})
+        """.format(inVar, outVar, tmpVar, self.typedef.pyName,
+                self.typedef.c2cppPyFunc)
 
     def c2py(self, varName):
         if self.out or self.inOut:
@@ -315,7 +356,32 @@ class MappedTypeInfo(TypeInfo):
         if self.array:
             return "%s(%s, %s)" % (self.typedef.arraycpp2c, varName,
                                    ARRAY_SIZE_PARAM)
+
+        if self.inOut:
+            return '&' + varName + "_converted"
         return '%s(%s)' % (self.typedef.cpp2cFunc, varName)
+
+    def virtualPreCallback(self, varName):
+        if self.out:
+            return "{0} {1}_ptr = NULL;".format(self.cReturnType, varName)
+        if self.inOut:
+            return """\
+            union
+            {{
+                {0.cReturnType} {1}_ptr;
+                {0.typedef.cType} {1}_converted;
+            }};
+            {1}_converted = {0.typedef.cpp2cFunc}({1});
+            """.format(self, varName)
+        return None
+
+    def virtualPostCallback(self, varName):
+        if self.out or self.inOut:
+            deref = '*' if self.isPtr else ''
+            return """\
+            if({1}_ptr != NULL)
+                {0}{1} = *{1}_ptr;
+            delete {1}_ptr;""".format(deref, varName)
 
 class CharPtrTypeInfo(TypeInfo):
     def __init__(self, typeName, typedef, **kwargs):
@@ -342,9 +408,8 @@ class BasicTypeInfo(TypeInfo):
             raise TypeError('use of the PyInt annotation is unsupported on '
                             "'%'parameters" % typeName)
 
-        self.name = self.name.strip('*& ')
-        self.cType = self.name
-        self.cdefType = self.name
+        self.cType = self.name.strip('*& ')
+        self.cdefType = self.cType
         self.cReturnType = self.cType
 
         if self.pyInt:
@@ -385,6 +450,11 @@ class BasicTypeInfo(TypeInfo):
         # Use cdefType here to catch changes made by because PyInt
         return "%s(%s)" % (BASIC_CTYPES[self.cdefType], varName)
 
+    def py2cPostcall(self, inVar, outVar):
+        if self.out or self.inOut:
+            return "%s[0] = %s(%s)" % (
+                outVar, BASIC_CTYPES[self.cdefType.strip('* ')], inVar)
+
     def c2py(self, varName):
         if self.out or self.inOut:
             return varName + '[0]'
@@ -394,4 +464,9 @@ class BasicTypeInfo(TypeInfo):
         if self.isRef:
             assert self.out or self.inOut
             return '*' + varName
+        return varName
+
+    def cpp2c(self, varName):
+        if self.isRef:
+            return '&' + varName
         return varName

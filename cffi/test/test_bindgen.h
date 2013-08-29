@@ -231,12 +231,21 @@ struct Vector
 class InOutClass
 {
 public:
-    void double_ptr(int *i);
-    void double_ref(int &i);
+    virtual void double_ptr(int *i);
+    virtual void double_ref(int &i);
 
-    void double_ptr(CtorsClass *i);
-    void double_ref(CtorsClass &i);
+    virtual void double_ptr(CtorsClass *i);
+    virtual void double_ref(CtorsClass &i);
 
-    void double_ptr(Vector *i);
-    void double_ref(Vector &i);
+    virtual void double_ptr(Vector *i);
+    virtual void double_ref(Vector &i);
+
+    void call_double_ptr(int *i);
+    void call_double_ref(int &i);
+
+    void call_double_ptr(CtorsClass *i);
+    void call_double_ref(CtorsClass &i);
+
+    void call_double_ptr(Vector *i);
+    void call_double_ref(Vector &i);
 };

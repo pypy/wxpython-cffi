@@ -320,3 +320,33 @@ void InOutClass::double_ref(Vector &i)
     i.i *= 2;
     i.j *= 2;
 }
+
+void InOutClass::call_double_ptr(int *i)
+{
+    double_ptr(i);
+}
+
+void InOutClass::call_double_ref(int &i)
+{
+    double_ref(i);
+}
+
+void InOutClass::call_double_ptr(CtorsClass *i)
+{
+    double_ptr(i);
+}
+
+void InOutClass::call_double_ref(CtorsClass &i)
+{
+    double_ref(i);
+}
+
+void InOutClass::call_double_ptr(Vector *i)
+{
+    double_ptr(i);
+}
+
+void InOutClass::call_double_ref(Vector &i)
+{
+    double_ref(i);
+}

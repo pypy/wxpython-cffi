@@ -401,7 +401,8 @@ class CffiModuleGenerator(object):
             returnVars.append('return_tmp')
         returnVars.extend([p.type.c2py(p.name + OUT_PARAM_SUFFIX) for p in func
                            if p.type.out or p.type.inOut])
-        if len(returnVars) > 0:
+        func.returnCount = len(returnVars)
+        if func.returnCount > 0:
             func.returnVars = '(' + ', '.join(returnVars) + ')'
         else:
             func.returnVars = None
@@ -452,7 +453,8 @@ class CffiModuleGenerator(object):
             returnVars.append('return_tmp')
         returnVars.extend([p.type.c2py(p.name + OUT_PARAM_SUFFIX) for p in method
                            if p.type.out or p.type.inOut])
-        if len(returnVars) > 0:
+        method.returnCount = len(returnVars)
+        if method.returnCount > 0:
             method.returnVars = '(' + ', '.join(returnVars) + ')'
         else:
             method.returnVars = None
@@ -733,12 +735,24 @@ class CffiModuleGenerator(object):
             """
             .format(method, parent, funcPtrName, sig)))
 
+            for param in method.items:
+                convertCode = param.type.virtualPreCallback(param.name)
+                if convertCode is not None:
+                    cppfile.write(nci(convertCode, 8))
+
             if method.type.name == 'void':
                 cppfile.write(nci(cbCall + ';', 8))
             else:
                 cppfile.write(nci("""\
                     {0.type.cReturnType} py_return = {1};
                 """.format(method, cbCall), 8))
+
+            for param in method.items:
+                convertCode = param.type.virtualPostCallback(param.name)
+                if convertCode is not None:
+                    cppfile.write(nci(convertCode, 8))
+
+            if method.type.name != 'void':
 
                 isMappedType = isinstance(method.type, MappedTypeInfo)
                 isWrappedType = isinstance(method.type, WrappedTypeInfo)
@@ -806,10 +820,25 @@ class CffiModuleGenerator(object):
                 return_tmp = {1}
             """.format(method, call), indent))
 
-            convertCode = method.type.py2cPostcall('return_tmp')
-            if convertCode is not None:
-                pyfile.write(nci(convertCode, indent + 4))
-            pyfile.write(nci('return return_tmp', indent + 4))
+            for i, param in enumerate([p for p in method if p.out or p.inOut]):
+                i += 1 if method.type.name != 'void' else 0
+                returnVar = 'return_tmp'
+                if method.returnCount > 1:
+                    returnVar += '[%d]' % i
+
+                convertCode = param.type.py2cPostcall(returnVar, param.name)
+                if convertCode is not None:
+                    pyfile.write(nci(convertCode, indent + 4))
+
+            if method.type.name != 'void':
+                varName = 'return_tmp'
+                if method.returnCount > 1:
+                    varName += '[0]'
+
+                convertCode = method.type.py2cPostcall(varName, 'return_tmp')
+                if convertCode is not None:
+                    pyfile.write(nci(convertCode, indent + 4))
+                pyfile.write(nci('return return_tmp', indent + 4))
 
             pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" %
                                      method.virtualIndex,

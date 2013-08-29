@@ -346,27 +346,53 @@ class TestBindGen(object):
         c = ClassDef(name='InOutClass')
         c.addItem(MethodDef(
             type='void', argsString='(int *num)', name='double_ptr',
+            isVirtual=True,
             items=[ParamDef(type='int *', name='num', inOut=True)],
             overloads=[
                 MethodDef(
                     type='void', argsString='(CtorsClass *num)',
-                    name='double_ptr', items=[
+                    name='double_ptr', isVirtual=True, items=[
                     ParamDef(type='CtorsClass *', name='num', inOut=True)]),
                 MethodDef(
-                type='void', argsString='(Vector *vec)',
+                type='void', argsString='(Vector *vec)', isVirtual=True,
                 name='double_ptr', items=[
                     ParamDef(type='Vector *', name='vec', inOut=True)])]))
         c.addItem(MethodDef(
             type='void', argsString='(int &num)', name='double_ref',
+            isVirtual=True,
             items=[ParamDef(type='int &', name='num', inOut=True)],
             overloads=[
                 MethodDef(
-                type='void', argsString='(CtorsClass *num)',
+                type='void', argsString='(CtorsClass *num)', isVirtual=True, 
                 name='double_ref', items=[
                     ParamDef(type='CtorsClass &', name='num', inOut=True)]),
                 MethodDef(
                 type='void', argsString='(Vector &vec)',
-                name='double_ref', items=[
+                name='double_ref', isVirtual=True, items=[
+                    ParamDef(type='Vector &', name='vec', inOut=True)])]))
+        c.addItem(MethodDef(
+            type='void', argsString='(int *num)', name='call_double_ptr',
+            items=[ParamDef(type='int *', name='num', inOut=True)],
+            overloads=[
+                MethodDef(
+                    type='void', argsString='(CtorsClass *num)',
+                    name='call_double_ptr', items=[
+                    ParamDef(type='CtorsClass *', name='num', inOut=True)]),
+                MethodDef(
+                type='void', argsString='(Vector *vec)',
+                name='call_double_ptr', items=[
+                    ParamDef(type='Vector *', name='vec', inOut=True)])]))
+        c.addItem(MethodDef(
+            type='void', argsString='(int &num)', name='call_double_ref',
+            items=[ParamDef(type='int &', name='num', inOut=True)],
+            overloads=[
+                MethodDef(
+                type='void', argsString='(CtorsClass *num)',
+                name='call_double_ref', items=[
+                    ParamDef(type='CtorsClass &', name='num', inOut=True)]),
+                MethodDef(
+                type='void', argsString='(Vector &vec)',
+                name='call_double_ref', items=[
                     ParamDef(type='Vector &', name='vec', inOut=True)])]))
         module.addItem(c)
 
@@ -809,14 +835,46 @@ class TestBindGen(object):
         assert obj.double_ptr(10.0) == 20
         assert obj.double_ref(11) == 22
 
-        obj = self.mod.InOutClass()
         assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
         assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
 
-        obj = self.mod.InOutClass()
         assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
         assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
 
-        obj = self.mod.InOutClass()
         assert obj.double_ptr((1, 2)) == (2, 4)
         assert obj.double_ref((4, 8)) == (8, 16)
+
+    def test_virtual_inout(self):
+        class InOutSubclass(self.mod.InOutClass):
+            def double_ptr(self_, obj):
+                import numbers
+                if isinstance(obj, numbers.Number):
+                    return -obj
+                if isinstance(obj, tuple):
+                    return (-obj[0], -obj[1])
+                if isinstance(obj, self.mod.CtorsClass):
+                    obj = self.mod.CtorsClass(-obj.get())
+                    return obj
+
+            def double_ref(self_, obj):
+                import numbers
+                if isinstance(obj, numbers.Number):
+                    return -obj
+                if isinstance(obj, tuple):
+                    return (-obj[0], -obj[1])
+                if isinstance(obj, self.mod.CtorsClass):
+                    obj = self.mod.CtorsClass(-obj.get())
+                    return obj
+
+        obj = InOutSubclass()
+        assert obj.call_double_ptr(10.0) == -10
+        assert obj.call_double_ref(11) == -11
+
+        assert obj.call_double_ptr(self.mod.CtorsClass(10.0)).get() == -10
+        assert obj.call_double_ref(self.mod.CtorsClass(11)).get() == -11
+
+        assert obj.call_double_ptr(self.mod.CtorsClass(10.0)).get() == -10
+        assert obj.call_double_ref(self.mod.CtorsClass(11)).get() == -11
+
+        assert obj.call_double_ptr((1, 2)) == (-1, -2)
+        assert obj.call_double_ref((4, 8)) == (-4, -8)
