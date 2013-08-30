@@ -228,6 +228,24 @@ struct Vector
     int j;
 };
 
+class OutClass
+{
+public:
+    virtual int get_coords_ptr(int *x, int *y);
+    virtual int get_coords_ref(int &x, int &y);
+    virtual void get_mappedtype_ptr(string *x, string **y);
+    virtual void get_mappedtype_ref(string &x, string *&y);
+    virtual void get_wrappedtype_ptr(CtorsClass *x, CtorsClass **y);
+    virtual void get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y);
+
+    int call_get_coords_ptr(int *x, int *y);
+    int call_get_coords_ref(int &x, int &y);
+    void call_get_mappedtype_ptr(string *x, string **y);
+    void call_get_mappedtype_ref(string &x, string *&y);
+    void call_get_wrappedtype_ptr(CtorsClass *x, CtorsClass **y);
+    void call_get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y);
+};
+
 class InOutClass
 {
 public:

@@ -444,34 +444,68 @@ class TestBindGen(object):
                 ParamDef(name='str', type='string *', array=True),
                 ParamDef(name='len', type='int', arraySize=True)])]))
 
-        module.addItem(FunctionDef(
-            type='int', argsString='(int *x, int *y)', name='get_coords',
+        c = ClassDef(name='OutClass')
+        c.addItem(MethodDef(
+            type='int', argsString='(int *x, int *y)', name='get_coords_ptr',
+            isVirtual=True,
             items=[ParamDef(type='int *', name='x', out=True),
                    ParamDef(type='int *', name='y')]))
-        module.addItem(FunctionDef(
+        c.addItem(MethodDef(
             type='int', argsString='(int *x, int *y)', name='get_coords_ref',
+            isVirtual=True,
             items=[ParamDef(type='int &', name='x', out=True),
                    ParamDef(type='int &', name='y')]))
-        module.addItem(FunctionDef(
-            type='void', argsString='(CtorsClass *x, CtorsClass **y)',
-            name='get_wrappedtype',
-            items=[ParamDef(type='CtorsClass *', name='x', out=True),
-                   ParamDef(type='CtorsClass **', name='y')]))
-        module.addItem(FunctionDef(
-            type='void', argsString='(CtorsClass &x, CtorsClass *&y)',
-            name='get_wrappedtype_ref',
-            items=[ParamDef(type='CtorsClass &', name='x', out=True),
-                   ParamDef(type='CtorsClass *&', name='y')]))
-        module.addItem(FunctionDef(
+        c.addItem(MethodDef(
             type='void', argsString='(string *x, string **y)',
-            name='get_mappedtype',
+            name='get_mappedtype_ptr', isVirtual=True,
             items=[ParamDef(type='string *', name='x', out=True),
                    ParamDef(type='string **', name='y')]))
-        module.addItem(FunctionDef(
+        c.addItem(MethodDef(
             type='void', argsString='(string &x, string *&y)',
-            name='get_mappedtype_ref',
+            name='get_mappedtype_ref', isVirtual=True,
             items=[ParamDef(type='string &', name='x', out=True),
                    ParamDef(type='string *&', name='y')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(CtorsClass *x, CtorsClass **y)',
+            name='get_wrappedtype_ptr', isVirtual=True,
+            items=[ParamDef(type='CtorsClass *', name='x', out=True),
+                   ParamDef(type='CtorsClass **', name='y')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(CtorsClass &x, CtorsClass *&y)',
+            name='get_wrappedtype_ref', isVirtual=True,
+            items=[ParamDef(type='CtorsClass &', name='x', out=True),
+                   ParamDef(type='CtorsClass *&', name='y')]))
+        c.addItem(MethodDef(
+            type='int', argsString='(int *x, int *y)',
+            name='call_get_coords_ptr',
+            items=[ParamDef(type='int *', name='x', out=True),
+                   ParamDef(type='int *', name='y')]))
+        c.addItem(MethodDef(
+            type='int', argsString='(int *x, int *y)',
+            name='call_get_coords_ref',
+            items=[ParamDef(type='int &', name='x', out=True),
+                   ParamDef(type='int &', name='y')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(string *x, string **y)',
+            name='call_get_mappedtype_ptr',
+            items=[ParamDef(type='string *', name='x', out=True),
+                   ParamDef(type='string **', name='y')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(string &x, string *&y)',
+            name='call_get_mappedtype_ref',
+            items=[ParamDef(type='string &', name='x', out=True),
+                   ParamDef(type='string *&', name='y')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(CtorsClass *x, CtorsClass **y)',
+            name='call_get_wrappedtype_ptr',
+            items=[ParamDef(type='CtorsClass *', name='x', out=True),
+                   ParamDef(type='CtorsClass **', name='y')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(CtorsClass &x, CtorsClass *&y)',
+            name='call_get_wrappedtype_ref',
+            items=[ParamDef(type='CtorsClass &', name='x', out=True),
+                   ParamDef(type='CtorsClass *&', name='y')]))
+        module.addItem(c)
 
         c = ClassDef(name='MappedTypeClass')
         c.addItem(MethodDef(
@@ -804,29 +838,30 @@ class TestBindGen(object):
         assert obj.call_sum_virt(objs) == -6
 
     def test_out_parameter(self):
-        a, b, c = self.mod.get_coords()
+        obj = self.mod.OutClass()
+        a, b, c = obj.get_coords_ptr()
         assert a == 9
         assert b == 3
         assert c == 6
 
-        a, b, c = self.mod.get_coords_ref()
+        a, b, c = obj.get_coords_ref()
         assert a == 9
         assert b == 3
         assert c == 6
 
-        a, b = self.mod.get_wrappedtype()
+        a, b = obj.get_wrappedtype_ptr()
         assert a.get() == 15
         assert b.get() == 30
 
-        a, b = self.mod.get_wrappedtype_ref()
+        a, b = obj.get_wrappedtype_ref()
         assert a.get() == 45
         assert b.get() == 60
 
-        a, b = self.mod.get_mappedtype()
+        a, b = obj.get_mappedtype_ptr()
         assert a == "15"
         assert b == "30"
 
-        a, b = self.mod.get_mappedtype_ref()
+        a, b = obj.get_mappedtype_ref()
         assert a == "45"
         assert b == "60"
 
@@ -843,6 +878,53 @@ class TestBindGen(object):
 
         assert obj.double_ptr((1, 2)) == (2, 4)
         assert obj.double_ref((4, 8)) == (8, 16)
+
+    def test_virtual_ou(self):
+        class OutSubclass(self.mod.OutClass):
+            def get_coords_ptr(self):
+                return (1, 2, 3)
+
+            def get_coords_ref(self):
+                return (4, 5, 6)
+
+            def get_mappedtype_ptr(self):
+                return ("by", "ptr")
+
+            def get_mappedtype_ref(self):
+                return ("via", "ref")
+
+            def get_wrappedtype_ptr(self_):
+                return (self.mod.CtorsClass(-1), self.mod.CtorsClass(-2))
+
+            def get_wrappedtype_ref(self_):
+                return (self.mod.CtorsClass(-3), self.mod.CtorsClass(-4))
+
+        obj = OutSubclass()
+        a, b, c = obj.call_get_coords_ptr()
+        assert a == 1
+        assert b == 2
+        assert c == 3
+
+        a, b, c = obj.call_get_coords_ref()
+        assert a == 4
+        assert b == 5
+        assert c == 6
+
+        a, b = obj.call_get_wrappedtype_ptr()
+        assert a.get() == -1
+        assert b.get() == -2
+
+        a, b = obj.call_get_wrappedtype_ref()
+        assert a.get() == -3
+        assert b.get() == -4
+
+        a, b = obj.call_get_mappedtype_ptr()
+        assert a == "by"
+        assert b == "ptr"
+
+        a, b = obj.call_get_mappedtype_ref()
+        assert a == "via"
+        assert b == "ref"
 
     def test_virtual_inout(self):
         class InOutSubclass(self.mod.InOutClass):

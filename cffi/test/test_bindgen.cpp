@@ -49,34 +49,6 @@ double overloaded_func(double i)
     return i / 2;
 }
 
-int get_coords(int *x, int *y)
-{
-    *x = 3;
-    *y = 6;
-
-    return 9;
-}
-
-int get_coords_ref(int &x, int &y)
-{
-    x = 3;
-    y = 6;
-
-    return 9;
-}
-
-void get_mappedtype(string *x, string **y)
-{
-    *x = string("15");
-    *y = new string("30");
-}
-
-void get_mappedtype_ref(string &x, string *&y)
-{
-    x = string("45");
-    y = new string("60");
-}
-
 int SimpleClass::simple_method(double f)
 {
     return f;
@@ -115,18 +87,6 @@ int CtorsClass::get()
 void CtorsClass::set(int i)
 {
     m_i = i;
-}
-
-void get_wrappedtype(CtorsClass *x, CtorsClass **y)
-{
-    *x = CtorsClass(15);
-    *y = new CtorsClass(30);
-}
-
-void get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y)
-{
-    x = CtorsClass(45);
-    y = new CtorsClass(60);
 }
 
 int PCtorClass::get()
@@ -287,6 +247,76 @@ string MappedTypeClass::concat(string *s, int len)
 string MappedTypeClass::call_concat(string *s, int len)
 {
     return concat(s, len);
+}
+
+int OutClass::get_coords_ptr(int *x, int *y)
+{
+    *x = 3;
+    *y = 6;
+
+    return 9;
+}
+
+int OutClass::get_coords_ref(int &x, int &y)
+{
+    x = 3;
+    y = 6;
+
+    return 9;
+}
+
+void OutClass::get_wrappedtype_ptr(CtorsClass *x, CtorsClass **y)
+{
+    *x = CtorsClass(15);
+    *y = new CtorsClass(30);
+}
+
+void OutClass::get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y)
+{
+    x = CtorsClass(45);
+    y = new CtorsClass(60);
+}
+
+void OutClass::get_mappedtype_ptr(string *x, string **y)
+{
+    *x = string("15");
+    *y = new string("30");
+}
+
+void OutClass::get_mappedtype_ref(string &x, string *&y)
+{
+    x = string("45");
+    y = new string("60");
+}
+
+int OutClass::call_get_coords_ptr(int *x, int *y)
+{
+    return get_coords_ptr(x, y);
+}
+
+int OutClass::call_get_coords_ref(int &x, int &y)
+{
+    return get_coords_ref(x, y);
+}
+
+void OutClass::call_get_mappedtype_ptr(string *x, string **y)
+{
+    get_mappedtype_ptr(x, y);
+}
+
+void OutClass::call_get_mappedtype_ref(string &x, string *&y)
+{
+    get_mappedtype_ref(x, y);
+}
+
+void OutClass::call_get_wrappedtype_ptr(CtorsClass *x, CtorsClass **y)
+{
+    get_wrappedtype_ptr(x, y);
+}
+
+void OutClass::call_get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y)
+{
+    get_wrappedtype_ref(x, y);
 }
 
 void InOutClass::double_ptr(int *i)

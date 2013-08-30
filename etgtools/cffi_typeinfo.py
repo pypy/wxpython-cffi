@@ -133,6 +133,9 @@ class WrappedTypeInfo(TypeInfo):
             self.overloadType = ("wrapper_lib.create_array_type(%s%s)" %
                                 (self.typedef.unscopedPyName, cTypeArg))
 
+        self.cCbType = self.cType
+        self.cdefCbType = self.cdefType
+
     def py2cPrecall(self, varName, inplace=False):
         if self.out:
             return "{0}{1} = ffi.new('{2}')".format(varName, OUT_PARAM_SUFFIX,
@@ -159,6 +162,7 @@ class WrappedTypeInfo(TypeInfo):
     def py2cPostcall(self, inVar, outVar):
         if self.out or self.inOut:
             return "%s[0] = wrapper_lib.get_ptr(%s)" % (outVar, inVar)
+        return "%s = wrapper_lib.get_ptr(%s)" % (outVar, inVar)
 
     def c2py(self, varName):
         if self.out or self.inOut:
@@ -176,8 +180,16 @@ class WrappedTypeInfo(TypeInfo):
         if self.array:
             return "%s(%s, %s)" % (self.typedef.arraycpp2c, varName,
                                    ARRAY_SIZE_PARAM)
+        if self.out:
+            if self.ptrCount == 2:
+                return varName
+            if  self.isRef and self.isPtr:
+                return '&' + varName
+            else:
+                return '&' + varName + "_ptr"
+
         if self.inOut:
-            return "&%s_ptr" % varName
+            return '&' + varName + "_ptr"
         # Always pass wrapped classes as pointers. If this is by value or
         # a const reference, it needs to be copy constructored onto the
         # heap, with Python taking ownership of the new object.
@@ -221,8 +233,8 @@ class WrappedTypeInfo(TypeInfo):
         if self.array:
             return None
 
-        if self.inOut:
-            initValue = 'NULL'
+        if self.inOut or (self.out and self.ptrCount != 2 and not
+                          (self.isRef and self.isPtr)):
             if self.isRef:
                 initValue = '&' + varName
             elif self.isPtr:
@@ -231,10 +243,11 @@ class WrappedTypeInfo(TypeInfo):
 
     def virtualPostCallback(self, varName):
         if self.out or self.inOut:
-            deref = '*' if self.isPtr else ''
-            return """\
-            if({1}_ptr != NULL)
-                {0}{1} = *{1}_ptr;""".format(deref, varName)
+            if self.ptrCount != 2 and not (self.isRef and self.isPtr):
+                deref = '*' if self.isPtr else ''
+                return """\
+                if({1}_ptr != NULL)
+                    {0}{1} = *{1}_ptr;""".format(deref, varName)
 
 class MappedTypeInfo(TypeInfo):
     def __init__(self, typeName, typedef, **kwargs):
@@ -257,6 +270,13 @@ class MappedTypeInfo(TypeInfo):
             self.cdefType += '[]'
             self.overloadType = ('wrapper_lib.create_array_type(%s, ctype="%s")'
                                  % (self.typedef.name, self.cdefType))
+
+        if self.out:
+            self.cCbType = self.typedef.name + '**'
+            self.cdefCbType = "void **"
+        else:
+            self.cCbType = self.cType
+            self.cdefCbType = self.cdefType
 
     def py2cPrecall(self, varName, inplace=False):
         if self.out:
@@ -286,6 +306,8 @@ class MappedTypeInfo(TypeInfo):
         return varName
 
     def py2cPostcall(self, inVar, outVar):
+        # inVar and outVar may both contain [x], so hash them to create a
+        # usable temporary name
         tmpVar = "tmp_" + hex(crc32(inVar + outVar) & 0xffffffff)
         if self.out or self.inOut:
             return """\
@@ -357,12 +379,19 @@ class MappedTypeInfo(TypeInfo):
             return "%s(%s, %s)" % (self.typedef.arraycpp2c, varName,
                                    ARRAY_SIZE_PARAM)
 
+        if self.out:
+            if self.ptrCount == 2:
+                return varName
+            if  self.isRef and self.isPtr:
+                return '&' + varName
+            else:
+                return '&' + varName + "_ptr"
         if self.inOut:
             return '&' + varName + "_converted"
         return '%s(%s)' % (self.typedef.cpp2cFunc, varName)
 
     def virtualPreCallback(self, varName):
-        if self.out:
+        if self.out and self.ptrCount != 2 and not (self.isRef and self.isPtr):
             return "{0} {1}_ptr = NULL;".format(self.cReturnType, varName)
         if self.inOut:
             return """\
@@ -377,11 +406,12 @@ class MappedTypeInfo(TypeInfo):
 
     def virtualPostCallback(self, varName):
         if self.out or self.inOut:
-            deref = '*' if self.isPtr else ''
-            return """\
-            if({1}_ptr != NULL)
-                {0}{1} = *{1}_ptr;
-            delete {1}_ptr;""".format(deref, varName)
+            if self.ptrCount != 2 and not (self.isRef and self.isPtr):
+                deref = '*' if self.isPtr else ''
+                return """\
+                if({1}_ptr != NULL)
+                    {0}{1} = *{1}_ptr;
+                delete {1}_ptr;""".format(deref, varName)
 
 class CharPtrTypeInfo(TypeInfo):
     def __init__(self, typeName, typedef, **kwargs):
@@ -393,6 +423,9 @@ class CharPtrTypeInfo(TypeInfo):
         if self.isConst:
             self.cType = 'const char *'
             self.cdefType = 'const char *'
+
+        self.cCbType = self.cType
+        self.cdefCbType = self.cdefType
 
     def c2py(self, varName):
         return 'ffi.string(%s)' % varName
@@ -433,6 +466,9 @@ class BasicTypeInfo(TypeInfo):
         if not self.pyInt and 'char' in self.name:
             self.overloadType = '(str, unicode)'
 
+        self.cCbType = self.cType
+        self.cdefCbType = self.cdefType
+
     def py2cPrecall(self, varName, inplace=False):
         if self.out:
             return "{0}{1} = ffi.new('{2}')".format(varName, OUT_PARAM_SUFFIX,
@@ -452,8 +488,11 @@ class BasicTypeInfo(TypeInfo):
 
     def py2cPostcall(self, inVar, outVar):
         if self.out or self.inOut:
+            # For out and inOut cases, we're writing into a pointer
             return "%s[0] = %s(%s)" % (
                 outVar, BASIC_CTYPES[self.cdefType.strip('* ')], inVar)
+        return "%s = %s(%s)" % (
+            outVar, BASIC_CTYPES[self.cdefType.strip('* ')], inVar)
 
     def c2py(self, varName):
         if self.out or self.inOut:

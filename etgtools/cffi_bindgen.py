@@ -727,7 +727,7 @@ class CffiModuleGenerator(object):
                 sig = "{0.cppClassName}::~{0.cppClassName}()".format(parent)
 
             cppfile.write(nci("""\
-            extern "C" typedef {0.type.cReturnType} (*{2}){0.cArgs};
+            extern "C" typedef {0.type.cReturnType} (*{2}){0.cCbArgs};
             {3}
             {{
                 if(this->vflags[{0.virtualIndex}])
@@ -815,12 +815,13 @@ class CffiModuleGenerator(object):
                     parent.type.c2py('self'), method)
             pyfile.write(nci("""\
             @wrapper_lib.VirtualDispatcher({0.virtualIndex})
-            @ffi.callback('{0.type.cdefType}(*){0.cdefArgs}')
+            @ffi.callback('{0.type.cdefType}(*){0.cdefCbArgs}')
             def _virtual__{0.virtualIndex}{0.vtdArgs}:
                 return_tmp = {1}
             """.format(method, call), indent))
 
-            for i, param in enumerate([p for p in method if p.out or p.inOut]):
+            for i, param in enumerate([p for p in method if p.type.out or
+                                                            p.type.inOut]):
                 i += 1 if method.type.name != 'void' else 0
                 returnVar = 'return_tmp'
                 if method.returnCount > 1:
@@ -1119,6 +1120,8 @@ class CffiModuleGenerator(object):
 
         func.cArgs = []
         func.cdefArgs = []
+        func.cCbArgs = []
+        func.cdefCbArgs = []
         func.cCallArgs = []
         func.cbCallArgs = []
         func.vCallArgs = []
@@ -1136,6 +1139,8 @@ class CffiModuleGenerator(object):
                 func.pyCallArgs.append('wrapper_lib.get_ptr(self)')
                 func.cArgs.append('%s *self' % parent.cppClassName)
                 func.cdefArgs.append('void *self')
+                func.cCbArgs.append('%s *self' % parent.cppClassName)
+                func.cdefCbArgs.append('void *self')
                 func.cbCallArgs.append('this')
                 func.vtdArgs.append('self')
 
@@ -1150,6 +1155,8 @@ class CffiModuleGenerator(object):
             cArg = "%s %s" % (param.type.cType, param.name)
             #cdefArg = "%s %s" % (param.type.cdefType, param.name)
             cdefArg = param.type.cdefType
+            cCbArg = param.type.cCbType
+            cdefCbArg = param.type.cdefCbType
             cCallArg = param.type.c2cppParam(param.name)
             cbCallArg = param.type.cpp2c(param.name)
 
@@ -1172,6 +1179,8 @@ class CffiModuleGenerator(object):
 
             func.cArgs.append(cArg)
             func.cdefArgs.append(cdefArg)
+            func.cCbArgs.append(cCbArg)
+            func.cdefCbArgs.append(cdefCbArg)
             func.cCallArgs.append(cCallArg)
             func.cbCallArgs.append(cbCallArg)
             func.cppArgs.append(cppArg)
@@ -1185,8 +1194,6 @@ class CffiModuleGenerator(object):
             if not param.type.out and not param.type.arraySize:
                 func.pyArgs.append(pyArg)
                 func.overloadArgs.append(overloadArg)
-
-            if not param.arraySize:
                 func.vtdCallArgs.append(vtdCallArg)
 
         if parent is not None and not func.isStatic:
@@ -1202,6 +1209,8 @@ class CffiModuleGenerator(object):
 
         func.cArgs = '(' + ', '.join(func.cArgs) + ')'
         func.cdefArgs = '(' + ', '.join(func.cdefArgs) + ')'
+        func.cCbArgs = '(' + ', '.join(func.cCbArgs) + ')'
+        func.cdefCbArgs = '(' + ', '.join(func.cdefCbArgs) + ')'
         func.cCallArgs = '(' + ', '.join(func.cCallArgs) + ')'
         func.cbCallArgs = '(' + ', '.join(func.cbCallArgs) + ')'
         func.pyArgs = '(' + ', '.join(func.pyArgs) + ')'
