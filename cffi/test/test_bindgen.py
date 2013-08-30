@@ -435,6 +435,16 @@ class TestBindGen(object):
                     isinstance(obj[1], numbers.Number))
             """,))
 
+        module.addItem(MappedTypeDef_cffi(
+            name='IntWrapper', cType='int',
+            py2c="return (int(py_obj), None)",
+            c2py="return cdata",
+            c2cpp="return new IntWrapper(cdata);",
+            cpp2c="return cpp_obj->i;",
+            instancecheck="""\
+            import numbers
+            return isinstance(obj, numbers.Number)"""))
+
         module.addItem(FunctionDef(
             type='int', argsString='(string *str)', name='std_string_len',
             items=[ParamDef(name='str', type='string *')],
@@ -443,6 +453,29 @@ class TestBindGen(object):
             name='std_string_len', items=[
                 ParamDef(name='str', type='string *', array=True),
                 ParamDef(name='len', type='int', arraySize=True)])]))
+
+        c = ClassDef(name='IntWrapperClass')
+        c.addItem(MethodDef(
+            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
+            name='trivial_mappedtype', isVirtual=True, items=[
+                ParamDef(type='IntWrapper', name='i'),
+                ParamDef(type='IntWrapper &', name='k', out=True)]))
+        c.addItem(MethodDef(
+            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
+            name='call_trivial_mappedtype', items=[
+                ParamDef(type='IntWrapper', name='i'),
+                ParamDef(type='IntWrapper &', name='k', out=True)]))
+        c.addItem(MethodDef(
+            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
+            name='trivial_inout_mappedtype', isVirtual=True, items=[
+                ParamDef(type='IntWrapper', name='i'),
+                ParamDef(type='IntWrapper &', name='k', inOut=True)]))
+        c.addItem(MethodDef(
+            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
+            name='call_trivial_inout_mappedtype', items=[
+                ParamDef(type='IntWrapper', name='i'),
+                ParamDef(type='IntWrapper &', name='k', inOut=True)]))
+        module.addItem(c)
 
         c = ClassDef(name='OutClass')
         c.addItem(MethodDef(
@@ -960,3 +993,21 @@ class TestBindGen(object):
 
         assert obj.call_double_ptr((1, 2)) == (-1, -2)
         assert obj.call_double_ref((4, 8)) == (-4, -8)
+
+    def test_trivial_mappedtype(self):
+        class IntWrapperSubclass(self.mod.IntWrapperClass):
+            def trivial_mappedtype(self, i):
+                return (10, i - 1)
+
+            def trivial_inout_mappedtype(self, i, k):
+                return (10 + i, k - 1)
+
+        obj = self.mod.IntWrapperClass()
+        obj.trivial_mappedtype(10) == (9, 100)
+        obj.trivial_inout_mappedtype(10, 9) == (9, 900)
+
+        obj = IntWrapperSubclass()
+        obj.trivial_mappedtype(10) == (10, 9)
+        obj.call_trivial_mappedtype(10) == (10, 9)
+        obj.trivial_inout_mappedtype(10, 9) == (11, 8)
+        obj.call_trivial_inout_mappedtype(10, 9) == (11, 8)

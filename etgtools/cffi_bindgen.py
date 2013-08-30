@@ -548,7 +548,7 @@ class CffiModuleGenerator(object):
                                                   var.type.cdefType)
 
     def printMappedTypeCDef(self, mType, pyfile):
-        print >> pyfile, "void * %s(void *);" % mType.c2cppPyFunc
+        print >> pyfile, "void * %s(%s);" % (mType.c2cppPyFunc, mType.cType)
 
     #------------------------------------------------------------------------#
 
@@ -815,7 +815,7 @@ class CffiModuleGenerator(object):
                     parent.type.c2py('self'), method)
             pyfile.write(nci("""\
             @wrapper_lib.VirtualDispatcher({0.virtualIndex})
-            @ffi.callback('{0.type.cdefType}(*){0.cdefCbArgs}')
+            @ffi.callback('{0.type.cdefReturnType}(*){0.cdefCbArgs}')
             def _virtual__{0.virtualIndex}{0.vtdArgs}:
                 return_tmp = {1}
             """.format(method, call), indent))

@@ -115,6 +115,7 @@ class WrappedTypeInfo(TypeInfo):
         self.cType = self.typedef.unscopedName + ' *'
         self.cdefType = 'void *'
         self.cReturnType = self.typedef.name + ' *'
+        self.cdefReturnType = 'void *'
         self.overloadType = self.typedef.unscopedPyName
 
         if not self.inOut and (self.ptrCount == 2 or self.isRef and
@@ -255,6 +256,7 @@ class MappedTypeInfo(TypeInfo):
         self.cType = self.typedef.cType
         self.cdefType = self.typedef.cType
         self.cReturnType = self.typedef.name + '*'
+        self.cdefReturnType = 'void *'
         self.overloadType = self.typedef.unscopedPyName
 
         if not self.inOut and (self.ptrCount == 2 or self.isRef and
@@ -419,6 +421,8 @@ class CharPtrTypeInfo(TypeInfo):
         self.cType = 'char *'
         self.cdefType = 'char *'
         self.overloadType = '(unicode, str)'
+        self.cReturnType = 'char *'
+        self.cdefReturnType = 'char *'
 
         if self.isConst:
             self.cType = 'const char *'
@@ -444,6 +448,7 @@ class BasicTypeInfo(TypeInfo):
         self.cType = self.name.strip('*& ')
         self.cdefType = self.cType
         self.cReturnType = self.cType
+        self.cdefReturnType = self.cType
 
         if self.pyInt:
             self.cdefType = 'signed char'

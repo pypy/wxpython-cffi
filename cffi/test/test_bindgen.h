@@ -228,6 +228,22 @@ struct Vector
     int j;
 };
 
+struct IntWrapper
+{
+    IntWrapper(int i_=0) : i(i_) { }
+    int i;
+};
+
+class IntWrapperClass
+{
+public:
+    virtual IntWrapper trivial_mappedtype(IntWrapper i, IntWrapper &k);
+    IntWrapper call_trivial_mappedtype(IntWrapper i, IntWrapper &k);
+
+    virtual IntWrapper trivial_inout_mappedtype(IntWrapper i, IntWrapper &k);
+    IntWrapper call_trivial_inout_mappedtype(IntWrapper i, IntWrapper &k);
+};
+
 class OutClass
 {
 public:

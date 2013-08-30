@@ -226,6 +226,28 @@ int ArrayClass::call_sum_virt(ArrayClass *objs, int len)
     return sum_virt(objs, len);
 }
 
+IntWrapper IntWrapperClass::trivial_mappedtype(IntWrapper i, IntWrapper &k)
+{
+    k.i = 100;
+    return IntWrapper(i.i - 1);
+}
+
+IntWrapper IntWrapperClass::call_trivial_mappedtype(IntWrapper i, IntWrapper &k)
+{
+    return trivial_mappedtype(i, k);
+}
+
+IntWrapper IntWrapperClass::trivial_inout_mappedtype(IntWrapper i, IntWrapper &k)
+{
+    k.i *= 100;
+    return IntWrapper(i.i - 1);
+}
+
+IntWrapper IntWrapperClass::call_trivial_inout_mappedtype(IntWrapper i, IntWrapper &k)
+{
+    return trivial_mappedtype(i, k);
+}
+
 string MappedTypeClass::get_name()
 {
     return m_name;
