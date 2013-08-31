@@ -183,6 +183,35 @@ class CppWrapper(object):
         CppWrapper.__init__(obj, ptr, False, False)
         return obj
 
+def abstract_class(base_class):
+    @staticmethod
+    def __new__(cls, _override_abstract_class=False, *args, **kwargs):
+        if _override_abstract_class:
+            return super(base_class, cls).__new__(cls, *args, **kwargs)
+        raise TypeError('%s cannot be instantiated or sub-classed' %
+                        base_class.__name__)
+    base_class.__new__ = __new__
+    return base_class
+
+def concrete_subclass(base_class):
+    @staticmethod
+    def __new__(cls, *args, **kwargs):
+        return super(base_class, cls).__new__(
+            cls, *args, _override_abstract_class=True, **kwargs)
+    base_class.__new__ = __new__
+    return base_class
+
+def purevirtual_abstract_class(base_class):
+    @staticmethod
+    def __new__(cls, *args, **kwargs):
+        if cls is base_class:
+            raise TypeError("%s represents a C++ abstract class and cannot be "
+                            "instantiated" % base_class.__name__)
+        return super(base_class, cls).__new__(cls, *args, **kwargs)
+    base_class.__new__ = __new__
+    return base_class
+
+
 
 def global_dtor(ptr):
     if not ptr in object_map:

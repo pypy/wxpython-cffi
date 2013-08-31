@@ -283,3 +283,22 @@ public:
     void call_double_ptr(Vector *i);
     void call_double_ref(Vector &i);
 };
+
+class AbstractClass
+{
+public:
+    virtual void purevirtual()=0;
+};
+
+class ConcreteSubclass
+{
+public:
+    virtual void purevirtual() { }
+};
+
+class PureVirtualClass
+{
+public:
+    virtual int purevirtual()=0;
+    int call_purevirtual() { return purevirtual(); }
+};

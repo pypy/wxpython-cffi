@@ -308,12 +308,19 @@ class CffiModuleGenerator(object):
 
         # Create a subclass of the C++ type if we have any virtual or
         # protected methods
-        klass.hasSubClass = len([i for i in klass
-                                   if isinstance(i, extractors.MethodDef) and
-                                      (i.protection == 'protected' or
-                                       i.isVirtual)]) > 0
+        klass.pureVirtualAbstract = (
+            not klass.abstract and
+            len([i for i in klass if getattr(i, 'isPureVirtual', False)]) > 0)
+        klass.hasSubClass = (
+            not klass.abstract and
+            len([i for i in klass if isinstance(i, extractors.MethodDef) and
+                                     (i.protection == 'protected' or
+                                      i.isVirtual)]) > 0)
         klass.cppClassName = (klass.cName if not klass.hasSubClass
                                           else SUBCLASS_PREFIX + klass.cName)
+
+        if klass.abstract:
+            klass.items = [i for i in klass if not getattr(i, 'isCtor', False)]
 
         # Typenames of nested classes used in this class don't have to use the
         # type's full name. This messes up the type lookup, so replace short
@@ -340,7 +347,7 @@ class CffiModuleGenerator(object):
 
     def initClassItems(self, klass):
         ctor = klass.findItem(klass.name)
-        if ctor is None:
+        if ctor is None and not klass.abstract:
             assert klass.hasDefaultCtor
             # If the class doesn't have a ctor specified, we need to add a
             # default ctor
@@ -527,7 +534,8 @@ class CffiModuleGenerator(object):
             self.printFunctionCDef(f, pyfile)
 
     def printMethodCDef(self, method, pyfile):
-        self.printFunctionCDef(method, pyfile)
+        if not method.isPureVirtual:
+            self.printFunctionCDef(method, pyfile)
 
     def printCppMethodCDef(self, method, pyfile):
         self.printFunctionCDef(method, pyfile)
@@ -619,7 +627,16 @@ class CffiModuleGenerator(object):
             }}""".format(klass.vtableDef, klass.cName, klass.cppClassName)))
 
     def printClass(self, klass, pyfile, cppfile, parent=None, indent=0):
-        pyBases = ', '.join([self.findItem(b).pyName for b in klass.bases])
+        baseClassDefs = [self.findItem(b) for b in klass.bases]
+
+        if klass.abstract:
+            pyfile.write(nci("@wrapper_lib.abstract_class", indent))
+        elif any([b.abstract for b in baseClassDefs]):
+            pyfile.write(nci("@wrapper_lib.concrete_subclass", indent))
+        elif klass.pureVirtualAbstract:
+            pyfile.write(nci("@wrapper_lib.purevirtual_abstract_class", indent))
+
+        pyBases = ', '.join([b.pyName for b in baseClassDefs])
         if pyBases == '':
             pyBases = 'wrapper_lib.CppWrapper'
         pyfile.write(nci("""\
@@ -730,10 +747,16 @@ class CffiModuleGenerator(object):
             extern "C" typedef {0.type.cReturnType} (*{2}){0.cCbArgs};
             {3}
             {{
-                if(this->vflags[{0.virtualIndex}])
-                {{
             """
             .format(method, parent, funcPtrName, sig)))
+            if not method.isPureVirtual:
+                # Pure virtual methods don't have an original implementation to
+                # call, so only checking the flag if this isn't pure virtual
+                cppfile.write(nci("""\
+                if(this->vflags[{0.virtualIndex}])
+                {{
+                """
+                .format(method), 4))
 
             for param in method.items:
                 convertCode = param.type.virtualPreCallback(param.name)
@@ -753,7 +776,6 @@ class CffiModuleGenerator(object):
                     cppfile.write(nci(convertCode, 8))
 
             if method.type.name != 'void':
-
                 isMappedType = isinstance(method.type, MappedTypeInfo)
                 isWrappedType = isinstance(method.type, WrappedTypeInfo)
                 isBasicType = isinstance(method.type, BasicTypeInfo)
@@ -772,11 +794,12 @@ class CffiModuleGenerator(object):
                     return return_instance;
                     """.format(method.type.name), 8))
 
-            cppfile.write(nci("""\
-                }}
-                else
-                    {0.retStmt}{1.unscopedName}::{0.name}{0.cppCallArgs};"""
-            .format(method, parent), 4))
+            if not method.isPureVirtual:
+                cppfile.write(nci("""\
+                    }}
+                    else
+                        {0.retStmt}{1.unscopedName}::{0.name}{0.cppCallArgs};"""
+                .format(method, parent), 4))
             print >> cppfile, '}'
 
         if method.cppCode is not None:
@@ -807,7 +830,10 @@ class CffiModuleGenerator(object):
 
         if method.isDtor:
             call = 'delete self'
-        self.printExternCWrapper(method, call, cppfile)
+        if not method.isPureVirtual:
+            # Pure virtual methods cannot have an extern "C" wrapper as they
+            # cannot be called directly.
+            self.printExternCWrapper(method, call, cppfile)
 
         # Write Python implementation
         if method.isVirtual:
@@ -868,23 +894,28 @@ class CffiModuleGenerator(object):
         if not isOverload:
             self.printDocString(method, pyfile, indent)
 
-        for p in method.items:
-            convertCode = p.type.py2cPrecall(p.name)
-            if convertCode is not None:
-                pyfile.write(nci(convertCode, indent + 4))
+        if not method.isPureVirtual:
+            for p in method.items:
+                convertCode = p.type.py2cPrecall(p.name)
+                if convertCode is not None:
+                    pyfile.write(nci(convertCode, indent + 4))
 
-        call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
-        if method.isCtor:
-            pyfile.write(nci("""\
-            cpp_obj = %s
-            wrapper_lib.CppWrapper.__init__(self, cpp_obj)
-            """ % call, indent + 4))
-        elif method.returnVars is None:
-            pyfile.write(nci(call, indent + 4))
+            call = 'clib.{0.cName}{0.pyCallArgs}'.format(method)
+            if method.isCtor:
+                pyfile.write(nci("""\
+                cpp_obj = %s
+                wrapper_lib.CppWrapper.__init__(self, cpp_obj)
+                """ % call, indent + 4))
+            elif method.returnVars is None:
+                pyfile.write(nci(call, indent + 4))
+            else:
+                pyfile.write(nci("return_tmp = " + method.type.c2py(call),
+                                indent + 4))
+                pyfile.write(nci("return " +  method.returnVars, indent + 4))
         else:
-            pyfile.write(nci("return_tmp = " + method.type.c2py(call),
-                             indent + 4))
-            pyfile.write(nci("return " +  method.returnVars, indent + 4))
+            pyfile.write(nci(
+                "raise NotImplementedError('%s.%s() is abstract and must be "
+                "overridden')" % (parent.pyName, method.pyName), indent + 4))
 
         for m in method.overloads:
             self.printMethod(m, pyfile, cppfile, indent, parent, True)

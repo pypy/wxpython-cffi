@@ -396,6 +396,17 @@ class TestBindGen(object):
                     ParamDef(type='Vector &', name='vec', inOut=True)])]))
         module.addItem(c)
 
+        module.addItem(ClassDef(name='AbstractClass', abstract=True))
+        module.addItem(ClassDef(name='ConcreteSubclass'))
+
+        c = ClassDef(name="PureVirtualClass")
+        c.addItem(MethodDef(
+            type='int', argsString='()', name='purevirtual', isVirtual=True,
+            isPureVirtual=True))
+        c.addItem(MethodDef(
+            type='int', argsString='()', name='call_purevirtual'))
+        module.addItem(c)
+
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
@@ -1011,3 +1022,30 @@ class TestBindGen(object):
         obj.call_trivial_mappedtype(10) == (10, 9)
         obj.trivial_inout_mappedtype(10, 9) == (11, 8)
         obj.call_trivial_inout_mappedtype(10, 9) == (11, 8)
+
+    def test_abstract_class(self):
+        with pytest.raises(TypeError):
+            self.mod.AbstractClass()
+        self.mod.ConcreteSubclass()
+
+        class PyAbstractSubClass(self.mod.AbstractClass):
+            pass
+
+        with pytest.raises(TypeError):
+            PyAbstractSubClass()
+
+    def test_purevirtual_abstract_class(self):
+        with pytest.raises(TypeError):
+            self.mod.PureVirtualClass()
+
+        class PureVirtualSubclass(self.mod.PureVirtualClass):
+            pass
+
+        with pytest.raises(NotImplementedError):
+            PureVirtualSubclass().purevirtual()
+
+        class PureVirtualSubclass(self.mod.PureVirtualClass):
+            def purevirtual(self):
+                return 42
+
+        assert PureVirtualSubclass().call_purevirtual() == 42
