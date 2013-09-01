@@ -407,6 +407,28 @@ class TestBindGen(object):
             type='int', argsString='()', name='call_purevirtual'))
         module.addItem(c)
 
+        c = ClassDef(
+            name='SmartVector',
+            convertPy2Cpp="""\
+            return SmartVector(py_obj[0], py_obj[1])
+            """,
+            instancecheck="""\
+            import collections
+            return isinstance(obj, collections.Sequence) and len(obj) == 2
+            """)
+        c.addItem(MethodDef(
+            name='SmartVector', argsString='(int x_, int y_)', isCtor=True,
+            items=[ParamDef(type='int', name='x_'),
+                   ParamDef(type='int', name='y_')]))
+        c.addItem(MemberVarDef(type='int', name='x'))
+        c.addItem(MemberVarDef(type='int', name='y'))
+        module.addItem(c)
+
+        module.addItem(FunctionDef(
+            type='SmartVector', argsString='(SmartVector &vec)',
+            name='double_vector', items=[ParamDef(
+                type='SmartVector &', name='vec')]))
+
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
@@ -1049,3 +1071,12 @@ class TestBindGen(object):
                 return 42
 
         assert PureVirtualSubclass().call_purevirtual() == 42
+
+    def test_custom_conversion_class(self):
+        vec = self.mod.SmartVector((2, 4))
+        assert vec.x == 2
+        assert vec.y == 4
+
+        other_vec = self.mod.double_vector(vec)
+        assert other_vec.x == 4
+        assert other_vec.y == 8

@@ -302,3 +302,12 @@ public:
     virtual int purevirtual()=0;
     int call_purevirtual() { return purevirtual(); }
 };
+
+class SmartVector
+{
+public:
+    SmartVector(int x_, int y_) : x(x_), y(y_) { }
+    int x, y;
+};
+
+SmartVector double_vector(SmartVector &vec);

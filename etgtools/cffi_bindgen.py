@@ -357,6 +357,18 @@ class CffiModuleGenerator(object):
                 isCtor=True
             )
             klass.addItem(ctor)
+        # Add a copy constructor
+        # TODO: do we need to check for an existing copy ctor?
+        if not klass.abstract:
+            ctor.overloads.append(extractors.MethodDef(
+                name=klass.name,
+                argsString='(const %s & other)' % klass.unscopedName,
+                items=[extractors.ParamDef(
+                        type='const %s &' % klass.unscopedName,
+                        name='other')
+                    ],
+                isCtor=True
+            ))
 
         if klass.hasSubClass:
             # While we init the class's items, we'll build a list of the
@@ -581,12 +593,6 @@ class CffiModuleGenerator(object):
                 : {0.unscopedName}{1.cppCallArgs}
             {{}};""".format(klass, ctor), 4))
 
-        # Add a copy ctor that takes an instance of the original class
-        cppfile.write(nci("""\
-        {0.cppClassName}(const {0.name} &other)
-            : {0.unscopedName}(other)
-        {{}};""".format(klass), 4))
-
 
         # Signatures for re-implemented virtual methods
         if len(klass.virtualMethods) > 0:
@@ -654,6 +660,24 @@ class CffiModuleGenerator(object):
             def _set_vflags(self, flags):
                 clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
             """.format(klass.cName), indent + 4))
+
+        if hasattr(klass, 'convertPy2Cpp'):
+            pyfile.write(nci("""\
+            class _pyobject_mapping_(object):
+                __metaclass__ = wrapper_lib.MMTypeCheckMeta
+            """, indent + 4))
+
+            pyfile.write(nci("""\
+            @staticmethod
+            def __instancecheck__(obj):""", indent + 8))
+            pyfile.write(nci(klass.instancecheck, indent + 12))
+
+            pyfile.write(nci("""\
+            @staticmethod
+            def convert(py_obj):
+                if py_obj is None or issubclass(type(py_obj), %s):
+                    return py_obj""" % klass.unscopedPyName, indent + 8))
+            pyfile.write(nci(klass.convertPy2Cpp, indent + 12))
 
         dispatchItems(self.dispatchClassItemPrint, klass.items, pyfile, cppfile,
                  indent=indent + 4, parent=klass)

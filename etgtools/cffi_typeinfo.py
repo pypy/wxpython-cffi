@@ -118,6 +118,10 @@ class WrappedTypeInfo(TypeInfo):
         self.cdefReturnType = 'void *'
         self.overloadType = self.typedef.unscopedPyName
 
+        if hasattr(self.typedef, 'convertPy2Cpp'):
+            self.overloadType = '({0}, {0}._pyobject_mapping_)'.format(
+                self.overloadType)
+
         if not self.inOut and (self.ptrCount == 2 or self.isRef and
                                self.isPtr):
             self.out = True
@@ -141,8 +145,12 @@ class WrappedTypeInfo(TypeInfo):
         if self.out:
             return "{0}{1} = ffi.new('{2}')".format(varName, OUT_PARAM_SUFFIX,
                                                       self.cdefType)
+        conversion = ''
+        if hasattr(self.typedef, 'convertPy2Cpp'):
+            conversion = "{0} = {1}._pyobject_mapping_.convert({0})".format(
+                varName, self.typedef.unscopedPyName)
         if self.inOut:
-            return """\
+            return conversion + """\
             {0} = wrapper_lib.get_ptr({0})
             {0}{1} = ffi.new('{2}', {0})
             """.format(varName, OUT_PARAM_SUFFIX, self.cdefType)
@@ -151,7 +159,7 @@ class WrappedTypeInfo(TypeInfo):
                     "wrapper_lib.create_array_type({2}).py2c({0})"
                     .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName,
                             self.cdefType))
-        return None
+        return conversion if conversion != '' else None
 
     def py2cParam(self, varName):
         if self.out or self.inOut:
