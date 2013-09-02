@@ -396,8 +396,18 @@ class TestBindGen(object):
                     ParamDef(type='Vector &', name='vec', inOut=True)])]))
         module.addItem(c)
 
+        c = ClassDef(name='AllowNoneClass')
+        c.addItem(MethodDef(
+            type='long', argsString='(SmartVector *v)', name="get_addr_ptr",
+            items=[ParamDef(type='SmartVector *', name='v')]))
+        c.addItem(MethodDef(
+            type='long', argsString='(SmartVector &v)', name="get_addr_ref",
+            items=[ParamDef(type='SmartVector &', name='v')]))
+        module.addItem(c)
+
         module.addItem(ClassDef(name='AbstractClass', abstract=True))
-        module.addItem(ClassDef(name='ConcreteSubclass'))
+        module.addItem(ClassDef(name='ConcreteSubclass',
+                                bases=['AbstractClass']))
 
         c = ClassDef(name="PureVirtualClass")
         c.addItem(MethodDef(
@@ -1080,3 +1090,9 @@ class TestBindGen(object):
         other_vec = self.mod.double_vector(vec)
         assert other_vec.x == 4
         assert other_vec.y == 8
+
+    def test_allownone(self):
+        obj = self.mod.AllowNoneClass()
+        with pytest.raises(TypeError):
+            obj.get_addr_ref(None)
+        assert obj.get_addr_ptr(None) == 0

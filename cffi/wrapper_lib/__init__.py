@@ -3,7 +3,8 @@ from cppwrapper import (
     concrete_subclass, purevirtual_abstract_class, obj_from_ptr, get_ptr,
     forget_ptr, take_ownership, give_ownership, MappedBase)
 from multimethod import (
-    Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta)
+    Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta,
+    check_args_types)
 from lazy_defaults import LD, eval_func_defaults
 from annotations import create_array_type
 

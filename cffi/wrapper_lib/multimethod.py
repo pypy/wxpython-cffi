@@ -159,3 +159,13 @@ class Overload(object):
         self.args = [(name, self.kwargs[name]) for name, type in self.args]
 
         eval_func_defaults(self.func)
+
+def check_args_types(*args):
+    assert len(args) % 3 == 0
+    for i in range(0, len(args), 3):
+        arg_type = args[i]
+        arg_value = args[i + 1]
+
+        if not isinstance(arg_value, arg_type):
+            raise TypeError("argument '%s' has unexpected type '%s'" % 
+                            (args[i + 2], type(arg_value)))

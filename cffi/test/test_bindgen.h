@@ -311,3 +311,10 @@ public:
 };
 
 SmartVector double_vector(SmartVector &vec);
+
+class AllowNoneClass
+{
+public:
+    long get_addr_ptr(SmartVector *v);
+    long get_addr_ref(SmartVector &v);
+};

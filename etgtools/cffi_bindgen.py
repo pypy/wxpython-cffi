@@ -191,6 +191,7 @@ class CffiModuleGenerator(object):
         # Write Python preamble
         print >> pyfile, nci("""\
         import cffi
+        import types
         import numbers
         import wrapper_lib""")
         for module in self.module.imports:
@@ -413,7 +414,7 @@ class CffiModuleGenerator(object):
         assert not func.ignored
 
         self.getTypeInfo(func)
-        self.createArgsStrings(func)
+        self.createArgsStrings(func, overload != '' or func.hasOverloads())
 
         returnVars = []
         if func.type.name != 'void':
@@ -465,7 +466,8 @@ class CffiModuleGenerator(object):
             parent.protectedMethods.append(method)
 
         self.getTypeInfo(method)
-        self.createArgsStrings(method, parent)
+        self.createArgsStrings(method, overload != '' or method.hasOverloads(),
+                               parent)
 
         returnVars = []
         if method.type.name != 'void':
@@ -737,6 +739,12 @@ class CffiModuleGenerator(object):
         if not isOverload:
             self.printDocString(func, pyfile)
 
+        if not isOverload:
+            # Do type checking on functions that aren't overloaed inside the
+            # funciton body
+            pyfile.write(nci("wrapper_lib.check_args_types" +
+                             func.overloadArgs, 4))
+
         for p in func.items:
             convertCode = p.type.py2cPrecall(p.name)
             if convertCode is not None:
@@ -918,6 +926,11 @@ class CffiModuleGenerator(object):
         if not isOverload:
             self.printDocString(method, pyfile, indent)
 
+        if not isOverload:
+            # Do type checking on non-multi method's inside the method's body
+            pyfile.write(nci("wrapper_lib.check_args_types" +
+                             method.overloadArgs, indent + 4))
+
         if not method.isPureVirtual:
             for p in method.items:
                 convertCode = p.type.py2cPrecall(p.name)
@@ -1046,6 +1059,8 @@ class CffiModuleGenerator(object):
 {2}
             @classmethod
             def py2c(cls, py_obj):
+                if py_obj is None:
+                    return ffi.NULL
 {3}
         """.format(mType, checkCode, c2pyCode, py2cCode)))
 
@@ -1141,7 +1156,7 @@ class CffiModuleGenerator(object):
                 out=getattr(item, 'out', False),
                 inOut=getattr(item, 'inOut', False))
 
-    def createArgsStrings(self, func, parent=None):
+    def createArgsStrings(self, func, isOverload, parent=None):
         """
         Functions need 5 or 7 different args strings:
             - `cArgs`: For the extern "C" function
@@ -1227,7 +1242,10 @@ class CffiModuleGenerator(object):
             vtdArg = param.name
             vtdCallArg = param.type.c2py(param.name)
 
-            if param.type.typedef is None:
+            if not isOverload:
+                overloadArg = '%s, %s, "%s"' % (param.type.overloadType,
+                                                param.name, param.name)
+            elif param.type.typedef is None:
                 overloadArg = param.name + '=' + param.type.overloadType
             else:
                 overloadArg = param.name + "='" + param.type.overloadType + "'"

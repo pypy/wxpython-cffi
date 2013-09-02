@@ -116,11 +116,14 @@ class WrappedTypeInfo(TypeInfo):
         self.cdefType = 'void *'
         self.cReturnType = self.typedef.name + ' *'
         self.cdefReturnType = 'void *'
-        self.overloadType = self.typedef.unscopedPyName
 
+        overloadTypes = [self.typedef.unscopedPyName]
         if hasattr(self.typedef, 'convertPy2Cpp'):
-            self.overloadType = '({0}, {0}._pyobject_mapping_)'.format(
-                self.overloadType)
+            overloadTypes.append('{0}._pyobject_mapping_'.format(
+                self.typedef.unscopedPyName))
+        if self.isPtr:
+            overloadTypes.append('types.NoneType')
+        self.overloadType = '(' + ', '.join(overloadTypes) + ')'
 
         if not self.inOut and (self.ptrCount == 2 or self.isRef and
                                self.isPtr):
@@ -265,7 +268,11 @@ class MappedTypeInfo(TypeInfo):
         self.cdefType = self.typedef.cType
         self.cReturnType = self.typedef.name + '*'
         self.cdefReturnType = 'void *'
-        self.overloadType = self.typedef.unscopedPyName
+
+        overloadTypes = [self.typedef.unscopedPyName]
+        if self.isPtr:
+            overloadTypes.append('types.NoneType')
+        self.overloadType = '(' + ', '.join(overloadTypes) + ')'
 
         if not self.inOut and (self.ptrCount == 2 or self.isRef and
                                self.isPtr):
