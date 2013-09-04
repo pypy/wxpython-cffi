@@ -196,6 +196,10 @@ class TestBindGen(object):
             type='const ReturnWrapperClass &',
             argsString='()',
             name='self_by_cref', pyName='self_by_cref'))
+        c.addItem(MethodDef(
+            type='const ReturnWrapperClass &',
+            argsString='()', noCopy=True,
+            name='self_by_nocopy_cref', pyName='self_by_nocopy_cref'))
 
         module.addItem(c)
 
@@ -825,6 +829,12 @@ class TestBindGen(object):
         #       ownership stuff
         #assert from_value._py_owned
         #assert from_cref._py_owned
+
+        # This will change the ownership of the original object, so test it
+        # after all of the others
+        from_nocopy_cref = obj.self_by_nocopy_cref()
+        assert obj is from_nocopy_cref
+        #assert not from_nocopy_cref._py_owned
 
     def test_membervar(self):
         obj = self.mod.MemberVarClass(5)

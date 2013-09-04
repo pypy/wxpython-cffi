@@ -115,6 +115,7 @@ public:
     ReturnWrapperClass* self_by_ptr();
     ReturnWrapperClass& self_by_ref();
     const ReturnWrapperClass& self_by_cref();
+    const ReturnWrapperClass& self_by_nocopy_cref();
 
     int get();
 

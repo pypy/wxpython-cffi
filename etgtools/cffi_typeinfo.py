@@ -117,6 +117,9 @@ class WrappedTypeInfo(TypeInfo):
         self.cReturnType = self.typedef.name + ' *'
         self.cdefReturnType = 'void *'
 
+        if self.isConst:
+            self.cType = 'const ' + self.cType
+
         overloadTypes = [self.typedef.unscopedPyName]
         if hasattr(self.typedef, 'convertPy2Cpp'):
             overloadTypes.append('{0}._pyobject_mapping_'.format(
@@ -207,7 +210,7 @@ class WrappedTypeInfo(TypeInfo):
         # heap, with Python taking ownership of the new object.
         if self.isPtr:
             return varName
-        elif self.isRef and not self.isConst:
+        elif self.isRef and not self.isConst or self.noCopy:
             return '&' + varName
         else:
             return "new %s(%s)" % (self.typedef.cppClassName, varName)

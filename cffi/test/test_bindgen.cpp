@@ -134,6 +134,11 @@ const ReturnWrapperClass& ReturnWrapperClass::self_by_cref()
     return *this;
 }
 
+const ReturnWrapperClass& ReturnWrapperClass::self_by_nocopy_cref()
+{
+    return *this;
+}
+
 int ReturnWrapperClass::get()
 {
     return m_i;

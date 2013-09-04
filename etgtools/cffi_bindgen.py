@@ -1156,7 +1156,8 @@ class CffiModuleGenerator(object):
                 array=getattr(item, 'array', False),
                 arraySize=getattr(item, 'arraySize', False),
                 out=getattr(item, 'out', False),
-                inOut=getattr(item, 'inOut', False))
+                inOut=getattr(item, 'inOut', False),
+                noCopy=getattr(item, 'noCopy', False))
 
     def createArgsStrings(self, func, isOverload, parent=None):
         """
