@@ -121,7 +121,7 @@ class WrappedTypeInfo(TypeInfo):
         if hasattr(self.typedef, 'convertPy2Cpp'):
             overloadTypes.append('{0}._pyobject_mapping_'.format(
                 self.typedef.unscopedPyName))
-        if self.isPtr:
+        if self.isPtr or self.typedef.allowNone:
             overloadTypes.append('types.NoneType')
         self.overloadType = '(' + ', '.join(overloadTypes) + ')'
 

@@ -674,11 +674,13 @@ class CffiModuleGenerator(object):
             def __instancecheck__(obj):""", indent + 8))
             pyfile.write(nci(klass.instancecheck, indent + 12))
 
+            noneTest = '' if klass.allowNone else 'py_obj is None or '
             pyfile.write(nci("""\
             @staticmethod
             def convert(py_obj):
-                if py_obj is None or issubclass(type(py_obj), %s):
-                    return py_obj""" % klass.unscopedPyName, indent + 8))
+                if %sissubclass(type(py_obj), %s):
+                    return py_obj
+            """ % (noneTest, klass.unscopedPyName), indent + 8))
             pyfile.write(nci(klass.convertPy2Cpp, indent + 12))
 
         dispatchItems(self.dispatchClassItemPrint, klass.items, pyfile, cppfile,

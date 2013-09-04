@@ -312,9 +312,15 @@ public:
 
 SmartVector double_vector(SmartVector &vec);
 
+#define AllowNoneSmartVector SmartVector
+
 class AllowNoneClass
 {
 public:
     long get_addr_ptr(SmartVector *v);
     long get_addr_ref(SmartVector &v);
+
+    long allow_none_get_addr_ptr(SmartVector *v) { return get_addr_ptr(v); }
+    long allow_none_get_addr_ref(SmartVector &v) { return get_addr_ref(v); }
 };
+

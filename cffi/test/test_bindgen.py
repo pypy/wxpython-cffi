@@ -403,6 +403,14 @@ class TestBindGen(object):
         c.addItem(MethodDef(
             type='long', argsString='(SmartVector &v)', name="get_addr_ref",
             items=[ParamDef(type='SmartVector &', name='v')]))
+        c.addItem(MethodDef(
+            type='long', argsString='(AllowNoneSmartVector *v)',
+            name="allow_none_get_addr_ptr",
+            items=[ParamDef(type='AllowNoneSmartVector *', name='v')]))
+        c.addItem(MethodDef(
+            type='long', argsString='(AllowNoneSmartVector &v)',
+            name="allow_none_get_addr_ref",
+            items=[ParamDef(type='AllowNoneSmartVector &', name='v')]))
         module.addItem(c)
 
         module.addItem(ClassDef(name='AbstractClass', abstract=True))
@@ -433,6 +441,27 @@ class TestBindGen(object):
         c.addItem(MemberVarDef(type='int', name='x'))
         c.addItem(MemberVarDef(type='int', name='y'))
         module.addItem(c)
+
+        c = ClassDef(
+            name='AllowNoneSmartVector',
+            allowNone=True,
+            convertPy2Cpp="""\
+            if py_obj is None:
+                return AllowNoneSmartVector(-1, -1)
+            return AllowNoneSmartVector(py_obj[0], py_obj[1])
+            """,
+            instancecheck="""\
+            import collections
+            return isinstance(obj, collections.Sequence) and len(obj) == 2
+            """)
+        c.addItem(MethodDef(
+            name='AllowNoneSmartVector', argsString='(int x_, int y_)',
+            isCtor=True, items=[ParamDef(type='int', name='x_'),
+                                ParamDef(type='int', name='y_')]))
+        c.addItem(MemberVarDef(type='int', name='x'))
+        c.addItem(MemberVarDef(type='int', name='y'))
+        module.addItem(c)
+
 
         module.addItem(FunctionDef(
             type='SmartVector', argsString='(SmartVector &vec)',
@@ -1096,3 +1125,10 @@ class TestBindGen(object):
         with pytest.raises(TypeError):
             obj.get_addr_ref(None)
         assert obj.get_addr_ptr(None) == 0
+
+        assert obj.allow_none_get_addr_ref(None) != 0
+        assert obj.allow_none_get_addr_ptr(None) != 0
+
+        obj = self.mod.AllowNoneSmartVector(None)
+        assert obj.x == -1
+        assert obj.y == -1
