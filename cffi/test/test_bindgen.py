@@ -140,6 +140,7 @@ class TestBindGen(object):
             name='custom_code_meth', pyName='custom_code_meth',
             items=[ParamDef(type='double', name='f')])
         m.setCppCode('return self->get() * f;')
+        c.addCppCtor('(char a)', 'return new CtorsClass((int)a);')
         c.addCppMethod('double', 'cppmethod', '()', 'return self->get() * 2;')
         c.addPyMethod('double_i', '(self)', 'return self.get() * 2')
         c.addItem(m)
@@ -699,8 +700,7 @@ class TestBindGen(object):
         assert self.mod.custom_code_global_func() == 1
 
     def test_global_cppmethod(self):
-        obj =  self.mod.CtorsClass(4)
-        assert obj.cppmethod() == 8
+        assert self.mod.global_cppmethod(4, 4) == 2
 
     def test_simple_class_init(self):
         self.mod.SimpleClass()
@@ -779,7 +779,11 @@ class TestBindGen(object):
         assert obj.custom_code_meth(1.5) == 6
 
     def test_cpp_method(self):
-        obj = self.mod.CtorsClass(15)
+        obj = self.mod.CtorsClass(4)
+        assert obj.cppmethod() == 8
+
+        obj = self.mod.CtorsClass('a')
+        assert obj.get() == ord('a')
 
     def test_overloaded_func(self):
         assert self.mod.overloaded_func() == 20

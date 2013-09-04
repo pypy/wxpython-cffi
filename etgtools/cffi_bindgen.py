@@ -481,9 +481,12 @@ class CffiModuleGenerator(object):
             method.returnVars = None
 
         for i, m in enumerate(method.overloads):
-            self.initMethod(m, parent, '_%d' % i)
+            if isinstance(m, extractors.CppMethodDef):
+                self.initCppMethod(m, parent, '_%d' % i)
+            else:
+                self.initMethod(m, parent, '_%d' % i)
 
-    def initCppMethod(self, method, parent=None):
+    def initCppMethod(self, method, parent=None, overload=''):
         assert not method.ignored
 
         method.pyName = method.name
@@ -494,9 +497,9 @@ class CffiModuleGenerator(object):
         method.items = self.disassembleArgsString(method.argsString)
 
         if parent is None:
-            self.initFunction(method)
+            self.initFunction(method, overload)
         else:
-            self.initMethod(method, parent)
+            self.initMethod(method, parent, overload)
 
     def initDefine(self, define):
         assert not define.ignored
@@ -1272,7 +1275,7 @@ class CffiModuleGenerator(object):
                 func.overloadArgs.append(overloadArg)
                 func.vtdCallArgs.append(vtdCallArg)
 
-        if parent is not None and not func.isStatic:
+        if parent is not None and not func.isStatic and not func.isCtor:
             # We're generating a wrapper function that needs a `self` pointer
             # in its args string if this function has custom C++ code or is
             # protected and not static
