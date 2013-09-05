@@ -975,22 +975,31 @@ class CffiModuleGenerator(object):
             self.printMethod(m, pyfile, cppfile, indent, parent, True)
 
     def printOwnershipChanges(self, func, pyfile, indent=0, parent=None):
+        owner = ''
+        if isinstance(func, extractors.MethodDef) and not func.isStatic:
+            owner = ", self"
+
         for param in [p for p in func if isinstance(p.type, WrappedTypeInfo)]:
             if param.keepReference is not False:
                 key = ''
-                owner = ''
                 if isinstance(func, extractors.MethodDef) and not func.isStatic:
                     key = ", %d" % param.keepReference
-                    owner = ", self"
                 pyfile.write(nci("wrapper_lib.keep_reference(" + param.name +
                                  key + owner + ')', indent + 4))
 
             if param.transfer:
-                owner = ''
-                if isinstance(func, extractors.MethodDef) and not func.isStatic:
-                    owner = ", self"
                 pyfile.write(nci("wrapper_lib.give_ownership(%s%s)" %
                                  (param.name, owner), indent + 4))
+
+        if func.transfer:
+            assert not getattr(func, 'isStatic', True)
+            if not func.isCtor:
+                pyfile.write(nci(
+                    "wrapper_lib.give_ownership(return_tmp, self)",
+                    indent + 4))
+            else:
+                pyfile.write(nci("wrapper_lib.give_ownership(self)",
+                                 indent + 4))
 
     def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
         if parent is None:

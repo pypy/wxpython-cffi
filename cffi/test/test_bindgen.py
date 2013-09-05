@@ -495,6 +495,12 @@ class TestBindGen(object):
 
         c = ClassDef(name='TransferClass')
         c.addItem(MethodDef(
+            argsString='()', name='TransferClass', isCtor=True, overloads=[
+            MethodDef(
+                argsString='(int i)', name='TransferClass',
+                isCtor=True, transfer=True, items=[
+                    ParamDef(type='int', name='i')])]))
+        c.addItem(MethodDef(
             type='void', argsString='(TransferClass *obj)',
             name="transfer_param", items=[
                 ParamDef(type='TransferClass *', name='obj', transfer=True)]))
@@ -502,6 +508,10 @@ class TestBindGen(object):
             type='void', argsString='(TransferClass *obj)', isStatic=True,
             name="static_transfer_param", items=[
                 ParamDef(type='TransferClass *', name='obj', transfer=True)]))
+        c.addItem(MethodDef(
+            type='TransferClass *', argsString='(TransferClass *obj)',
+            name="transfer_return", transfer=True, items=[
+                ParamDef(type='TransferClass *', name='obj')]))
         module.addItem(c)
 
         module.addItem(FunctionDef(
@@ -1247,3 +1257,28 @@ class TestBindGen(object):
         del obj
         gc.collect()
         assert wr() is not None
+
+    def test_transfer_return(self):
+        parent = self.mod.TransferClass()
+        child = self.mod.TransferClass()
+        wr = weakref.ref(child)
+        parent.transfer_return(child)
+
+        del child
+        gc.collect()
+        assert wr() is not None
+
+        del parent
+        gc.collect()
+        assert wr() is None
+
+        # This Ctor is annotated with Transfer
+        obj = self.mod.TransferClass(10)
+        wr = weakref.ref(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is not None
+
+        # Don't test static methods or global functions, they can't have the
+        # Transfer annotation

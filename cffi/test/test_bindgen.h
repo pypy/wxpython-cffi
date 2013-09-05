@@ -337,7 +337,11 @@ void global_keep_ref(KeepReferenceClass &i);
 class TransferClass
 {
 public:
+    TransferClass() { }
+    TransferClass(int i) { }
+
     void transfer_param(TransferClass *obj) { }
+    TransferClass *transfer_return(TransferClass *obj);
 
     static void static_transfer_param(TransferClass *obj) { }
 };
