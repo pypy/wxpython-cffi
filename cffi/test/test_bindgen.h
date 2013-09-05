@@ -333,3 +333,13 @@ public:
 };
 
 void global_keep_ref(KeepReferenceClass &i);
+
+class TransferClass
+{
+public:
+    void transfer_param(TransferClass *obj) { }
+
+    static void static_transfer_param(TransferClass *obj) { }
+};
+
+void global_transfer_param(TransferClass *obj);

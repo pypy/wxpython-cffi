@@ -985,6 +985,13 @@ class CffiModuleGenerator(object):
                 pyfile.write(nci("wrapper_lib.keep_reference(" + param.name +
                                  key + owner + ')', indent + 4))
 
+            if param.transfer:
+                owner = ''
+                if isinstance(func, extractors.MethodDef) and not func.isStatic:
+                    owner = ", self"
+                pyfile.write(nci("wrapper_lib.give_ownership(%s%s)" %
+                                 (param.name, owner), indent + 4))
+
     def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
         if parent is None:
             self.printFunction(func, pyfile, cppfile)

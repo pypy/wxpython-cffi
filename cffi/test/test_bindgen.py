@@ -493,6 +493,22 @@ class TestBindGen(object):
                 ParamDef(type='KeepReferenceClass &', name='i',
                         keepReference=True)]))
 
+        c = ClassDef(name='TransferClass')
+        c.addItem(MethodDef(
+            type='void', argsString='(TransferClass *obj)',
+            name="transfer_param", items=[
+                ParamDef(type='TransferClass *', name='obj', transfer=True)]))
+        c.addItem(MethodDef(
+            type='void', argsString='(TransferClass *obj)', isStatic=True,
+            name="static_transfer_param", items=[
+                ParamDef(type='TransferClass *', name='obj', transfer=True)]))
+        module.addItem(c)
+
+        module.addItem(FunctionDef(
+            type='void', argsString='(TransferClass *obj)',
+            name="global_transfer_param", items=[
+                ParamDef(type='TransferClass *', name='obj', transfer=True)]))
+
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
@@ -1197,5 +1213,37 @@ class TestBindGen(object):
         assert wr() is not None
 
         self.mod.global_keep_ref(self.mod.KeepReferenceClass())
+        gc.collect()
+        assert wr() is not None
+
+    def test_transfer_param(self):
+        parent = self.mod.TransferClass()
+        child = self.mod.TransferClass()
+        wr = weakref.ref(child)
+        parent.transfer_param(child)
+
+        del child
+        gc.collect()
+        assert wr() is not None
+
+        del parent
+        gc.collect()
+        assert wr() is None
+
+
+        obj = self.mod.TransferClass()
+        wr = weakref.ref(obj)
+        self.mod.TransferClass.static_transfer_param(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is not None
+
+
+        obj = self.mod.TransferClass()
+        wr = weakref.ref(obj)
+        self.mod.global_transfer_param(obj)
+
+        del obj
         gc.collect()
         assert wr() is not None
