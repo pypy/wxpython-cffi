@@ -282,6 +282,18 @@ def take_ownership(obj):
     cpp_owned_objects.discard(obj)
     _detach_from_parent(obj)
 
+global_references = set()
+def keep_reference(obj, key=None, owner=None):
+    if owner is None:
+        # If this was called from a static method or global function, we need
+        # to keep obj alive forever.
+        global_references.add(obj)
+        return
+
+    if not hasattr(owner, '_extra_references'):
+        owner._extra_references = {}
+    owner._extra_references[key] = obj
+
 def give_ownership(obj, parent=None):
     obj._py_owned = False
 

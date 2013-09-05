@@ -1,6 +1,8 @@
+import gc
 import os
 import sys
 import imp
+import weakref
 import pickle
 import pytest
 
@@ -467,11 +469,29 @@ class TestBindGen(object):
         c.addItem(MemberVarDef(type='int', name='y'))
         module.addItem(c)
 
-
         module.addItem(FunctionDef(
             type='SmartVector', argsString='(SmartVector &vec)',
             name='double_vector', items=[ParamDef(
                 type='SmartVector &', name='vec')]))
+
+        c = ClassDef(name='KeepReferenceClass')
+        c.addItem(MethodDef(
+            type='void', argsString='(KeepReferenceClass &i)', name='keep_ref',
+            items=[
+                ParamDef(type='KeepReferenceClass &', name='i',
+                        keepReference=True)]))
+        c.addItem(MethodDef(
+            type='void', argsString='(KeepReferenceClass &i)',
+            name='keep_ref2', items=[
+                ParamDef(type='KeepReferenceClass &', name='i',
+                        keepReference=True)]))
+        module.addItem(c)
+
+        module.addItem(FunctionDef(
+            type='void', argsString='(KeepReferenceClass &i)',
+            name='global_keep_ref', items=[
+                ParamDef(type='KeepReferenceClass &', name='i',
+                        keepReference=True)]))
 
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
@@ -1146,3 +1166,36 @@ class TestBindGen(object):
         obj = self.mod.AllowNoneSmartVector(None)
         assert obj.x == -1
         assert obj.y == -1
+
+    def test_keep_reference(self):
+        keeping_obj = self.mod.KeepReferenceClass()
+        kept_obj1 = self.mod.KeepReferenceClass()
+        kept_obj2 = self.mod.KeepReferenceClass()
+
+        wr1 = weakref.ref(kept_obj1)
+        wr2 = weakref.ref(kept_obj2)
+        keeping_obj.keep_ref(kept_obj1)
+        keeping_obj.keep_ref2(kept_obj2)
+
+        del kept_obj1
+        del kept_obj2
+        gc.collect()
+        assert wr1() is not None
+        assert wr2() is not None
+
+        del keeping_obj
+        gc.collect()
+        assert wr1() is None
+        assert wr2() is None
+
+        kept_obj = self.mod.KeepReferenceClass()
+        wr = weakref.ref(kept_obj)
+        self.mod.global_keep_ref(kept_obj)
+
+        del kept_obj
+        gc.collect()
+        assert wr() is not None
+
+        self.mod.global_keep_ref(self.mod.KeepReferenceClass())
+        gc.collect()
+        assert wr() is not None

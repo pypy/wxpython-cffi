@@ -383,6 +383,8 @@ class CffiModuleGenerator(object):
                       extractors.PyCodeDef)
         klass.pyItems = categorize(klass.items, pydefTypes)[0]
 
+        klass.keepReferenceIndex = -2
+
         dispatchItems(self.dispatchClassItemInit, klass.items, parent=klass)
 
         if klass.hasSubClass:
@@ -464,6 +466,11 @@ class CffiModuleGenerator(object):
             parent.virtualMethods.append(method)
         if method.protection == 'protected':
             parent.protectedMethods.append(method)
+
+        for param in method.items:
+            if param.keepReference:
+                param.keepReference = parent.keepReferenceIndex
+                parent.keepReferenceIndex -= 1
 
         self.getTypeInfo(method)
         self.createArgsStrings(method, overload != '' or method.hasOverloads(),
@@ -757,9 +764,11 @@ class CffiModuleGenerator(object):
 
         if func.returnVars is None:
             print >> pyfile, "    clib.%s%s" % (func.cName, func.pyCallArgs)
+            self.printOwnershipChanges(func, pyfile)
         else:
             print >> pyfile, "    return_tmp = " + func.type.c2py("clib.%s%s"
                              % (func.cName, func.pyCallArgs))
+            self.printOwnershipChanges(func, pyfile)
             print >> pyfile, "    return " + func.returnVars
 
         for f in func.overloads:
@@ -948,11 +957,14 @@ class CffiModuleGenerator(object):
                 cpp_obj = %s
                 wrapper_lib.CppWrapper.__init__(self, cpp_obj)
                 """ % call, indent + 4))
+                self.printOwnershipChanges(method, pyfile, indent, parent)
             elif method.returnVars is None:
                 pyfile.write(nci(call, indent + 4))
+                self.printOwnershipChanges(method, pyfile, indent, parent)
             else:
                 pyfile.write(nci("return_tmp = " + method.type.c2py(call),
                                 indent + 4))
+                self.printOwnershipChanges(method, pyfile, indent, parent)
                 pyfile.write(nci("return " +  method.returnVars, indent + 4))
         else:
             pyfile.write(nci(
@@ -962,6 +974,16 @@ class CffiModuleGenerator(object):
         for m in method.overloads:
             self.printMethod(m, pyfile, cppfile, indent, parent, True)
 
+    def printOwnershipChanges(self, func, pyfile, indent=0, parent=None):
+        for param in [p for p in func if isinstance(p.type, WrappedTypeInfo)]:
+            if param.keepReference is not False:
+                key = ''
+                owner = ''
+                if isinstance(func, extractors.MethodDef) and not func.isStatic:
+                    key = ", %d" % param.keepReference
+                    owner = ", self"
+                pyfile.write(nci("wrapper_lib.keep_reference(" + param.name +
+                                 key + owner + ')', indent + 4))
 
     def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
         if parent is None:

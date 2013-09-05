@@ -422,3 +422,5 @@ long AllowNoneClass::get_addr_ref(SmartVector &v)
 {
     return (long)&v;
 }
+
+void global_keep_ref(KeepReferenceClass &i) { }

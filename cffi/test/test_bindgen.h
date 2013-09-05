@@ -325,3 +325,11 @@ public:
     long allow_none_get_addr_ref(SmartVector &v) { return get_addr_ref(v); }
 };
 
+class KeepReferenceClass
+{
+public:
+    void keep_ref(KeepReferenceClass &i) { }
+    void keep_ref2(KeepReferenceClass &i) { }
+};
+
+void global_keep_ref(KeepReferenceClass &i);
