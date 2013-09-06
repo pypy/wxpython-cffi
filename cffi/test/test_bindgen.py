@@ -524,6 +524,14 @@ class TestBindGen(object):
             name="static_transferback_param", items=[
                 ParamDef(type='TransferClass *', name='obj',
                          transferBack=True)]))
+        c.addItem(MethodDef(
+            type='void', argsString='(TransferClass *obj)',
+            name="transferback_return", items=[
+                ParamDef(type='TransferClass *', transferBack=True, name='obj')]))
+        c.addItem(MethodDef(
+            type='TransferClass *', argsString='(TransferClass *obj)', isStatic=True,
+            name="static_transferback_return", transferBack=True, items=[
+                ParamDef(type='TransferClass *', name='obj')]))
         module.addItem(c)
 
         module.addItem(FunctionDef(
@@ -535,6 +543,10 @@ class TestBindGen(object):
             name="global_transferback_param", items=[
                 ParamDef(type='TransferClass *', name='obj',
                          transferBack=True)]))
+        module.addItem(FunctionDef(
+            type='TransferClass *', argsString='(TransferClass *obj)', transferBack=True,
+            name="global_transferback_return", items=[
+                ParamDef(type='TransferClass *', name='obj')]))
 
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
@@ -1309,6 +1321,20 @@ class TestBindGen(object):
             wr = weakref.ref(obj)
             wrapper_lib.give_ownership(obj)
             f(obj)
+
+            del obj
+            gc.collect()
+            assert wr() is None
+
+    def test_transferback_return(self):
+        functions = [self.mod.TransferClass().transferback_return,
+                     self.mod.TransferClass.static_transferback_return,
+                     self.mod.global_transferback_return]
+        for f in functions:
+            obj = self.mod.TransferClass()
+            wr = weakref.ref(obj)
+            wrapper_lib.give_ownership(obj)
+            obj = f(obj)
 
             del obj
             gc.collect()

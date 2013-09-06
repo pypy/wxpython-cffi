@@ -1003,6 +1003,9 @@ class CffiModuleGenerator(object):
             else:
                 pyfile.write(nci("wrapper_lib.give_ownership(self)",
                                  indent + 4))
+        if func.transferBack:
+            pyfile.write(nci("wrapper_lib.take_ownership(return_tmp)",
+                             indent + 4))
 
     def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
         if parent is None:

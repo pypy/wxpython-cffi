@@ -431,5 +431,15 @@ TransferClass * TransferClass::transfer_return(TransferClass *obj)
     return obj;
 };
 
+TransferClass * TransferClass::transferback_return(TransferClass *obj)
+{
+    return obj;
+};
+
 void global_transfer_param(TransferClass *obj) { };
 void global_transferback_param(TransferClass *obj) { };
+
+TransferClass * global_transferback_return(TransferClass *obj)
+{
+    return obj;
+};
