@@ -6,6 +6,8 @@ import weakref
 import pickle
 import pytest
 
+import wrapper_lib
+
 # Manually add the top-level directory to our path so we can import etgtools
 # modules
 sys.path.append("../..")
@@ -512,12 +514,27 @@ class TestBindGen(object):
             type='TransferClass *', argsString='(TransferClass *obj)',
             name="transfer_return", transfer=True, items=[
                 ParamDef(type='TransferClass *', name='obj')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(TransferClass *obj)',
+            name="transferback_param", items=[
+                ParamDef(type='TransferClass *', name='obj',
+                         transferBack=True)]))
+        c.addItem(MethodDef(
+            type='void', argsString='(TransferClass *obj)', isStatic=True,
+            name="static_transferback_param", items=[
+                ParamDef(type='TransferClass *', name='obj',
+                         transferBack=True)]))
         module.addItem(c)
 
         module.addItem(FunctionDef(
             type='void', argsString='(TransferClass *obj)',
             name="global_transfer_param", items=[
                 ParamDef(type='TransferClass *', name='obj', transfer=True)]))
+        module.addItem(FunctionDef(
+            type='void', argsString='(TransferClass *obj)',
+            name="global_transferback_param", items=[
+                ParamDef(type='TransferClass *', name='obj',
+                         transferBack=True)]))
 
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
@@ -1282,3 +1299,17 @@ class TestBindGen(object):
 
         # Don't test static methods or global functions, they can't have the
         # Transfer annotation
+
+    def test_transferback_param(self):
+        functions = [self.mod.TransferClass().transferback_param,
+                     self.mod.TransferClass.static_transferback_param,
+                     self.mod.global_transferback_param]
+        for f in functions:
+            obj = self.mod.TransferClass()
+            wr = weakref.ref(obj)
+            wrapper_lib.give_ownership(obj)
+            f(obj)
+
+            del obj
+            gc.collect()
+            assert wr() is None

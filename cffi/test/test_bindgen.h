@@ -342,8 +342,11 @@ public:
 
     void transfer_param(TransferClass *obj) { }
     TransferClass *transfer_return(TransferClass *obj);
+    void transferback_param(TransferClass *obj) { }
 
     static void static_transfer_param(TransferClass *obj) { }
+    static void static_transferback_param(TransferClass *obj) { }
 };
 
 void global_transfer_param(TransferClass *obj);
+void global_transferback_param(TransferClass *obj);

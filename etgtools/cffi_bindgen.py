@@ -990,6 +990,9 @@ class CffiModuleGenerator(object):
             if param.transfer:
                 pyfile.write(nci("wrapper_lib.give_ownership(%s%s)" %
                                  (param.name, owner), indent + 4))
+            if param.transferBack:
+                pyfile.write(nci("wrapper_lib.take_ownership(%s)" %
+                                 param.name, indent + 4))
 
         if func.transfer:
             assert not getattr(func, 'isStatic', True)

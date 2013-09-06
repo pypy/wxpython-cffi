@@ -432,3 +432,4 @@ TransferClass * TransferClass::transfer_return(TransferClass *obj)
 };
 
 void global_transfer_param(TransferClass *obj) { };
+void global_transferback_param(TransferClass *obj) { };
