@@ -188,6 +188,10 @@ class WrappedTypeInfo(TypeInfo):
         if self.array:
             return ("wrapper_lib.create_array_type({2}).c2py({0}, {1})"
                     .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName))
+        if not (self.isRef or self.isPtr) or (not self.noCopy and
+           self.isRef and self.isConst):
+            return 'wrapper_lib.obj_from_ptr(%s, %s, True)' % (
+                    varName, self.typedef.unscopedPyName)
         return 'wrapper_lib.obj_from_ptr(%s, %s)' % (
                 varName, self.typedef.unscopedPyName)
 

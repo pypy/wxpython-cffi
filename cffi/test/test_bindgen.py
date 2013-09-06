@@ -186,6 +186,10 @@ class TestBindGen(object):
             name='new_by_cref', pyName='new_by_cref', isStatic=True,
             items=[ParamDef(type='int', name='i')]))
         c.addItem(MethodDef(
+            type='const ReturnWrapperClass &', argsString='(int i)',
+            name='new_by_nocopy_cref', isStatic=True, noCopy=True,
+            items=[ParamDef(type='int', name='i')]))
+        c.addItem(MethodDef(
             type='ReturnWrapperClass',
             argsString='()',
             name='self_by_value', pyName='self_by_value'))
@@ -911,34 +915,32 @@ class TestBindGen(object):
         from_ptr = self.mod.ReturnWrapperClass.new_by_ptr(4)
         from_ref = self.mod.ReturnWrapperClass.new_by_ref(5)
         from_cref = self.mod.ReturnWrapperClass.new_by_cref(5)
+        from_nocopy_cref = self.mod.ReturnWrapperClass.new_by_nocopy_cref(5)
 
         assert from_value.get() == 3
         assert from_ptr.get() == 4
         assert from_ref.get() == 5
         assert from_cref.get() == 5
+        assert from_nocopy_cref.get() == 5
+
+        assert not from_nocopy_cref._py_owned
 
         obj = self.mod.ReturnWrapperClass(15)
         from_value = obj.self_by_value()
         from_ptr = obj.self_by_ptr()
         from_ref = obj.self_by_ref()
         from_cref = obj.self_by_cref()
+        from_nocopy_cref = obj.self_by_nocopy_cref()
 
         assert obj is not from_value
         assert obj is from_ptr
         assert obj is from_ref
         assert obj is not from_cref
+        assert obj is from_nocopy_cref
 
         assert obj._py_owned
-        # TODO: uncomment these assertions when I start implementing object
-        #       ownership stuff
-        #assert from_value._py_owned
-        #assert from_cref._py_owned
-
-        # This will change the ownership of the original object, so test it
-        # after all of the others
-        from_nocopy_cref = obj.self_by_nocopy_cref()
-        assert obj is from_nocopy_cref
-        #assert not from_nocopy_cref._py_owned
+        assert from_value._py_owned
+        assert from_cref._py_owned
 
     def test_membervar(self):
         obj = self.mod.MemberVarClass(5)

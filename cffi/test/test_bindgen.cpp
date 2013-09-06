@@ -114,6 +114,11 @@ const ReturnWrapperClass& ReturnWrapperClass::new_by_cref(int i)
     return *(new ReturnWrapperClass(i));
 }
 
+const ReturnWrapperClass& ReturnWrapperClass::new_by_nocopy_cref(int i)
+{
+    return *(new ReturnWrapperClass(i));
+}
+
 ReturnWrapperClass ReturnWrapperClass::self_by_value()
 {
     return *this;

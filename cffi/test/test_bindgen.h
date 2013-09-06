@@ -110,6 +110,7 @@ public:
     static ReturnWrapperClass* new_by_ptr(int i);
     static ReturnWrapperClass& new_by_ref(int i);
     static const ReturnWrapperClass& new_by_cref(int i);
+    static const ReturnWrapperClass& new_by_nocopy_cref(int i);
 
     ReturnWrapperClass self_by_value();
     ReturnWrapperClass* self_by_ptr();

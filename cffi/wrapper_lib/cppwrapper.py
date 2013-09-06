@@ -178,9 +178,9 @@ class CppWrapper(object):
             forget_ptr(self._cpp_obj)
 
     @classmethod
-    def _from_ptr(cls, ptr):
+    def _from_ptr(cls, ptr, is_new=False):
         obj = cls.__new__(cls)
-        CppWrapper.__init__(obj, ptr, False, False)
+        CppWrapper.__init__(obj, ptr, is_new, is_new)
         return obj
 
 def abstract_class(base_class):
@@ -225,10 +225,10 @@ def global_dtor(ptr):
 cpp_owned_objects = set()
 object_map = weakref.WeakValueDictionary()
 
-def obj_from_ptr(ptr, klass=CppWrapper):
+def obj_from_ptr(ptr, klass=CppWrapper, is_new=False):
     if ptr not in object_map:
         # If an python object for this pointer doesn't yet exist, create one
-        obj = klass._from_ptr(ptr)
+        obj = klass._from_ptr(ptr, is_new)
         object_map[ptr] = obj
         return obj
 
@@ -246,7 +246,7 @@ def obj_from_ptr(ptr, klass=CppWrapper):
     # with the correct class
 
     old_parent = obj._parent
-    obj = klass._from_ptr(ptr)
+    obj = klass._from_ptr(ptr, is_new)
 
     if old_parent is not None:
         _detach_from_parent(obj)
