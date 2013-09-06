@@ -501,7 +501,12 @@ class TestBindGen(object):
             MethodDef(
                 argsString='(int i)', name='TransferClass',
                 isCtor=True, transfer=True, items=[
-                    ParamDef(type='int', name='i')])]))
+                    ParamDef(type='int', name='i')]),
+            MethodDef(
+                argsString='(TransferClass * i)', name='TransferClass',
+                isCtor=True, items=[
+                    ParamDef(type='TransferClass *', name='i',
+                             transferThis=True)])]))
         c.addItem(MethodDef(
             type='void', argsString='(TransferClass *obj)',
             name="transfer_param", items=[
@@ -519,6 +524,14 @@ class TestBindGen(object):
             name="transferback_param", items=[
                 ParamDef(type='TransferClass *', name='obj',
                          transferBack=True)]))
+        c.addItem(MethodDef(
+            type='void', argsString='(TransferClass *obj)',
+            name="transferthis_param", items=[
+                ParamDef(type='TransferClass *', name='obj',
+                         transferThis=True)]))
+        c.addItem(MethodDef(
+            type='void', argsString='()',
+            name="transferthis_return", transferThis=True))
         c.addItem(MethodDef(
             type='void', argsString='(TransferClass *obj)', isStatic=True,
             name="static_transferback_param", items=[
@@ -1339,3 +1352,54 @@ class TestBindGen(object):
             del obj
             gc.collect()
             assert wr() is None
+
+    def test_transferthis_param(self):
+        obj = self.mod.TransferClass(None)
+        wr = weakref.ref(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is None
+
+
+        owner = self.mod.TransferClass()
+        obj = self.mod.TransferClass(owner)
+        wr = weakref.ref(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is not None
+        del owner
+        gc.collect()
+        assert wr() is None
+
+
+        obj = self.mod.TransferClass()
+        obj.transferthis_param(None)
+        wr = weakref.ref(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is None
+
+
+        owner = self.mod.TransferClass()
+        obj = self.mod.TransferClass()
+        obj.transferthis_param(owner)
+        wr = weakref.ref(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is not None
+        del owner
+        gc.collect()
+        assert wr() is None
+
+    def test_transferthis_return(self):
+        obj = self.mod.TransferClass()
+        wr = weakref.ref(obj)
+        obj.transferthis_return()
+
+        del obj
+        gc.collect()
+        assert wr() is not None

@@ -339,11 +339,14 @@ class TransferClass
 public:
     TransferClass() { }
     TransferClass(int i) { }
+    TransferClass(TransferClass * i) { }
 
     void transfer_param(TransferClass *obj) { }
     TransferClass *transfer_return(TransferClass *obj);
     void transferback_param(TransferClass *obj) { }
     TransferClass *transferback_return(TransferClass *obj);
+    void transferthis_param(TransferClass * i) { }
+    void transferthis_return() { }
 
     static void static_transfer_param(TransferClass *obj) { }
     static void static_transferback_param(TransferClass *obj) { }
