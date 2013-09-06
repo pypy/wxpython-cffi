@@ -545,6 +545,18 @@ class TestBindGen(object):
             type='TransferClass *', argsString='(TransferClass *obj)', isStatic=True,
             name="static_transferback_return", transferBack=True, items=[
                 ParamDef(type='TransferClass *', name='obj')]))
+        c.addItem(MethodDef(
+            type='void', argsString='(TransferClass *objs, int count)',
+            name='transfer_array', items=[
+                ParamDef(type='TransferClass *', name='objs', array=True,
+                         transfer=True),
+                ParamDef(type='int', name='count', arraySize=True)],
+            overloads=[MethodDef(
+                type='void', argsString='(Vector *objs, int count)',
+                name='transfer_array', items=[
+                    ParamDef(type='Vector *', name='objs', array=True,
+                            transfer=True),
+                    ParamDef(type='int', name='count', arraySize=True)])]))
         module.addItem(c)
 
         module.addItem(FunctionDef(
@@ -1403,3 +1415,8 @@ class TestBindGen(object):
         del obj
         gc.collect()
         assert wr() is not None
+
+    def test_transfer_array(self):
+        obj = self.mod.TransferClass()
+        obj.transfer_array([obj, self.mod.TransferClass()])
+        obj.transfer_array([(10, 10), (8, 8)])

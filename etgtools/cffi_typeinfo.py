@@ -240,7 +240,7 @@ class WrappedTypeInfo(TypeInfo):
         return ('*' if not self.isPtr else '') + varName
 
     def c2cppPostcall(self, varName):
-        if self.array:
+        if self.array and not self.transfer:
             return 'delete[] %s_converted;' % varName
         return None
 
@@ -383,6 +383,8 @@ class MappedTypeInfo(TypeInfo):
 
     def c2cppPostcall(self, varName):
         if self.array:
+            if self.transfer:
+                return None
             return 'delete[] %s_converted;' % varName
         if self.inOut:
             return """\

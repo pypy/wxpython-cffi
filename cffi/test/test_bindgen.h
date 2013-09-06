@@ -307,7 +307,7 @@ public:
 class SmartVector
 {
 public:
-    SmartVector(int x_, int y_) : x(x_), y(y_) { }
+    SmartVector(int x_=0, int y_=0) : x(x_), y(y_) { }
     int x, y;
 };
 
@@ -347,6 +347,19 @@ public:
     TransferClass *transferback_return(TransferClass *obj);
     void transferthis_param(TransferClass * i) { }
     void transferthis_return() { }
+
+    void transfer_array(TransferClass *&objs, int count)
+    {
+        delete[] objs;
+        //Change the value of the pointer so if the code try to delete again it
+        //sefault
+        objs = (TransferClass*)-1;
+    }
+    void transfer_array(Vector *&objs, int count)
+    {
+        delete[] objs;
+        objs = (Vector*)-1;
+    }
 
     static void static_transfer_param(TransferClass *obj) { }
     static void static_transferback_param(TransferClass *obj) { }

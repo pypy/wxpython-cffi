@@ -987,7 +987,7 @@ class CffiModuleGenerator(object):
                 pyfile.write(nci("wrapper_lib.keep_reference(" + param.name +
                                  key + owner + ')', indent + 4))
 
-            if param.transfer:
+            if param.transfer and not param.array:
                 pyfile.write(nci("wrapper_lib.give_ownership(%s%s)" %
                                  (param.name, owner), indent + 4))
             if param.transferBack:
@@ -1214,7 +1214,8 @@ class CffiModuleGenerator(object):
                 arraySize=getattr(item, 'arraySize', False),
                 out=getattr(item, 'out', False),
                 inOut=getattr(item, 'inOut', False),
-                noCopy=getattr(item, 'noCopy', False))
+                noCopy=getattr(item, 'noCopy', False),
+                transfer=getattr(item, 'transfer', False))
 
     def createArgsStrings(self, func, isOverload, parent=None):
         """
