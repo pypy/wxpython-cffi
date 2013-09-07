@@ -577,6 +577,24 @@ class TestBindGen(object):
             name="global_transferback_return", items=[
                 ParamDef(type='TransferClass *', name='obj')]))
 
+        c = ClassDef(name='FactoryClass')
+        c.addItem(MethodDef(
+            type='FactoryClass *', argsString='()',  name='make',
+            factory=True, isVirtual=True))
+        c.addItem(MethodDef(
+            type='FactoryClass *', argsString='()',  name='call_make'))
+        c.addItem(MethodDef(
+            type='FactoryClass *', argsString='(FactoryClass *ref)',
+             name='make_keep_ref', factory=True, items=[
+                ParamDef(type='FactoryClass *', name='ref', keepReference=True)
+            ]))
+        c.addItem(MethodDef(
+            type='FactoryClass *', argsString='(FactoryClass *ref)',
+             name='make_transfer_this', factory=True, items=[
+                ParamDef(type='FactoryClass *', name='ref', transferThis=True)
+            ]))
+        module.addItem(c)
+
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
@@ -1428,3 +1446,48 @@ class TestBindGen(object):
         obj = self.mod.TransferClass()
         obj.transfer_array([obj, self.mod.TransferClass()])
         obj.transfer_array([(10, 10), (8, 8)])
+
+    def test_factory(self):
+        obj = self.mod.FactoryClass().make()
+        assert obj._py_owned
+
+    def test_factory_keepreference(self):
+        keptobj = self.mod.FactoryClass()
+        obj = self.mod.FactoryClass().make_keep_ref(keptobj)
+        wr = weakref.ref(keptobj)
+
+        del keptobj
+        gc.collect()
+        assert wr() is not None
+
+        del obj
+        gc.collect()
+        assert wr() is None
+
+    def test_factory_transferthis(self):
+        owner = self.mod.FactoryClass()
+        obj = self.mod.FactoryClass().make_transfer_this(owner)
+        wr = weakref.ref(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is not None
+
+        del owner
+        gc.collect()
+        assert wr() is None
+
+    def test_factory_virtual(self):
+        class FactorySubclass(self.mod.FactoryClass):
+            def make(self):
+                newobj = FactorySubclass()
+                return newobj
+
+        obj = FactorySubclass().call_make()
+        assert not obj._py_owned
+        wr = weakref.ref(obj)
+
+        del obj
+        gc.collect()
+        assert wr() is not None
+        

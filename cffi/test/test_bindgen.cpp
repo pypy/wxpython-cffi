@@ -447,3 +447,23 @@ TransferClass * global_transferback_return(TransferClass *obj)
 {
     return obj;
 };
+
+FactoryClass * FactoryClass::make()
+{
+    return new FactoryClass;
+}
+
+FactoryClass * FactoryClass::make_keep_ref(FactoryClass *ref)
+{
+    return new FactoryClass;
+}
+
+FactoryClass * FactoryClass::make_transfer_this(FactoryClass *ref)
+{
+    return new FactoryClass;
+}
+
+FactoryClass * FactoryClass::call_make()
+{
+    return make();
+}

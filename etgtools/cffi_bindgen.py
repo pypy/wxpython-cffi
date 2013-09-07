@@ -911,6 +911,13 @@ class CffiModuleGenerator(object):
                 convertCode = method.type.py2cPostcall(varName, 'return_tmp')
                 if convertCode is not None:
                     pyfile.write(nci(convertCode, indent + 4))
+
+                if method.factory:
+                    pyfile.write(nci(
+                        'wrapper_lib.give_ownership(wrapper_lib.obj_from_ptr('
+                        'return_tmp, %s), None, True)' %
+                        method.type.typedef.unscopedPyName, indent + 4))
+
                 pyfile.write(nci('return return_tmp', indent + 4))
 
             pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" %
@@ -976,7 +983,9 @@ class CffiModuleGenerator(object):
 
     def printOwnershipChanges(self, func, pyfile, indent=0, parent=None):
         owner = ''
-        if isinstance(func, extractors.MethodDef) and not func.isStatic:
+        if func.factory:
+            owner = ', return_tmp'
+        elif isinstance(func, extractors.MethodDef) and not func.isStatic:
             owner = ", self"
 
         for param in [p for p in func if isinstance(p.type, WrappedTypeInfo)]:
@@ -994,12 +1003,13 @@ class CffiModuleGenerator(object):
                 pyfile.write(nci("wrapper_lib.take_ownership(%s)" %
                                  param.name, indent + 4))
             if param.transferThis:
+                obj = "return_tmp" if func.factory else "self"
                 pyfile.write(nci("""\
                 if {0} is None:
-                    wrapper_lib.take_ownership(self)
+                    wrapper_lib.take_ownership({1})
                 else:
-                    wrapper_lib.give_ownership(self, {0})
-                """.format(param.name), indent + 4))
+                    wrapper_lib.give_ownership({1}, {0})
+                """.format(param.name, obj), indent + 4))
 
         if func.transfer:
             assert not getattr(func, 'isStatic', True)
@@ -1010,12 +1020,14 @@ class CffiModuleGenerator(object):
             else:
                 pyfile.write(nci("wrapper_lib.give_ownership(self, "
                                  "external_ref=True)", indent + 4))
-        if func.transferBack:
+        elif func.transferBack:
             pyfile.write(nci("wrapper_lib.take_ownership(return_tmp)",
                              indent + 4))
 
-        if func.transferThis:
-            pyfile.write(nci("wrapper_lib.give_ownership(self)",indent + 4))
+        elif func.transferThis:
+            pyfile.write(nci("wrapper_lib.give_ownership(self)", indent + 4))
+        elif func.factory:
+            pyfile.write(nci("wrapper_lib.take_ownership(return_tmp)", indent + 4))
 
     def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
         if parent is None:

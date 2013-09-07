@@ -373,3 +373,13 @@ public:
 void global_transfer_param(TransferClass *obj);
 void global_transferback_param(TransferClass *obj);
 TransferClass * global_transferback_return(TransferClass *obj);
+
+class FactoryClass
+{
+public:
+    virtual FactoryClass * make();
+    FactoryClass * make_keep_ref(FactoryClass *ref);
+    FactoryClass * make_transfer_this(FactoryClass *ref);
+
+    FactoryClass * call_make();
+};
