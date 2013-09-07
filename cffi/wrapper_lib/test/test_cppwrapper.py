@@ -232,6 +232,15 @@ class TestPyObjectLifetimes(object):
 
         del obj
         collect_all_wrappers()
+        assert wk() is None
+
+    def test_no_parent_cpp_owned_external_ref(self):
+        obj = DtorObj()
+        wk = weakref.ref(obj)
+        give_ownership(obj, None, True)
+
+        del obj
+        collect_all_wrappers()
         assert wk() is not None
 
     def test_py_owned_parent_dies(self):
@@ -268,7 +277,7 @@ class TestPyObjectLifetimes(object):
         parent = DtorObj()
         child = NoDtorObj()
 
-        give_ownership(parent, None)
+        give_ownership(parent, None, True)
         give_ownership(child, parent)
 
         pwk = weakref.ref(parent)
@@ -290,7 +299,7 @@ class TestPyObjectLifetimes(object):
         child1 = NoDtorObj()
         child2 = NoDtorObj()
 
-        give_ownership(parent, None)
+        give_ownership(parent, None, True)
         give_ownership(child1, parent)
         give_ownership(child2, parent)
 

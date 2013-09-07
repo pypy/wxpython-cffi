@@ -155,11 +155,12 @@ class VirtualDispatcher(object):
 class CppWrapper(object):
     __metaclass__ = WrapperType
 
-    def __init__(self, cpp_obj, py_owned=True, py_created=True):
+    def __init__(self, cpp_obj, py_owned=True, py_created=True,
+                 external_ref=False):
         self._cpp_obj = cpp_obj if cpp_obj is not None else ffi.NULL
         self._py_owned = py_owned
         self._py_created = py_created
-        remember_ptr(self, self._cpp_obj, py_owned)
+        remember_ptr(self, self._cpp_obj, external_ref)
 
         self._parent = None
         self._child = None
@@ -178,9 +179,9 @@ class CppWrapper(object):
             forget_ptr(self._cpp_obj)
 
     @classmethod
-    def _from_ptr(cls, ptr, is_new=False):
+    def _from_ptr(cls, ptr, py_owned=False, external_ref=False):
         obj = cls.__new__(cls)
-        CppWrapper.__init__(obj, ptr, is_new, is_new)
+        CppWrapper.__init__(obj, ptr, py_owned, False, external_ref)
         return obj
 
 def abstract_class(base_class):
@@ -226,7 +227,7 @@ cpp_owned_objects = set()
 object_map = weakref.WeakValueDictionary()
 
 def obj_from_ptr(ptr, klass=CppWrapper, is_new=False):
-    if ptr not in object_map:
+    if object_map is None or ptr not in object_map:
         # If an python object for this pointer doesn't yet exist, create one
         obj = klass._from_ptr(ptr, is_new)
         object_map[ptr] = obj
@@ -263,13 +264,15 @@ def get_ptr(obj):
         return obj._cpp_obj
     raise TypeError('obj is not a wrapper for a C++ object')
 
-def remember_ptr(obj, ptr, weak=False):
-    if not weak:
+def remember_ptr(obj, ptr, external_ref=False):
+    if external_ref:
+        # In some (one) situtations, obj needs to be kept alive even if it
+        # stops being referenced by Python.
         cpp_owned_objects.add(obj)
     object_map[ptr] = obj
 
 def forget_ptr(ptr):
-    if object_map is not None and ptr in object_map:
+    if ptr in object_map:
         obj = object_map[ptr]
         cpp_owned_objects.discard(obj)
         del object_map[ptr]
@@ -294,7 +297,7 @@ def keep_reference(obj, key=None, owner=None):
         owner._extra_references = {}
     owner._extra_references[key] = obj
 
-def give_ownership(obj, parent=None):
+def give_ownership(obj, parent=None, external_ref=False):
     obj._py_owned = False
 
     _detach_from_parent(obj)
@@ -302,8 +305,10 @@ def give_ownership(obj, parent=None):
         # If parent is not None, the parent will hold the reference that keeps
         # obj alive
         _attach_to_parent(obj, parent)
-    else:
-        # If parent is None, we keep obj alive via cpp_owned_objects
+    elif external_ref:
+        # If C++ is holding a reference to obj, keep it alive via
+        # cpp_owned_objects. This will keep it alive until its ownership is
+        # changed by Python or its (hopefully virtual) C++ Dtor is called
         cpp_owned_objects.add(obj)
 
 def _detach_from_parent(obj):

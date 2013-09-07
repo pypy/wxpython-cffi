@@ -1008,8 +1008,8 @@ class CffiModuleGenerator(object):
                     "wrapper_lib.give_ownership(return_tmp, self)",
                     indent + 4))
             else:
-                pyfile.write(nci("wrapper_lib.give_ownership(self)",
-                                 indent + 4))
+                pyfile.write(nci("wrapper_lib.give_ownership(self, "
+                                 "external_ref=True)", indent + 4))
         if func.transferBack:
             pyfile.write(nci("wrapper_lib.take_ownership(return_tmp)",
                              indent + 4))
@@ -1215,7 +1215,8 @@ class CffiModuleGenerator(object):
                 out=getattr(item, 'out', False),
                 inOut=getattr(item, 'inOut', False),
                 noCopy=getattr(item, 'noCopy', False),
-                transfer=getattr(item, 'transfer', False))
+                transfer=getattr(item, 'transfer', False),
+                factory=getattr(item, 'factory', False))
 
     def createArgsStrings(self, func, isOverload, parent=None):
         """

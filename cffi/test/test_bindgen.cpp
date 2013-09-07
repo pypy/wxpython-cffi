@@ -430,7 +430,6 @@ long AllowNoneClass::get_addr_ref(SmartVector &v)
 
 void global_keep_ref(KeepReferenceClass &i) { }
 
-
 TransferClass * TransferClass::transfer_return(TransferClass *obj)
 {
     return obj;

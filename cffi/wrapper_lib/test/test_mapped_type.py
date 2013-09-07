@@ -35,7 +35,7 @@ class StringMappedType(wrapper_lib.MappedBase):
         return string
 
 StringMappedTypeSeq = wrapper_lib.create_array_type(
-    StringMappedType, ctype="char *")
+    StringMappedType, ctype="char *[]")
 
 def string_len(s):
     assert isinstance(s, StringMappedType)

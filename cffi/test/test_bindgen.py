@@ -1300,19 +1300,21 @@ class TestBindGen(object):
         obj = self.mod.TransferClass()
         wr = weakref.ref(obj)
         self.mod.TransferClass.static_transfer_param(obj)
+        assert not obj._py_owned
 
         del obj
         gc.collect()
-        assert wr() is not None
+        assert wr() is None
 
 
         obj = self.mod.TransferClass()
         wr = weakref.ref(obj)
         self.mod.global_transfer_param(obj)
+        assert not obj._py_owned
 
         del obj
         gc.collect()
-        assert wr() is not None
+        assert wr() is None
 
     def test_transfer_return(self):
         parent = self.mod.TransferClass()
@@ -1330,8 +1332,11 @@ class TestBindGen(object):
 
         # This Ctor is annotated with Transfer
         obj = self.mod.TransferClass(10)
+        assert not obj._py_owned
         wr = weakref.ref(obj)
 
+        # Transfer on Ctors is a special case: the object is kept alive even
+        # after the last reference in user code is gone
         del obj
         gc.collect()
         assert wr() is not None
@@ -1413,10 +1418,11 @@ class TestBindGen(object):
         obj = self.mod.TransferClass()
         wr = weakref.ref(obj)
         obj.transferthis_return()
+        assert not obj._py_owned
 
         del obj
         gc.collect()
-        assert wr() is not None
+        assert wr() is None
 
     def test_transfer_array(self):
         obj = self.mod.TransferClass()
