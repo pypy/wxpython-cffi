@@ -5,6 +5,8 @@ class LD(str):
     pass
 
 def eval_func_defaults(func):
+    if hasattr(func, '_wrapped_func'):
+        func = func._wrapped_func
     if getattr(func, 'func_defaults', None) is not None:
         defaults = tuple(eval(d, func.func_globals) if isinstance(d, LD) else d
                      for d in func.func_defaults)

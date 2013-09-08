@@ -7,6 +7,7 @@ from multimethod import (
     check_args_types)
 from lazy_defaults import LD, eval_func_defaults
 from annotations import create_array_type
+from deprecated import deprecated
 
 def eval_class_attrs(cls):
     for attr in cls.__dict__.itervalues():

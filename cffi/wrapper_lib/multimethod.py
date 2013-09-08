@@ -1,6 +1,7 @@
 import inspect
 import functools
 
+from deprecated import deprecated
 from lazy_defaults import eval_func_defaults
 
 class MMTypeCheckMeta(type):
@@ -26,6 +27,23 @@ class Multimethod(object):
             self._get = self._get_self
         def closure(func):
             self._overloads.append(Overload(func, self._skip_first, kwargs))
+            return self
+        return closure
+
+    def deprecated_overload(self, *args, **kwargs):
+        """
+        Add an overload to the multimethod that will print a deprecated warning
+        when called.
+        """
+        if any(isinstance(a, str) for a in kwargs.itervalues()):
+            self._get = self._get_self
+        def closure(func):
+            try:
+                self._overloads.append(DeprecatedOverload(
+                    func, self._skip_first, kwargs, args[0]))
+            except IndexError:
+                self._overloads.append(DeprecatedOverload(
+                    func, self._skip_first, kwargs, None))
             return self
         return closure
 
@@ -160,6 +178,20 @@ class Overload(object):
 
         eval_func_defaults(self.func)
 
+class DeprecatedOverload(Overload):
+    def __init__(self, func, ignore_first, kwargs, cls_name=None):
+        super(DeprecatedOverload, self).__init__(func, ignore_first, kwargs)
+        if cls_name is None:
+            self.func = deprecated(func)
+        else:
+            self.func = deprecated(cls_name)(func)
+
+    def finalize(self):
+        wrapper = self.func
+        self.func = wrapper._wrapped_func
+        super(DeprecatedOverload, self).finalize()
+        self.func = wrapper
+
 def check_args_types(*args):
     assert len(args) % 3 == 0
     for i in range(0, len(args), 3):
@@ -167,5 +199,5 @@ def check_args_types(*args):
         arg_value = args[i + 1]
 
         if not isinstance(arg_value, arg_type):
-            raise TypeError("argument '%s' has unexpected type '%s'" % 
+            raise TypeError("argument '%s' has unexpected type '%s'" %
                             (args[i + 2], type(arg_value)))
