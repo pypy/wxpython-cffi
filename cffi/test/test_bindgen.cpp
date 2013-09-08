@@ -418,6 +418,11 @@ SmartVector double_vector(SmartVector &vec)
     return SmartVector(vec.x * 2, vec.y * 2);
 }
 
+Vector double_mapped_vector(Vector &vec)
+{
+    return Vector(vec.i * 2, vec.j * 2);
+}
+
 long AllowNoneClass::get_addr_ptr(SmartVector *v)
 {
     return (long)v;

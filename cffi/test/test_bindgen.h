@@ -313,6 +313,7 @@ public:
 };
 
 SmartVector double_vector(SmartVector &vec);
+Vector double_mapped_vector(Vector &vec);
 
 #define AllowNoneSmartVector SmartVector
 
@@ -391,3 +392,7 @@ public:
 };
 
 void deprecated_func();
+
+class ExternalModuleSubclass : public SimpleClass
+{
+};

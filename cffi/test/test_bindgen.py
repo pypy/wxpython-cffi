@@ -26,13 +26,16 @@ class TestBindGen(object):
     @classmethod
     def setup_class(cls):
         cls.tmpdir = pytest.ensuretemp('build', dir=True)
-        cls.gen = cls.create_generator()
-        cls.mod = cls.build_module()
+        cls.gens = cls.create_generators()
+        cls.mod = cls.build_module('_core')
+        cls.mod2 = cls.build_module('_extra')
 
     @classmethod
-    def create_generator(cls):
+    def create_generators(cls):
         module = ModuleDef('bindgen_test', '_core', '_core')
         module.addHeaderCode('#include <test_bindgen.h>')
+
+        module.addPyCode('from _core import *', 0)
 
         module.addItem(DefineDef(
             name='prefixedSOME_INT', pyName='SOME_INT'))
@@ -85,7 +88,6 @@ class TestBindGen(object):
             type='int', argsString='(double f)',
             name='simple_method', pyName='simple_method',
             items=[ParamDef(type='double', name='f')]))
-
         module.addItem(c)
 
         module.addItem(ClassDef(name='SimpleSubclass', bases=['SimpleClass']))
@@ -781,29 +783,57 @@ class TestBindGen(object):
         with mod_path.open('w') as f:
             pickle.dump(module, f)
 
-        gen = cffi_bindgen.CffiModuleGenerator(module.name,
-                                               str(cls.tmpdir.join('%s.def')))
-        gen.init({})
-        return gen
+        gen1 = cffi_bindgen.CffiModuleGenerator(module.name,
+                                                str(cls.tmpdir.join('%s.def')))
+
+        module = ModuleDef('bindgen_test', '_extra', '_extra')
+        module.addImport('_core')
+        module.addPyCode('from _extra import *', 0)
+
+        module.addItem(FunctionDef(
+            type='SmartVector', argsString='(SmartVector &v)',
+            name='double_vector', pyName='double_smart_vector', items=[
+                ParamDef(type='SmartVector &', name='v')]))
+        module.addItem(FunctionDef(
+            type='Vector', argsString='(Vector &v)',
+            name='double_mapped_vector', pyName='double_mapped_vector', items=[
+                ParamDef(type='Vector &', name='v')]))
+
+        c = ClassDef(name='ExternalModuleSubclass', bases=['SimpleClass'])
+        module.addItem(c)
+
+        mod_path = cls.tmpdir.join('%s.def' % module.name)
+        with mod_path.open('w') as f:
+            pickle.dump(module, f)
+
+        gen2 = cffi_bindgen.CffiModuleGenerator(module.name,
+                                                str(cls.tmpdir.join('%s.def')))
+        gens = {'_core': gen1, '_extra': gen2}
+        gen1.init(gens)
+        gen2.init(gens)
+        return gens
 
     @classmethod
-    def build_module(cls):
-        cpp_path = cls.tmpdir.join('_core.cpp')
-        py_path = cls.tmpdir.join('_core.py')
+    def build_module(cls, name):
+        cpp_path = cls.tmpdir.join(name + '.cpp')
+        h_path = cls.tmpdir.join(name + '.h')
+        py_path = cls.tmpdir.join(name + '.py')
+        user_py_path = cls.tmpdir.join(name.strip('_') + '.py')
 
         test_dir = os.path.dirname(__file__)
         sources = [str(cpp_path), os.path.join(test_dir, 'test_bindgen.cpp')]
         include_dirs = [test_dir, INCLUDES_DIR]
         tmpdir = str(cls.tmpdir)
 
-        with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file:
+        with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file,\
+             user_py_path.open('w') as user_py_file, h_path.open('w') as h_file:
             # Use distutis via cffi to build the cpp code
-            cls.gen.writeFiles(
-                py_file, cpp_file,
+            cls.gens[name].writeFiles(
+                py_file, cpp_file, h_file, user_py_file,
                 'sources=["%s"], include_dirs=["%s"], tmpdir="%s"' %
                 ('", "'.join(sources), '", "'.join(include_dirs), tmpdir))
 
-        return py_path.pyimport()
+        return user_py_path.pyimport()
 
     def test_define(self):
         assert self.mod.SOME_INT == 15
@@ -1504,3 +1534,14 @@ class TestBindGen(object):
         obj = pytest.deprecated_call(self.mod.DeprecatedClass)
         pytest.deprecated_call(obj.deprecated_method)
         pytest.deprecated_call(self.mod.deprecated_func)
+
+    def test_second_module(self):
+        obj = self.mod2.double_smart_vector((1, 2))
+        assert obj.x == 2
+        assert obj.y == 4
+
+        obj = self.mod2.double_mapped_vector((2, 4))
+        assert obj == (4, 8)
+
+        obj = self.mod2.ExternalModuleSubclass()
+        assert obj.simple_method(1.1) == 1

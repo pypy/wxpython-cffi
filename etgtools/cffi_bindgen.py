@@ -173,27 +173,38 @@ class CffiModuleGenerator(object):
         dispatchItems(self.dispatchInit, self.globalItems)
 
 
-    # TODO: some of the C++ code needs to written to a seperate header file so
-    #       that other modules can access this modules declarations
-    def writeFiles(self, pyfile, cppfile, verify_args=''):
+    def writeFiles(self, pyfile, cppfile, hfile, userPyfile, verify_args=''):
         # Write the C++ preamble
-        print >> cppfile, "#include <cstring>"
-        print >> cppfile, "#include <wrapper_lib.h>"
-        for attr in ('headerCode', 'cppCode', 'initializerCode',
+        hfile.write(nci("""\
+        #ifndef INCLUDE_GUARD_{0}s_H
+        #define INCLUDE_GUARD_{0}s_H""".format(self.module.name)))
+        cppfile.write(nci("""\
+        #include <cstring>
+        #include <wrapper_lib.h>
+        #include "{0}.h"
+        """.format(self.module.name)))
+        for attr in ('cppCode', 'initializerCode',
                      'preInitializerCode', 'postInitializerCode'):
             for line in getattr(self.module, attr):
                 print >> cppfile, line
+        for line in getattr(self.module, 'headerCode'):
+            print >> hfile, line
 
         for item in self.module.items:
-            for line in  getattr(item, 'headerCode', []):
-                print >> cppfile, line
+            for line in getattr(item, 'headerCode', []):
+                print >> hfile, line
+        for mod in self.module.imports:
+            print >> hfile, '#include "%s.h"' % mod
 
         # Write Python preamble
         print >> pyfile, nci("""\
+        import sys
         import cffi
         import types
         import numbers
-        import wrapper_lib""")
+        import wrapper_lib
+
+        {0} = sys.modules['{0}']""".format(self.module.name))
         for module in self.module.imports:
             print >> pyfile, "import %s" % module
 
@@ -216,7 +227,7 @@ class CffiModuleGenerator(object):
 
         # Print classes' C++ bodies, before any method bodies are printed
         for klass in self.classes:
-            self.printClassCppBody(klass, cppfile)
+            self.printClassCppBody(klass, hfile, cppfile)
 
         for mType in self.mappedTypes:
             self.printMappedType(mType, pyfile, cppfile, 0)
@@ -236,7 +247,9 @@ class CffiModuleGenerator(object):
         # Print Py*Defs
         for klass in self.classes:
             self.printClassPyDefs(klass, pyfile)
-        dispatchItems(self.dispatchPrintPyDefs, self.pyItems, pyfile, 0)
+        dispatchItems(self.dispatchPrintPyDefs, self.pyItems, userPyfile, 0)
+
+        print >> hfile, "#endif"
 
     def sortClasses(self):
         """
@@ -247,7 +260,8 @@ class CffiModuleGenerator(object):
             for baseName in klass.bases:
                 baseDef = self.findItem(baseName)
                 if isinstance(baseDef, extractors.ClassDef):
-                    dependencies.append(baseDef)
+                    if baseDef in self.classes:
+                        dependencies.append(baseDef)
                 else:
                     raise Exception("Failed to locate a ClassDef for base '%s'"
                                     " for class '%s'" % (klass.name, baseName))
@@ -294,7 +308,7 @@ class CffiModuleGenerator(object):
         if not hasattr(klass, 'klass'):
             klass.unscopedName = klass.name
             klass.pyName = klass.pyName or klass.name
-            klass.unscopedPyName = klass.pyName
+            klass.unscopedPyName = self.module.name + '.' + klass.pyName
 
             klass.cName = klass.name
         else:
@@ -397,7 +411,7 @@ class CffiModuleGenerator(object):
     def initMappedType(self, mType):
         mType.pyName = mType.name
         mType.unscopedName = mType.name
-        mType.unscopedPyName = mType.name
+        mType.unscopedPyName = self.module.name + '.' + mType.name
 
         templateClass = "cfficonvert_mappedtype<%s, %s>::" % (mType.name,
                                                               mType.cType)
@@ -587,14 +601,14 @@ class CffiModuleGenerator(object):
 
     #------------------------------------------------------------------------#
 
-    def printClassCppBody(self, klass, cppfile):
+    def printClassCppBody(self, klass, hfile, cppfile):
         for ic in klass.innerclasses:
-            self.printClassCppBody(ic, cppfile)
+            self.printClassCppBody(ic, hfile, cppfile)
 
         if not klass.hasSubClass:
             return
 
-        cppfile.write(nci("""\
+        hfile.write(nci("""\
         class {0} : public {1}
         {{
         public:""".format(klass.cppClassName, klass.unscopedName)))
@@ -603,7 +617,7 @@ class CffiModuleGenerator(object):
         ctors = klass.findItem(klass.name).all()
         # Signatures all Ctors
         for ctor in ctors:
-            cppfile.write(nci("""\
+            hfile.write(nci("""\
             {0.cppClassName}{1.cppArgs}
                 : {0.unscopedName}{1.cppCallArgs}
             {{}};""".format(klass, ctor), 4))
@@ -611,27 +625,27 @@ class CffiModuleGenerator(object):
 
         # Signatures for re-implemented virtual methods
         if len(klass.virtualMethods) > 0:
-            cppfile.write(nci("""\
+            hfile.write(nci("""\
             signed char vflags[%d];
             //Reimplement every virtual method"""
             % len(klass.virtualMethods), 4))
         for vmeth in klass.virtualMethods:
             if vmeth.isDtor:
-                print >> cppfile, "    virtual ~%s();" % klass.cppClassName
+                print >> hfile, "    virtual ~%s();" % klass.cppClassName
                 continue
-            print >> cppfile, ("    virtual {0.type.name} {0.name}{0.cppArgs};"
+            print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppArgs};"
                                .format(vmeth))
 
         # Signatures for protected methods
         if len(klass.protectedMethods) > 0:
-            print >> cppfile, '    //Reimplement every protected method'
+            print >> hfile, '    //Reimplement every protected method'
         for pmeth in klass.protectedMethods:
             if pmeth.isCtor:
                 continue
-            print >> cppfile, ("    {0.type.name} unprotected_{0.name}"
+            print >> hfile, ("    {0.type.name} unprotected_{0.name}"
                                "{0.cppArgs};").format(pmeth)
 
-        print >> cppfile, "};"
+        print >> hfile, "};"
 
         if len(klass.virtualMethods) > 0:
             cppfile.write(nci("""\
@@ -647,6 +661,9 @@ class CffiModuleGenerator(object):
                 memcpy(self->vflags, flags, sizeof(self->vflags));
             }}""".format(klass.vtableDef, klass.cName, klass.cppClassName)))
 
+
+    #------------------------------------------------------------------------#
+
     def printClass(self, klass, pyfile, cppfile, parent=None, indent=0):
         baseClassDefs = [self.findItem(b) for b in klass.bases]
 
@@ -657,7 +674,7 @@ class CffiModuleGenerator(object):
         elif klass.pureVirtualAbstract:
             pyfile.write(nci("@wrapper_lib.purevirtual_abstract_class", indent))
 
-        pyBases = ', '.join([b.pyName for b in baseClassDefs])
+        pyBases = ', '.join([b.unscopedPyName for b in baseClassDefs])
         if pyBases == '':
             pyBases = 'wrapper_lib.CppWrapper'
         pyfile.write(nci("""\

@@ -163,8 +163,8 @@ class WrappedTypeInfo(TypeInfo):
         if self.array:
             return ("{0}, {1}, {0}_keepalive = "
                     "wrapper_lib.create_array_type({2}).py2c({0})"
-                    .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName,
-                            self.cdefType))
+                    .format(varName, ARRAY_SIZE_PARAM,
+                            self.typedef.unscopedPyName, self.cdefType))
         return conversion if conversion != '' else None
 
     def py2cParam(self, varName):
@@ -187,7 +187,8 @@ class WrappedTypeInfo(TypeInfo):
                     varName, self.typedef.unscopedPyName)
         if self.array:
             return ("wrapper_lib.create_array_type({2}).c2py({0}, {1})"
-                    .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName))
+                    .format(varName, ARRAY_SIZE_PARAM,
+                            self.typedef.unscopedPyName))
         if not (self.isRef or self.isPtr) or (not self.noCopy and
            self.isRef and self.isConst):
             return 'wrapper_lib.obj_from_ptr(%s, %s, True)' % (
@@ -308,21 +309,22 @@ class MappedTypeInfo(TypeInfo):
                                                       self.cdefType)
         if self.inOut:
             return """\
-            {0}, {0}s_keepalive = {1.typedef.pyName}.py2c({0})
+            {0}, {0}s_keepalive = {1.typedef.unscopedPyName}.py2c({0})
             {0}{2} = ffi.new('{1.cdefType}', {0})
             """.format(varName, self, OUT_PARAM_SUFFIX)
         if self.array:
             assert not inplace
             return ("{0}, {1}, {0}_keepalive = "
                     "wrapper_lib.create_array_type({2}, ctype='{3}').py2c({0})"
-                    .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName,
-                            self.cdefType))
+                    .format(varName, ARRAY_SIZE_PARAM,
+                            self.typedef.unscopedPyName, self.cdefType))
         # XXX inplace is used only when making the lambda's for properties;
         #     maybe there's a better way to accomplish this?
         if inplace:
-            return "{1}.py2c({0})[0]".format(varName, self.typedef.pyName)
-        return "{0}, {0}s_keepalive = {1}.py2c({0})".format(varName,
-                                                           self.typedef.pyName)
+            return "{1}.py2c({0})[0]".format(varName,
+                                             self.typedef.unscopedPyName)
+        return "{0}, {0}s_keepalive = {1}.py2c({0})".format(
+            varName, self.typedef.unscopedPyName)
 
     def py2cParam(self, varName):
         if self.out or self.inOut:
@@ -337,22 +339,22 @@ class MappedTypeInfo(TypeInfo):
             return """\
             {2}, {2}_keepalive = {3}.py2c({0})
             {1}[0] = clib.{4}({2})
-            """.format(inVar, outVar, tmpVar, self.typedef.pyName,
+            """.format(inVar, outVar, tmpVar, self.typedef.unscopedPyName,
                    self.typedef.c2cppPyFunc)
         return """\
         {2}, {2}_keepalive = {3}.py2c({0})
         {1} = clib.{4}({2})
-        """.format(inVar, outVar, tmpVar, self.typedef.pyName,
+        """.format(inVar, outVar, tmpVar, self.typedef.unscopedPyName,
                 self.typedef.c2cppPyFunc)
 
     def c2py(self, varName):
         if self.out or self.inOut:
-            return '%s.c2py(%s[0])' % (self.typedef.name, varName)
+            return '%s.c2py(%s[0])' % (self.typedef.unscopedPyName, varName)
         if self.array:
             return ("wrapper_lib.create_array_type({2}, ctype='{3}').c2py({0}, {1})"
-                    .format(varName, ARRAY_SIZE_PARAM, self.typedef.pyName,
-                            self.cdefType))
-        return '%s.c2py(%s)' % (self.typedef.name, varName)
+                    .format(varName, ARRAY_SIZE_PARAM,
+                            self.typedef.unscopedPyName, self.cdefType))
+        return '%s.c2py(%s)' % (self.typedef.unscopedPyName, varName)
 
     def c2cppPrecall(self, varName):
         if self.out:
