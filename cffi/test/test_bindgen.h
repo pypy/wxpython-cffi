@@ -383,3 +383,11 @@ public:
 
     FactoryClass * call_make();
 };
+
+class DeprecatedClass
+{
+public:
+    void deprecated_method() { }
+};
+
+void deprecated_func();

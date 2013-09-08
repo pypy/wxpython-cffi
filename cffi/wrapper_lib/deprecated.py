@@ -11,10 +11,9 @@ def deprecated(arg):
 def deprecated_func(func, message="{0}() is deprecated"):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        warnings.warn_explicit(message.format(func.__name__),
-                                category=DeprecationWarning,
-                                filename=func.func_code.co_filename,
-                                lineno=func.func_code.co_firstlineno + 1)
+        warnings.warn(message.format(func.__name__),
+                      category=DeprecationWarning,
+                      stacklevel=3)
 
         return func(*args, **kwargs)
     wrapper._wrapped_func = func

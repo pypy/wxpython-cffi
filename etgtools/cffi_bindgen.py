@@ -472,6 +472,9 @@ class CffiModuleGenerator(object):
                 param.keepReference = parent.keepReferenceIndex
                 parent.keepReferenceIndex -= 1
 
+        if parent.deprecated:
+            method.deprecated = True
+
         self.getTypeInfo(method)
         self.createArgsStrings(method, overload != '' or method.hasOverloads(),
                                parent)
@@ -745,8 +748,14 @@ class CffiModuleGenerator(object):
 
         call = "clib." + func.cName + func.pyCallArgs
         if isOverload:
-            print >> pyfile, "@%s.overload%s" % (func.pyName,
-                                                 func.overloadArgs)
+            if not func.deprecated:
+                print >> pyfile, "@%s.overload%s" % (func.pyName,
+                                                    func.overloadArgs)
+            else:
+                print >> pyfile, "@%s.deprecated_overload%s" % (func.pyName,
+                                                             func.overloadArgs)
+        elif func.deprecated:
+            print >> pyfile, "@wrapper_lib.deprecated"
         print >> pyfile, "def %s%s:" % (func.pyName, func.pyArgs)
         if not isOverload:
             self.printDocString(func, pyfile)
@@ -934,9 +943,17 @@ class CffiModuleGenerator(object):
             print >> pyfile, ' ' * (indent + 4) + 'pass'
 
         if isOverload:
-            pyfile.write(nci("""\
-            @{0.pyName}.overload{0.overloadArgs}
-            """.format(method, parent), indent))
+            if not method.deprecated:
+                pyfile.write(nci("""\
+                @{0.pyName}.overload{0.overloadArgs}
+                """.format(method, parent), indent))
+            else:
+                pyfile.write(nci("""\
+                @{0}.deprecated_overload('{1}', {2}
+                """.format(method.pyName, parent.unscopedPyName,
+                           method.overloadArgs[1:]), indent))
+        elif method.deprecated:
+            pyfile.write(nci("@wrapper_lib.deprecated('%s')" % parent.unscopedPyName, indent))
 
         if method.isStatic and not isOverload:
             # @staticmethod isn't needed if this is a multimethod because the

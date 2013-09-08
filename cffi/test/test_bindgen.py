@@ -595,6 +595,15 @@ class TestBindGen(object):
             ]))
         module.addItem(c)
 
+        c = ClassDef(name="DeprecatedClass", deprecated=True)
+        c.addItem(MethodDef(
+            type='void', argsString='()', name='deprecated_method'))
+        module.addItem(c)
+
+        module.addItem(FunctionDef(
+            type='void', argsString='()', name='deprecated_func',
+            deprecated=True))
+
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
@@ -1490,4 +1499,8 @@ class TestBindGen(object):
         del obj
         gc.collect()
         assert wr() is not None
-        
+
+    def test_deprecated(self):
+        obj = pytest.deprecated_call(self.mod.DeprecatedClass)
+        pytest.deprecated_call(obj.deprecated_method)
+        pytest.deprecated_call(self.mod.deprecated_func)

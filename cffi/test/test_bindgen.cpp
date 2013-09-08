@@ -467,3 +467,5 @@ FactoryClass * FactoryClass::call_make()
 {
     return make();
 }
+
+void deprecated_func() { }
