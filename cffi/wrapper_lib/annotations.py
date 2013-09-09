@@ -63,3 +63,14 @@ def create_array_type(cls, ctype=None):
             _cls = cls
         seq_type_cache[cls] = Seq
     return Seq
+
+#----------------------------------------------------------------------------#
+# C Strings
+
+def allocate_cstring(str, clib):
+    cstring = ffi.cast('char*', clib.malloc(len(str) + 1))
+    for i, c in enumerate(str):
+        cstring[i] = c
+    cstring[i + 1] = '\0'
+
+    return cstring

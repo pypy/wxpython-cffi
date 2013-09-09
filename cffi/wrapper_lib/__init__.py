@@ -6,7 +6,7 @@ from multimethod import (
     Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta,
     check_args_types)
 from lazy_defaults import LD, eval_func_defaults
-from annotations import create_array_type
+from annotations import create_array_type, allocate_cstring
 from deprecated import deprecated
 
 def eval_class_attrs(cls):

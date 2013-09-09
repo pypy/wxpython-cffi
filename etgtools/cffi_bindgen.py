@@ -851,9 +851,10 @@ class CffiModuleGenerator(object):
                 isMappedType = isinstance(method.type, MappedTypeInfo)
                 isWrappedType = isinstance(method.type, WrappedTypeInfo)
                 isBasicType = isinstance(method.type, BasicTypeInfo)
+                isCharPtrType = isinstance(method.type, CharPtrTypeInfo)
 
                 if isBasicType or method.type.isPtr and (isMappedType or
-                   isWrappedType):
+                   isWrappedType) or isCharPtrType:
                     cppfile.write(nci("return py_return;", 8))
                 elif (isWrappedType or isMappedType) and method.type.isRef:
                     cppfile.write(nci("return *py_return;", 8))
@@ -909,14 +910,22 @@ class CffiModuleGenerator(object):
 
         # Write Python implementation
         if method.isVirtual:
-            call = '{0}.{1.pyName}{1.vtdCallArgs}'.format(
-                    parent.type.c2py('self'), method)
             pyfile.write(nci("""\
             @wrapper_lib.VirtualDispatcher({0.virtualIndex})
             @ffi.callback('{0.type.cdefReturnType}(*){0.cdefCbArgs}')
             def _virtual__{0.virtualIndex}{0.vtdArgs}:
-                return_tmp = {1}
-            """.format(method, call), indent))
+            """.format(method, parent.type.c2py('self')), indent))
+
+            call = '{0}.{1.pyName}{1.vtdCallArgs}'.format(
+                    parent.type.c2py('self'), method)
+            if getattr(method, 'virtualCatcherCode_cffi', None) is not None:
+                pyfile.write(nci("def _virtualcatcher%s:" %
+                                 method.vtdArgs, indent + 4))
+                pyfile.write(nci(method.virtualCatcherCode_cffi, indent + 8))
+                call = "_virtualcatcher(%s%s" % (parent.type.c2py('self'),
+                                                 method.vtdCallArgs[1:])
+
+            pyfile.write(nci("return_tmp = %s" % call, indent + 4))
 
             for i, param in enumerate([p for p in method if p.type.out or
                                                             p.type.inOut]):
@@ -1387,6 +1396,8 @@ class CffiModuleGenerator(object):
         else:
             func.wrapperArgs = func.cppArgs
             func.wrapperCallArgs = func.cppCallArgs
+
+        func.vtdCallArgs.append('')
 
         func.cArgs = '(' + ', '.join(func.cArgs) + ')'
         func.cdefArgs = '(' + ', '.join(func.cdefArgs) + ')'

@@ -396,3 +396,10 @@ void deprecated_func();
 class ExternalModuleSubclass : public SimpleClass
 {
 };
+
+class VirtualCatcherBase
+{
+public:
+    virtual const char *vmeth() { return ""; }
+    const char *call_vmeth() { return vmeth(); }
+};

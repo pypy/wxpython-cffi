@@ -606,6 +606,20 @@ class TestBindGen(object):
             type='void', argsString='()', name='deprecated_func',
             deprecated=True))
 
+        c = ClassDef(name='VirtualCatcherBase')
+        c.addItem(MethodDef(
+            type='const char*', argsString='()', name='vmeth', isVirtual=True,
+            virtualCatcherCode_cffi="""\
+            res = self.vmeth()
+            if not isinstance(res, str):
+                return ""
+            else:
+                return res.upper()
+            """))
+        c.addItem(MethodDef(
+            type='const char*', argsString='()', name='call_vmeth'))
+        module.addItem(c)
+
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
@@ -1545,3 +1559,11 @@ class TestBindGen(object):
 
         obj = self.mod2.ExternalModuleSubclass()
         assert obj.simple_method(1.1) == 1
+
+    def test_virtualcatchercode(self):
+        class VirtualCatcherClass(self.mod.VirtualCatcherBase):
+            def vmeth(self):
+                return 'test'
+
+        obj = VirtualCatcherClass()
+        assert obj.call_vmeth() == 'TEST'

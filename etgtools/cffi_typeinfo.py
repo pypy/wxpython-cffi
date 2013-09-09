@@ -460,6 +460,9 @@ class CharPtrTypeInfo(TypeInfo):
     def c2py(self, varName):
         return 'ffi.string(%s)' % varName
 
+    def py2cPostcall(self, inVar, outVar):
+        return "%s = wrapper_lib.allocate_cstring(%s, clib)" % (inVar, outVar)
+
 class BasicTypeInfo(TypeInfo):
     def __init__(self, typeName, typedef, **kwargs):
         super(BasicTypeInfo, self).__init__(typeName, typedef, **kwargs)
