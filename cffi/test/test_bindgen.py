@@ -442,7 +442,7 @@ class TestBindGen(object):
 
         c = ClassDef(
             name='SmartVector',
-            convertPy2Cpp="""\
+            convertFromPyObject_cffi="""\
             return SmartVector(py_obj[0], py_obj[1])
             """,
             instancecheck="""\

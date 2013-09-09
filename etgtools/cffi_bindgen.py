@@ -693,7 +693,7 @@ class CffiModuleGenerator(object):
                 clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
             """.format(klass.cName), indent + 4))
 
-        if hasattr(klass, 'convertPy2Cpp'):
+        if getattr(klass, 'convertFromPyObject_cffi', None) is not None:
             pyfile.write(nci("""\
             class _pyobject_mapping_(object):
                 __metaclass__ = wrapper_lib.MMTypeCheckMeta
@@ -711,7 +711,7 @@ class CffiModuleGenerator(object):
                 if %sissubclass(type(py_obj), %s):
                     return py_obj
             """ % (noneTest, klass.unscopedPyName), indent + 8))
-            pyfile.write(nci(klass.convertPy2Cpp, indent + 12))
+            pyfile.write(nci(klass.convertToPyObject_cffi, indent + 12))
 
         dispatchItems(self.dispatchClassItemPrint, klass.items, pyfile, cppfile,
                  indent=indent + 4, parent=klass)
