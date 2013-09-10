@@ -13,6 +13,7 @@ import hashlib
 import optparse
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import tarfile
@@ -92,6 +93,7 @@ Usage: ./build.py [command(s)] [options]
       etg           Run the ETG scripts that are out of date to update their 
                     SIP files and their Sphinx input files
       sip           Run sip to generate the C++ wrapper source
+      cffi_gen      Run the cffi binding generator
       
       wxlib         Build the Sphinx input files for wx.lib
       wxpy          Build the Sphinx input files for wx.py
@@ -900,8 +902,56 @@ def cmd_sip(options, args):
                 
         # Remove tmpdir and its contents
         shutil.rmtree(tmpdir)
-    
-    
+
+
+def cmd_cffi_gen(options, args):
+    from etgtools.cffi_bindgen import CffiModuleGenerator
+
+    cmdTimer = CommandTimer('cffi_gen')
+    cfg = Config()
+    pwd = pushDir(cfg.ROOT_DIR)
+
+    CFFI_DIR = opj(cfg.ROOT_DIR, 'cffi')
+    BUILD_DIR = getBuildDir(options)
+    if not isWindows:
+        WX_CONFIG = posixjoin(BUILD_DIR, 'wx-config')
+        if options.use_syswx:
+            wxcfg = posixjoin(options.prefix, 'bin', 'wx-config')
+            if options.prefix and os.path.exists(wxcfg):
+                WX_CONFIG = wxcfg
+            else:
+                WX_CONFIG = 'wx-config' # hope it is on the PATH
+
+    libs = runcmd(WX_CONFIG + ' --libs', True, False)
+    cxxflags = runcmd(WX_CONFIG + ' --cxxflags', True, False)
+
+    verify_args = shlex.split(libs) + shlex.split(cxxflags)
+    verify_args.append('-I' + opj(CFFI_DIR, 'include'))
+    verify_args.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
+    verify_args = 'extra_compile_args=%s' % verify_args
+
+
+    DEF_DIR = os.path.join(CFFI_DIR, 'def_gen')
+    def_path_pattern = os.path.join(DEF_DIR, '%s.def')
+    def_glob =  def_path_pattern % '_*'
+
+    generators = {}
+    for mod_path in glob.iglob(def_glob):
+        mod_name = os.path.splitext(os.path.basename(mod_path))[0]
+        gen = CffiModuleGenerator(mod_name, def_path_pattern)
+        generators[gen.name] = gen
+
+    for gen in generators.values():
+        gen.init(generators)
+
+        cppfilepath = opj(CFFI_DIR, 'cpp_gen', gen.name + '.cpp')
+
+        hfile = open(opj(CFFI_DIR, 'cpp_gen', gen.name + '.h'), 'w')
+        cppfile = open(cppfilepath, 'w')
+        pyfile = open(opj(CFFI_DIR, 'wx', gen.name + '.py'), 'w')
+        userPyfile = open(opj(CFFI_DIR, 'wx', gen.name.strip('_') + '.py'), 'w')
+        gen.writeFiles(pyfile, cppfile, hfile, userPyfile,
+                       verify_args + ', sources=["%s"]' % cppfilepath)
     
 def cmd_touch(options, args):
     cmdTimer = CommandTimer('touch')

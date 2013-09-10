@@ -13,7 +13,7 @@ stage of the ETG scripts.
 """
 
 import etgtools as extractors
-from .generators import textfile_open
+from .generators import textfile_open, importGeneratorSpecific
 import sys, os
 import copy
 

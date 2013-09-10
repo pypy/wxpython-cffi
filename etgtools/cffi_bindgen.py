@@ -183,10 +183,23 @@ class CffiModuleGenerator(object):
         #include <wrapper_lib.h>
         #include "{0}.h"
         """.format(self.module.name)))
-        for attr in ('cppCode', 'initializerCode',
-                     'preInitializerCode', 'postInitializerCode'):
+
+        for line in self.module.cppCode:
+            print >> cppfile, line
+
+        initFunc = 'cffiiinitcode_%s' % (self.module.name)
+        cppfile.write(nci("""\
+        extern "C" void %s()
+        {
+        """ % initFunc))
+        # Lump all of the init code types together, there order shouldn't
+        # matter for this generator
+        for attr in ('initializerCode', 'preInitializerCode',
+                     'postInitializerCode'):
             for line in getattr(self.module, attr):
                 print >> cppfile, line
+        print >> cppfile, '}'
+
         for line in getattr(self.module, 'headerCode'):
             print >> hfile, line
 
@@ -204,7 +217,7 @@ class CffiModuleGenerator(object):
         import numbers
         import wrapper_lib
 
-        {0} = sys.modules['{0}']""".format(self.module.name))
+        {0} = sys.modules[__name__]""".format(self.module.name))
         for module in self.module.imports:
             print >> pyfile, "import %s" % module
 
@@ -213,7 +226,9 @@ class CffiModuleGenerator(object):
         ffi = cffi.FFI()
         cdefs = ('''
         void* malloc(size_t);
-        void free(void*);""")
+        void free(void*);
+
+        void %s();""" % initFunc)
         for klass in self.classes:
             self.printClassCDefs(klass, pyfile)
         for mType in self.mappedTypes:
@@ -223,7 +238,9 @@ class CffiModuleGenerator(object):
         ''')
         ffi.cdef(cdefs)
         clib = ffi.verify(cdefs, %s)
-        del cdefs""" % verify_args)
+        del cdefs
+
+        clib.%s()""" % (verify_args, initFunc))
 
         # Print classes' C++ bodies, before any method bodies are printed
         for klass in self.classes:
@@ -1225,7 +1242,7 @@ class CffiModuleGenerator(object):
 
     def printPyFunction(self, func, pyfile, indent):
         pyfile.write(nci('def {0.name}{0.argsString}:'.format(func), indent))
-        self.printDocString(func, indent)
+        self.printDocString(func, pyfile, indent)
         pyfile.write(nci(func.body, indent + 4))
 
     def printPyCode(self, code, pyfile, indent):

@@ -11,7 +11,12 @@
 Just some base classes and stubs for the various generators
 """
 
+import os
+import imp
 import sys
+import inspect
+
+import build
 
 class WrapperGeneratorBase(object):
     def __init__(self):
@@ -86,6 +91,16 @@ def wrapText(text):
     for line in text.split('\n'):
         lines.append(tw.fill(line))
     return '\n'.join(lines)
+
+def importGeneratorSpecific():
+    gendir = 'sip'
+    if '--cffi' in sys.argv:
+        gendir = 'cffi'
+
+    path = inspect.stack()[1][0].f_globals['__file__']
+    etgdir, filename = os.path.split(path)
+    path = os.path.join(etgdir, gendir, filename)
+    return imp.load_source(filename[:-3], path)
 
 
 #---------------------------------------------------------------------------

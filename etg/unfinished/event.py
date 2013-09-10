@@ -256,7 +256,8 @@ def run():
     # Ignore the C++ version of CallAfter. We have our own. 
     # TODO: If we want to support this we'll need concrete implementations of
     # the template, probably using PyObject* args.
-    c.find('CallAfter').ignore()
+    for m in c.find('CallAfter').all():
+        m.ignore()
     
     # wxEventTable is not documented so we have to ignore SearchEventTable.
     # TODO: Should wxEventTable be available to language bindings?
@@ -311,7 +312,7 @@ def run():
             """,
         body="""\
             assert isinstance(event, wx.PyEventBinder)
-            assert callable(handler)
+            assert callable(handler) or handler is None
             assert source is None or hasattr(source, 'GetId')
             if source is not None:
                 id  = source.GetId()

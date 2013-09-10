@@ -599,6 +599,7 @@ def loadETG(name):
     class _Namespace(object):
         def __init__(self):
             self.__dict__['__name__'] = 'namespace'
+            self.__dict__['__file__'] = name
         def nsdict(self):
             return self.__dict__
             
