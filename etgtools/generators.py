@@ -92,7 +92,7 @@ def wrapText(text):
         lines.append(tw.fill(line))
     return '\n'.join(lines)
 
-def importGeneratorSpecific():
+def runGeneratorSpecificScript(*args, **kwargs):
     gendir = 'sip'
     if '--cffi' in sys.argv:
         gendir = 'cffi'
@@ -100,7 +100,9 @@ def importGeneratorSpecific():
     path = inspect.stack()[1][0].f_globals['__file__']
     etgdir, filename = os.path.split(path)
     path = os.path.join(etgdir, gendir, filename)
-    return imp.load_source(filename[:-3], path)
+
+    if os.path.exists(path):
+        return imp.load_source(filename[:-3], path).run(*args, **kwargs)
 
 
 #---------------------------------------------------------------------------

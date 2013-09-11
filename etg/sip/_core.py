@@ -1,7 +1,5 @@
 import etgtools
 
-OTHERDEPS = [ 'src/core_ex.cpp' ]
-
 def run(module):
     module.addHeaderCode('#include <wxpy_api.h>')
     # This code is inserted into the module initialization function

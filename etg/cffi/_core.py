@@ -1,7 +1,5 @@
 from etgtools.extractors import FunctionDef, GlobalVarDef
 
-OTHERDEPS = [ 'src/cffi/core_ex.cpp' ]
-
 def run(module):
     module.addItem(FunctionDef(
         type='void', argsString='()', name='_wxPyCleanup'))

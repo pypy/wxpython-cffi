@@ -20,7 +20,7 @@ DOCSTRING = ""
 # this script. 
 ITEMS  = [ ]    
 
-genSpecific = tools.importGeneratorSpecific()
+
 
 
 # The list of other ETG scripts and back-end generator modules that are
@@ -114,7 +114,7 @@ INCLUDES = [  # base and core stuff
               #'eventfilter',
               #'evtloop',
               #'apptrait',
-              #'app',
+              'app',
 
               # basic windows and stuff
               #'timer',
@@ -230,7 +230,10 @@ INCLUDES = [  # base and core stuff
 # sources and/or additional dependencies when building this extension module.
 ETGFILES = ['etg/%s.py' % NAME] + tools.getEtgFiles(INCLUDES)
 DEPENDS = tools.getNonEtgFiles(INCLUDES)
-OTHERDEPS = [ 'src/core_ex.py' ] + genSpecific.OTHERDEPS
+OTHERDEPS = [ 'src/core_ex.py',
+              'src/core_ex.cpp',
+              'src/cffi/core_ex.cpp',
+            ]
 
 
 #---------------------------------------------------------------------------
@@ -443,8 +446,8 @@ def run():
         body="return wxThread::IsMain();")
     
 
+    tools.runGeneratorSpecificScript(module)
 
-    genSpecific.run(module)
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
     tools.runGenerators(module)
