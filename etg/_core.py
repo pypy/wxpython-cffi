@@ -234,6 +234,8 @@ DEPENDS = tools.getNonEtgFiles(INCLUDES)
 OTHERDEPS = [ 'src/core_ex.py',
               'src/core_ex.cpp',
               'src/cffi/core_ex.cpp',
+              'etg/sip/_core.py',
+              'etg/cffi/_core.py',
             ]
 
 

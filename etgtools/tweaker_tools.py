@@ -454,7 +454,7 @@ def addSipConvertToSubClassCode(klass):
 def addCffiConvertToSubClassCode(klass):
     klass.detectSubclassCode_cffi = """\
     const wxClassInfo* info = cpp_obj->GetClassInfo();
-    wxString name = cpp_obj->GetClassName();
+    wxString name = info->GetClassName();
 
     return wxStrdup(name);
     """

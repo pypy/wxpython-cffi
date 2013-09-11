@@ -83,6 +83,7 @@ def run():
         
         
     tools.addSipConvertToSubClassCode(c)
+    tools.addCffiConvertToSubClassCode(c)
               
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
