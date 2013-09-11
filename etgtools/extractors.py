@@ -1188,7 +1188,17 @@ class CppMethodDef_sip(CppMethodDef):
     """
     pass
         
-        
+class CppMethodDef_cffi(CppMethodDef):
+    """
+    Like a CppMethodDef, but with the calling Python given by the user instead
+    of generated automatically. This allows, among other things, custom
+    conversion of arbitrary Python types into arbitrary C++ types.
+    """
+    def __init__(self, pyBody='', *args, **kwargs):
+        super(CppMethodDef_cffi, self).__init__(*args, **kwargs)
+        self.pyBody = pyBody
+
+
 #---------------------------------------------------------------------------
 
 class WigCode(BaseDef):
@@ -1329,6 +1339,8 @@ class ModuleDef(BaseDef):
         self.postInitializerCode = []
         self.includes = []
         self.imports = []
+
+        self.cdefs_cffi = []
 
 
     def parseCompleted(self):
@@ -1548,6 +1560,9 @@ class ModuleDef(BaseDef):
         pc = PyClassDef(name, bases, doc, items, order, **kw)
         self.items.append(pc)
         return pc
+
+    def addCdef_cffi(self, code):
+        self.cdefs_cffi.append(code)
     
     
     

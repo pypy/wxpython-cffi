@@ -75,45 +75,51 @@ class CffiModuleGenerator(object):
         TypeInfo.clearCache()
 
         self.dispatchInit = {
-            extractors.FunctionDef      : self.initFunction,
-            extractors.CppMethodDef     : self.initCppMethod,
-            extractors.GlobalVarDef     : self.initGlobalVar,
-            extractors.EnumDef          : self.initEnum,
-            extractors.DefineDef        : self.initDefine,
+            extractors.FunctionDef          : self.initFunction,
+            extractors.CppMethodDef         : self.initCppMethod,
+            extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
+            extractors.GlobalVarDef         : self.initGlobalVar,
+            extractors.EnumDef              : self.initEnum,
+            extractors.DefineDef            : self.initDefine,
         }
         self.dispatchClassItemInit = {
-            extractors.MemberVarDef     : self.initMemberVar,
-            extractors.MethodDef        : self.initMethod,
-            extractors.CppMethodDef     : self.initCppMethod,
-            extractors.EnumDef          : self.initEnum,
+            extractors.MemberVarDef         : self.initMemberVar,
+            extractors.MethodDef            : self.initMethod,
+            extractors.CppMethodDef         : self.initCppMethod,
+            extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
+            extractors.EnumDef              : self.initEnum,
         }
         self.dispatchCDefs = {
-            extractors.FunctionDef      : self.printFunctionCDef,
-            extractors.CppMethodDef     : self.printCppMethodCDef,
-            extractors.DefineDef        : self.printDefineCDef,
-            extractors.GlobalVarDef     : self.printGlobalVarCDef,
-            extractors.EnumDef          : self.printEnumCDef,
+            extractors.FunctionDef          : self.printFunctionCDef,
+            extractors.CppMethodDef         : self.printCppMethodCDef,
+            extractors.CppMethodDef_cffi    : self.printCppMethodCDef_cffi,
+            extractors.DefineDef            : self.printDefineCDef,
+            extractors.GlobalVarDef         : self.printGlobalVarCDef,
+            extractors.EnumDef              : self.printEnumCDef,
         }
         self.dispatchClassItemCDefs = {
-            extractors.MemberVarDef     : self.printMemberVarCDef,
-            extractors.MethodDef        : self.printMethodCDef,
-            extractors.CppMethodDef     : self.printCppMethodCDef,
-            extractors.EnumDef          : self.printEnumCDef,
+            extractors.MemberVarDef         : self.printMemberVarCDef,
+            extractors.MethodDef            : self.printMethodCDef,
+            extractors.CppMethodDef         : self.printCppMethodCDef,
+            extractors.CppMethodDef_cffi    : self.printCppMethodCDef_cffi,
+            extractors.EnumDef              : self.printEnumCDef,
         }
         self.dispatchPrint = {
             extractors.FunctionDef          : self.printFunction,
             extractors.CppMethodDef         : self.printCppMethod,
+            extractors.CppMethodDef_cffi    : self.printCppMethod_cffi,
             extractors.DefineDef            : self.printDefine,
             extractors.GlobalVarDef         : self.printGlobalVar,
             extractors.EnumDef              : self.printEnum,
             extractors.EnumDef              : self.printEnum,
         }
         self.dispatchClassItemPrint = {
-            extractors.MemberVarDef     : self.printMemberVar,
-            extractors.MethodDef        : self.printMethod,
-            extractors.CppMethodDef     : self.printCppMethod,
-            extractors.EnumDef          : self.printEnum,
-            extractors.PropertyDef      : self.printProperty,
+            extractors.MemberVarDef         : self.printMemberVar,
+            extractors.MethodDef            : self.printMethod,
+            extractors.CppMethodDef         : self.printCppMethod,
+            extractors.CppMethodDef_cffi    : self.printCppMethod_cffi,
+            extractors.EnumDef              : self.printEnum,
+            extractors.PropertyDef          : self.printProperty,
         }
         self.dispatchFinalize = {
             extractors.FunctionDef      : self.printFunctionFinalization,
@@ -236,6 +242,8 @@ class CffiModuleGenerator(object):
         void free(void*);
 
         void %s();""" % initFunc)
+        for line in self.module.cdefs_cffi:
+            pyfile.write(nci(line))
         for klass in self.classes:
             self.printClassCDefs(klass, pyfile)
         for mType in self.mappedTypes:
@@ -549,6 +557,26 @@ class CffiModuleGenerator(object):
         else:
             self.initMethod(method, parent, overload)
 
+    def initCppMethod_cffi(self, method, parent=None, overload=''):
+        assert not method.ignored
+
+        method.pyName = method.name
+        method.cppCode = (method.body, 'function')
+
+        # CppMethodDef_cffis don't need any ParamDefs, the user provides all
+        # the needed conversion code
+        method.items = []
+
+        # We may not know how to handle the type, so temporarily replace it
+        # with 'void' before getTypeInfo is called
+        typeTmp = method.type
+        method.type = 'void'
+        if parent is None:
+            self.initFunction(method, overload)
+        else:
+            self.initMethod(method, parent, overload)
+        method.type = typeTmp
+
     def initDefine(self, define):
         assert not define.ignored
         define.pyName = define.pyName or define.name
@@ -608,6 +636,10 @@ class CffiModuleGenerator(object):
 
     def printCppMethodCDef(self, method, pyfile):
         self.printFunctionCDef(method, pyfile)
+
+    def printCppMethodCDef_cffi(self, method, pyfile):
+        print >> pyfile, "%s %s%s;" % (method.type, method.cName,
+                                       method.argsString)
 
     def printDefineCDef(self, define, pyfile):
         print >> pyfile, "extern const int %s;" % define.cName
@@ -1126,6 +1158,20 @@ class CffiModuleGenerator(object):
             self.printFunction(func, pyfile, cppfile)
         else:
             self.printMethod(func, pyfile, cppfile, indent, parent)
+
+    def printCppMethod_cffi(self, func, pyfile, cppfile, indent=0,
+                            parent=None):
+        cppfile.write(nci("""
+        extern "C" {0.type} {0.cName}{0.argsString}
+        {{""".format(func)))
+        cppfile.write(nci(func.body, 4))
+        print >> cppfile, '}'
+
+        pyfile.write(nci("def {0.pyName}{0.pyArgsString}:".format(func),
+                         indent))
+        self.printDocString(func, pyfile, indent)
+        pyfile.write(nci("call = clib.%s" % func.cName, indent + 4))
+        pyfile.write(nci(func.pyBody, indent + 4))
 
     def printProperty(self, property, pyfile, cppfile, indent, parent):
         pyfile.write(nci("{0.name} = property({0.getter}, {0.setter})"

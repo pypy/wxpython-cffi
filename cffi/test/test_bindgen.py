@@ -15,8 +15,9 @@ from etgtools import extractors, cffi_bindgen
 from etgtools.generators import nci
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
-    CppMethodDef, MemberVarDef, GlobalVarDef, PyPropertyDef, PyFunctionDef,
-    PyClassDef, PyCodeDef, EnumDef, EnumValueDef, MappedTypeDef_cffi)
+    CppMethodDef, CppMethodDef_cffi, MemberVarDef, GlobalVarDef, PyPropertyDef,
+    PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef,
+    MappedTypeDef_cffi)
 
 from buildtools.config import Config
 cfg = Config(noWxConfig=True).ROOT_DIR
@@ -378,7 +379,7 @@ class TestBindGen(object):
             items=[ParamDef(type='int &', name='num', inOut=True)],
             overloads=[
                 MethodDef(
-                type='void', argsString='(CtorsClass *num)', isVirtual=True, 
+                type='void', argsString='(CtorsClass *num)', isVirtual=True,
                 name='double_ref', items=[
                     ParamDef(type='CtorsClass &', name='num', inOut=True)]),
                 MethodDef(
@@ -806,6 +807,15 @@ class TestBindGen(object):
             type='DetectableBase *', argsString='(bool base)',
             name='get_detectable_object', items=[
                 ParamDef(type='bool', name='base')]))
+
+        module.addItem(CppMethodDef_cffi(
+            type='int', name='custom_pycode_cppmethod',
+            argsString='(int (*obj)())', pyArgsString='(obj)',
+            body='return obj();',
+            pyBody="""\
+            func_ptr = ffi.callback('int (*)()', obj)
+            return call(func_ptr)
+            """))
 
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
@@ -1611,3 +1621,8 @@ class TestBindGen(object):
 
         subclassobj = self.mod.get_detectable_object(False)
         assert isinstance(subclassobj, self.mod.DetectableSubclass)
+
+    def test_custom_pycode_cppmethod(self):
+        def get():
+            return 42
+        assert self.mod.custom_pycode_cppmethod(get) == 42
