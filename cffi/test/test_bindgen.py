@@ -783,6 +783,14 @@ class TestBindGen(object):
             type='string', name='m_name'))
         module.addItem(c)
 
+        f = FunctionDef(
+            type='void', argsString='(char *name, char *str)',
+            name='raise_exception', items=[
+                ParamDef(type='char *', name='name'),
+                ParamDef(type='char *', name='str')])
+        f.setCppCode('CFFI_SET_EXCEPTION(name, str);')
+        module.addItem(f)
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -1567,3 +1575,16 @@ class TestBindGen(object):
 
         obj = VirtualCatcherClass()
         assert obj.call_vmeth() == 'TEST'
+
+    def test_exceptions_from_cpp(self):
+        with pytest.raises(BufferError):
+            self.mod.raise_exception('BufferError', '...')
+
+        class MyException(Exception): pass
+        wrapper_lib.register_exception(MyException)
+
+        with pytest.raises(MyException):
+            self.mod.raise_exception('MyException', '...')
+
+        with pytest.raises(Exception):
+            self.mod.raise_exception('NonExistantException', '...')

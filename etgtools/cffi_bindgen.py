@@ -189,6 +189,9 @@ class CffiModuleGenerator(object):
 
         initFunc = 'cffiiinitcode_%s' % (self.module.name)
         cppfile.write(nci("""\
+        extern "C" char *cffiexception_name;
+        extern "C" char *cffiexception_string;
+
         extern "C" void %s()
         {
         """ % initFunc))
@@ -226,6 +229,9 @@ class CffiModuleGenerator(object):
         print >> pyfile, nci("""\
         ffi = cffi.FFI()
         cdefs = ('''
+        char *cffiexception_name;
+        char *cffiexception_string;
+
         void* malloc(size_t);
         void free(void*);
 
@@ -809,10 +815,12 @@ class CffiModuleGenerator(object):
         if func.returnVars is None:
             print >> pyfile, "    clib.%s%s" % (func.cName, func.pyCallArgs)
             self.printOwnershipChanges(func, pyfile)
+            print >> pyfile, "    wrapper_lib.check_exception(clib)"
         else:
             print >> pyfile, "    return_tmp = " + func.type.c2py("clib.%s%s"
                              % (func.cName, func.pyCallArgs))
             self.printOwnershipChanges(func, pyfile)
+            print >> pyfile, "    wrapper_lib.check_exception(clib)"
             print >> pyfile, "    return " + func.returnVars
 
         for f in func.overloads:
@@ -1026,13 +1034,17 @@ class CffiModuleGenerator(object):
                 wrapper_lib.CppWrapper.__init__(self, cpp_obj)
                 """ % call, indent + 4))
                 self.printOwnershipChanges(method, pyfile, indent, parent)
+                pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 4))
             elif method.returnVars is None:
                 pyfile.write(nci(call, indent + 4))
                 self.printOwnershipChanges(method, pyfile, indent, parent)
+                pyfile.write(nci("wrapper_lib.check_exception(clib)",
+                                indent + 4))
             else:
                 pyfile.write(nci("return_tmp = " + method.type.c2py(call),
                                 indent + 4))
                 self.printOwnershipChanges(method, pyfile, indent, parent)
+                pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 4))
                 pyfile.write(nci("return " +  method.returnVars, indent + 4))
         else:
             pyfile.write(nci(

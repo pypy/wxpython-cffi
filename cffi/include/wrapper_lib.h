@@ -1,4 +1,14 @@
+#include <cstring>
 #include <cstdlib>
+
+#define CFFI_SET_EXCEPTION(name, string)\
+    do\
+    {\
+        cffiexception_name = (char*)malloc(strlen(name));\
+        strcpy(cffiexception_name, name);\
+        cffiexception_string = (char*)malloc(strlen(string));\
+        strcpy(cffiexception_string, string);\
+    } while(0);
 
 template<typename T, typename CType>
 struct cfficonvert_mappedtype
