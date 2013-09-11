@@ -460,7 +460,7 @@ class TestBindGen(object):
         c = ClassDef(
             name='AllowNoneSmartVector',
             allowNone=True,
-            convertPy2Cpp="""\
+            convertFromPyObject_cffi="""\
             if py_obj is None:
                 return AllowNoneSmartVector(-1, -1)
             return AllowNoneSmartVector(py_obj[0], py_obj[1])

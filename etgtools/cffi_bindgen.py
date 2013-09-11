@@ -211,6 +211,7 @@ class CffiModuleGenerator(object):
 
         # Write Python preamble
         print >> pyfile, nci("""\
+        import __builtin__
         import sys
         import cffi
         import types
@@ -728,7 +729,7 @@ class CffiModuleGenerator(object):
                 if %sissubclass(type(py_obj), %s):
                     return py_obj
             """ % (noneTest, klass.unscopedPyName), indent + 8))
-            pyfile.write(nci(klass.convertToPyObject_cffi, indent + 12))
+            pyfile.write(nci(klass.convertFromPyObject_cffi, indent + 12))
 
         dispatchItems(self.dispatchClassItemPrint, klass.items, pyfile, cppfile,
                  indent=indent + 4, parent=klass)

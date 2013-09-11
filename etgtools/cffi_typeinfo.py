@@ -121,7 +121,7 @@ class WrappedTypeInfo(TypeInfo):
             self.cType = 'const ' + self.cType
 
         overloadTypes = [self.typedef.unscopedPyName]
-        if hasattr(self.typedef, 'convertPy2Cpp'):
+        if hasattr(self.typedef, 'convertFromPyObject_cffi'):
             overloadTypes.append('{0}._pyobject_mapping_'.format(
                 self.typedef.unscopedPyName))
         if self.isPtr or self.typedef.allowNone:
@@ -152,7 +152,7 @@ class WrappedTypeInfo(TypeInfo):
             return "{0}{1} = ffi.new('{2}')".format(varName, OUT_PARAM_SUFFIX,
                                                       self.cdefType)
         conversion = ''
-        if hasattr(self.typedef, 'convertPy2Cpp'):
+        if hasattr(self.typedef, 'convertFromPyObject_cffi'):
             conversion = "{0} = {1}._pyobject_mapping_.convert({0})".format(
                 varName, self.typedef.unscopedPyName)
         if self.inOut:
@@ -446,7 +446,7 @@ class CharPtrTypeInfo(TypeInfo):
         super(CharPtrTypeInfo, self).__init__(typeName, typedef, **kwargs)
         self.cType = 'char *'
         self.cdefType = 'char *'
-        self.overloadType = '(unicode, str)'
+        self.overloadType = '(__builtin__.unicode, __builtin__.str)'
         self.cReturnType = 'char *'
         self.cdefReturnType = 'char *'
 
@@ -498,7 +498,7 @@ class BasicTypeInfo(TypeInfo):
 
         self.overloadType = 'numbers.Number'
         if not self.pyInt and 'char' in self.name:
-            self.overloadType = '(str, unicode)'
+            self.overloadType = '(__builtin__.str, __builtin__.unicode)'
 
         self.cCbType = self.cType
         self.cdefCbType = self.cdefType
