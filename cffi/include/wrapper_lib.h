@@ -14,7 +14,11 @@ template<typename T, typename CType>
 struct cfficonvert_mappedtype
 {
     static CType cpp2c(T *cpp_obj);
-    static inline CType cpp2c(T &cpp_obj)
+    static CType cpp2c(const T *cpp_obj)
+    {
+        return cpp2c(const_cast<T *>(cpp_obj));
+    }
+    static inline CType cpp2c(const T &cpp_obj)
     {
         return cpp2c(&cpp_obj);
     }

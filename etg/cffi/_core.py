@@ -1,6 +1,8 @@
 from etgtools.extractors import FunctionDef, GlobalVarDef
 
 def run(module):
+    module.addHeaderCode('#include <wx/wx.h>')
+
     module.addItem(FunctionDef(
         type='void', argsString='()', name='_wxPyCleanup'))
     module.addItem(GlobalVarDef(type='const char *', name='wxPort', pyName='Port'))

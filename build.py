@@ -925,10 +925,12 @@ def cmd_cffi_gen(options, args):
     libs = runcmd(WX_CONFIG + ' --libs', True, False)
     cxxflags = runcmd(WX_CONFIG + ' --cxxflags', True, False)
 
-    verify_args = shlex.split(libs) + shlex.split(cxxflags)
-    verify_args.append('-I' + opj(CFFI_DIR, 'include'))
-    verify_args.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
-    verify_args = 'extra_compile_args=%s' % verify_args
+    libs = shlex.split(libs)
+    cxxflags = shlex.split(cxxflags)
+    cxxflags.append('-I' + opj(CFFI_DIR, 'include'))
+    cxxflags.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
+    verify_args = 'extra_compile_args=%s, extra_link_args=%s' % (cxxflags,
+                                                                libs)
 
 
     DEF_DIR = os.path.join(CFFI_DIR, 'def_gen')

@@ -187,7 +187,7 @@ class CffiModuleGenerator(object):
         for line in self.module.cppCode:
             print >> cppfile, line
 
-        initFunc = 'cffiiinitcode_%s' % (self.module.name)
+        initFunc = 'cffiinitcode_%s' % (self.module.name)
         cppfile.write(nci("""\
         extern "C" char *cffiexception_name;
         extern "C" char *cffiexception_string;
@@ -398,7 +398,7 @@ class CffiModuleGenerator(object):
             klass.addItem(ctor)
         # Add a copy constructor
         # TODO: do we need to check for an existing copy ctor?
-        if not klass.abstract:
+        if not klass.abstract and not klass.privateCopyCtor:
             ctor.overloads.append(extractors.MethodDef(
                 name=klass.name,
                 argsString='(const %s & other)' % klass.unscopedName,
@@ -502,7 +502,7 @@ class CffiModuleGenerator(object):
         if method.isVirtual:
             method.virtualIndex = len(parent.virtualMethods)
             parent.virtualMethods.append(method)
-        if method.protection == 'protected':
+        if method.protection == 'protected' and not method.isDtor:
             parent.protectedMethods.append(method)
 
         for param in method.items:
@@ -551,6 +551,7 @@ class CffiModuleGenerator(object):
 
     def initDefine(self, define):
         assert not define.ignored
+        define.pyName = define.pyName or define.name
         define.cName = DEFINE_PREFIX + define.name
 
     def initEnum(self, enum, parent=None):
@@ -667,7 +668,7 @@ class CffiModuleGenerator(object):
         if len(klass.protectedMethods) > 0:
             print >> hfile, '    //Reimplement every protected method'
         for pmeth in klass.protectedMethods:
-            if pmeth.isCtor:
+            if pmeth.isCtor or pmeth.isDtor:
                 continue
             print >> hfile, ("    {0.type.name} unprotected_{0.name}"
                                "{0.cppArgs};").format(pmeth)
@@ -922,7 +923,8 @@ class CffiModuleGenerator(object):
             callName, wrapperBody = self.createCppCodeWrapper(method)
             print >> cppfile, wrapperBody
             call = callName + method.wrapperCallArgs
-        elif method.protection == 'protected' and not method.isCtor:
+        elif method.protection == 'protected' and not (method.isCtor or
+                                                       method.isDtor):
             # We only need to do the special handling of a protected method if
             # it has no custom code.
             callName = PROTECTED_PREFIX + method.name
@@ -1463,6 +1465,9 @@ class CffiModuleGenerator(object):
         func.overloadArgs = '(' + ', '.join(func.overloadArgs) + ')'
 
     def printDocString(self, item, pyfile, indent=0):
+        if not isinstance(item.briefDoc, str):
+            # If the docstring isn't a string, assume its an xml element
+            item.briefDoc = nci(extractors.flattenNode(item.briefDoc, False))
         if item.briefDoc == '' or item.briefDoc is None:
             return
 

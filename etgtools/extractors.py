@@ -629,6 +629,8 @@ class ClassDef(BaseDef):
         self.instanceCode = None    # Code to be used to create new instances of this class
         self.innerclasses = []
         self.isInner = False
+
+        self.privateCopyCtor = False
         
         # Stuff that needs to be generated after the class instead of within
         # it. Some back-end generators need to put stuff inside the class, and
@@ -1030,6 +1032,7 @@ class ClassDef(BaseDef):
 
     def addPrivateCopyCtor(self):
         self.addCopyCtor('private')
+        self.privateCopyCtor = True
         
     def addPrivateAssignOp(self):
         # add declaration of an assignment opperator to this class

@@ -92,10 +92,15 @@ def wrapText(text):
         lines.append(tw.fill(line))
     return '\n'.join(lines)
 
+def getGenerator():
+    gen = 'sip'
+    if '--cffi' in sys.argv or '--generator=cffi' in sys.argv:
+        gen = 'cffi'
+
+    return gen
+
 def runGeneratorSpecificScript(*args, **kwargs):
-    gendir = 'sip'
-    if '--cffi' in sys.argv:
-        gendir = 'cffi'
+    gendir = getGenerator()
 
     path = inspect.stack()[1][0].f_globals['__file__']
     etgdir, filename = os.path.split(path)

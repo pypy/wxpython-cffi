@@ -138,6 +138,7 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             extractors.PyClassDef       : self.generatePyClass,            
             extractors.CppMethodDef     : self.generateCppMethod,
             extractors.CppMethodDef_sip : self.generateCppMethod_sip,
+            extractors.MappedTypeDef_cffi : lambda x, y: None,
             }
         
         for item in module:

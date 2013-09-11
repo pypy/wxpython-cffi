@@ -34,10 +34,11 @@ ITEMS  = [ ]
 INCLUDES = [  # base and core stuff
               #'defs',
               #'debug',
-              #'object',
+              'object',
               #'wxpy_api',
               #'arrayholder',
-              #'string',
+              'string',
+              'string_',  # Suffixed with an _ to avoid collisions with stdlib
               #'filename',
               #'arrays',
               #'clntdata',
@@ -114,7 +115,7 @@ INCLUDES = [  # base and core stuff
               #'eventfilter',
               #'evtloop',
               #'apptrait',
-              'app',
+              #'app',
 
               # basic windows and stuff
               #'timer',

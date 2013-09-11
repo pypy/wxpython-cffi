@@ -13,7 +13,7 @@ stage of the ETG scripts.
 """
 
 import etgtools as extractors
-from .generators import textfile_open, runGeneratorSpecificScript
+from .generators import textfile_open, runGeneratorSpecificScript, getGenerator
 import sys, os
 import copy
 
@@ -450,6 +450,14 @@ def addSipConvertToSubClassCode(klass):
             sipType = NULL;
     %End
     """))
+
+def addCffiConvertToSubClassCode(klass):
+    klass.detectSubclassCode_cffi = """\
+    const wxClassInfo* info = cpp_obj->GetClassInfo();
+    wxString name = cpp_obj->GetClassName();
+
+    return wxStrdup(name);
+    """
     
     
 def getEtgFiles(names):
@@ -457,7 +465,20 @@ def getEtgFiles(names):
     Create a list of the files from the basenames in the names list that
     corespond to files in the etg folder.
     """
-    return getMatchingFiles(names, 'etg/%s.py')
+    globalPattern = os.path.join('etg', '%s.py')
+    specificPattern = os.path.join('etg', getGenerator(), '%s.py')
+
+    globalEtgFiles = getMatchingFiles(names, globalPattern)
+
+    gendir = getGenerator()
+    specificEtgFiles = []
+    for name in names:
+        globalName = globalPattern % name
+        specificName = specificPattern % name
+        if not os.path.exists(globalName) and os.path.exists(specificName):
+            specificEtgFiles.append(specificName)
+
+    return globalEtgFiles + specificEtgFiles
 
 
 def getNonEtgFiles(names, template='src/%s.sip'):
