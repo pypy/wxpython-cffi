@@ -1,3 +1,28 @@
+wxPython_cffi is a fork of wxPython Phoenix to use cffi_ instead of the Python
+C api. The motivation for this fork is to create a version of wxPython that is
+more friendly to PyPy_, an alternative implementation of a python interpreter.
+The fork is not finished yet, so YMMV.
+
+To get started:
+
+1.  Run the etg scripts: ``./build.py build.py etg --generator=cffi --nodoc``
+    (``--nodoc`` may not be necessary for you, but I never got the sphinx generator
+    to work, even on a clean upstream copy)
+2.  Run the generator: ``./build.py cffi_gen``
+
+The bindings are outputted to cffi/wx, so you need to use
+``PYTHONPATH=./cffi python`` (assuming cwd is root of your checkout) to try
+running them. Since a particular subset (event handling) of the core module is
+needed actually import the toplevel wx module, you'll need to import
+``wx._core`` for now. That should change very soon though.
+
+.. _cffi:  http://cffi.readthedocs.org
+.. _pypy:  http://www.pypy.org
+
+
+The original README follows:
+
+
 =========================
 wxPython Project Phoenix
 =========================
