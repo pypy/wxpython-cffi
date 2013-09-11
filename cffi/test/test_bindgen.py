@@ -791,6 +791,22 @@ class TestBindGen(object):
         f.setCppCode('CFFI_SET_EXCEPTION(name, str);')
         module.addItem(f)
 
+        c = ClassDef(name='DetectableBase')
+        c.detectSubclassCode_cffi = ("""\
+            const char *name = cpp_obj->get_class_name();
+            char *ret = (char*)malloc(strlen(name) * sizeof(char));
+            strcpy(ret, name);
+            return ret;
+        """)
+        module.addItem(c)
+        module.addItem(ClassDef(name='DetectableSubclass',
+                                bases=['DetectableBase']))
+
+        module.addItem(FunctionDef(
+            type='DetectableBase *', argsString='(bool base)',
+            name='get_detectable_object', items=[
+                ParamDef(type='bool', name='base')]))
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -1588,3 +1604,10 @@ class TestBindGen(object):
 
         with pytest.raises(Exception):
             self.mod.raise_exception('NonExistantException', '...')
+
+    def test_autodetect_subclass(self):
+        baseobj = self.mod.get_detectable_object(True)
+        assert isinstance(baseobj, self.mod.DetectableBase)
+
+        subclassobj = self.mod.get_detectable_object(False)
+        assert isinstance(subclassobj, self.mod.DetectableSubclass)

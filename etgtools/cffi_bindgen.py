@@ -587,6 +587,9 @@ class CffiModuleGenerator(object):
             {0.vtableDef}
             void {0.cName}_set_flag(void *, int);
             void {0.cName}_set_flags(void *, char*);""".format(klass)))
+        if hasattr(klass, 'detectSubclassCode_cffi'):
+            print >> pyfile, ("char * cffigetclassname_%s(void *);" %
+                              klass.cName)
         dispatchItems(self.dispatchClassItemCDefs, klass.items, pyfile)
 
         for ic in klass.innerclasses:
@@ -717,6 +720,10 @@ class CffiModuleGenerator(object):
                 clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
             """.format(klass.cName), indent + 4))
 
+        if hasattr(klass, 'detectSubclassCode_cffi'):
+            pyfile.write(nci('_get_cpp_classname_ = clib.cffigetclassname_%s' %
+                             klass.cName, indent + 4))
+
         if getattr(klass, 'convertFromPyObject_cffi', None) is not None:
             pyfile.write(nci("""\
             class _pyobject_mapping_(object):
@@ -743,6 +750,16 @@ class CffiModuleGenerator(object):
         for ic in klass.innerclasses:
             self.printClass(ic, pyfile, cppfile, indent=indent + 4,
                             parent=klass)
+
+        pyfile.write(nci("wrapper_lib.register_cpp_classname('%s', %s)" % 
+                         (klass.name, klass.pyName), indent))
+
+        if hasattr(klass, 'detectSubclassCode_cffi'):
+            cppfile.write(nci("""\
+            extern "C" const char * cffigetclassname_{0}({1} * cpp_obj)
+            {{""".format(klass.cName, klass.unscopedName)))
+            cppfile.write(nci(klass.detectSubclassCode_cffi, 4))
+            print >> cppfile, "}"
 
     def printExternCWrapper(self, func, call, cppfile):
         cppfile.write(nci("""\

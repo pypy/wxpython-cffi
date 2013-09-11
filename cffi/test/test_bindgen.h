@@ -403,3 +403,17 @@ public:
     virtual const char *vmeth() { return ""; }
     const char *call_vmeth() { return vmeth(); }
 };
+
+class DetectableBase
+{
+public:
+    virtual const char * get_class_name() { return "DetectableBase"; }
+};
+
+class DetectableSubclass : public DetectableBase
+{
+public:
+    virtual const char * get_class_name() { return "DetectableSubclass"; }
+};
+
+DetectableBase * get_detectable_object(bool base);

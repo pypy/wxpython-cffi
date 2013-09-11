@@ -5,6 +5,12 @@ import collections
 from multimethod import Multimethod
 
 ffi = cffi.FFI()
+ffi.cdef("""
+void free(void*);
+""")
+clib = ffi.verify("""
+#include <stdlib.h>
+""")
 
 class WrapperType(type):
     """
@@ -226,7 +232,19 @@ def global_dtor(ptr):
 cpp_owned_objects = set()
 object_map = weakref.WeakValueDictionary()
 
+classname_registry = { }
+
+def register_cpp_classname(cppname, subclass):
+    assert issubclass(subclass, CppWrapper)
+    classname_registry[cppname] = subclass
+
 def obj_from_ptr(ptr, klass=CppWrapper, is_new=False):
+    if hasattr(klass, '_get_cpp_classname_'):
+        str_ptr = klass._get_cpp_classname_(ptr)
+        classname = ffi.string(str_ptr)
+        clib.free(str_ptr)
+
+        klass = classname_registry.get(classname, klass)
     if object_map is None or ptr not in object_map:
         # If an python object for this pointer doesn't yet exist, create one
         obj = klass._from_ptr(ptr, is_new)

@@ -1,7 +1,8 @@
 from cppwrapper import (
     CppWrapper, WrapperType, VirtualMethod, VirtualDispatcher, abstract_class,
-    concrete_subclass, purevirtual_abstract_class, obj_from_ptr, get_ptr,
-    forget_ptr, take_ownership, give_ownership, keep_reference, MappedBase)
+    concrete_subclass, purevirtual_abstract_class, register_cpp_classname,
+    obj_from_ptr, get_ptr, forget_ptr, take_ownership, give_ownership,
+    keep_reference, MappedBase)
 from multimethod import (
     Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta,
     check_args_types)

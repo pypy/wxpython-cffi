@@ -474,3 +474,11 @@ FactoryClass * FactoryClass::call_make()
 }
 
 void deprecated_func() { }
+
+DetectableBase * get_detectable_object(bool base)
+{
+    if(base)
+        return new DetectableBase;
+    else
+        return new DetectableSubclass;
+}
