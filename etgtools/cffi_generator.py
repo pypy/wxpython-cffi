@@ -20,20 +20,35 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
             if not hasattr(item, 'pyDocstring'):
                 item.pyDocstring = ''
 
-        self.stripIgnoredItems(module)
+        self.stripIgnoredItems(module.items)
 
         with open(outfile, 'wb') as f:
             pickle.dump(module, f, 2)
 
-    def stripIgnoredItems(self, item):
+    def stripIgnoredItems(self, items):
         """
         Strip any ignored items; they aren't useful to the module generator and
         just waste space.
         """
-        delCount = 0
-        for i, e in enumerate(item.items[:]):
+        dummy = object()
+        for i, e in enumerate(items):
             if e.ignored:
-                del item.items[i - delCount]
-                delCount += 1
+                items[i] = dummy
+
+                if hasattr(e, 'overloads') and len(e.overloads) > 0:
+                    # If a method is ignored, replace it with the first
+                    # overload that isn't ignored
+                    self.stripIgnoredItems(e.overloads)
+                    if len(e.overloads) > 0:
+                        e.overloads[0].overloads = e.overloads[1:]
+                        items[i] = e.overloads[0]
+
             else:
-                self.stripIgnoredItems(e)
+                self.stripIgnoredItems(e.items)
+                self.stripIgnoredItems(getattr(e, 'overloads', []))
+
+        while True:
+            try:
+                items.remove(dummy)
+            except ValueError:
+                break
