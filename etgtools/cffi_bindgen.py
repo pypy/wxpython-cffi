@@ -1447,8 +1447,13 @@ class CffiModuleGenerator(object):
 
             pyArg = param.name
             if param.default != '':
-                pyArg += '=' + defValueMap.get(param.default,
-                               'wrapper_lib.LD("%s")' % param.default)
+                defineTypedef = self.findItem(param.default)
+                if defineTypedef is None:
+                    pyArg += '=' + defValueMap.get(param.default,
+                                   'wrapper_lib.LD("%s")' % param.default)
+                else:
+                    pyArg += '=wrapper_lib.LD("%s")' % (
+                                defineTypedef.pyName or defineTypedef.name)
 
             pyCallArg = param.type.py2cParam(param.name)
             vtdArg = param.name
