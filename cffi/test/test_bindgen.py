@@ -448,7 +448,7 @@ class TestBindGen(object):
             """,
             instancecheck="""\
             import collections
-            return isinstance(obj, collections.Sequence) and len(obj) == 2
+            return isinstance(py_obj, collections.Sequence) and len(py_obj) == 2
             """)
         c.addItem(MethodDef(
             name='SmartVector', argsString='(int x_, int y_)', isCtor=True,
@@ -468,7 +468,7 @@ class TestBindGen(object):
             """,
             instancecheck="""\
             import collections
-            return isinstance(obj, collections.Sequence) and len(obj) == 2
+            return isinstance(py_obj, collections.Sequence) and len(py_obj) == 2
             """)
         c.addItem(MethodDef(
             name='AllowNoneSmartVector', argsString='(int x_, int y_)',
@@ -635,7 +635,7 @@ class TestBindGen(object):
             char *cdata = (char*)malloc(cpp_obj->length() + 1);
             strcpy(cdata, cpp_obj->c_str());
             return cdata;""",
-            instancecheck='return isinstance(obj, (str, unicode))',))
+            instancecheck='return isinstance(py_obj, (str, unicode))',))
 
         module.addItem(MappedTypeDef_cffi(
             name='Vector', cType='int *',
@@ -655,9 +655,9 @@ class TestBindGen(object):
             return cdata;""",
             instancecheck="""\
             import collections
-            return (isinstance(obj, collections.Sequence) and len(obj) >= 2 and
-                    isinstance(obj[0], numbers.Number) and
-                    isinstance(obj[1], numbers.Number))
+            return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 2 and
+                    isinstance(py_obj[0], numbers.Number) and
+                    isinstance(py_obj[1], numbers.Number))
             """,))
 
         module.addItem(MappedTypeDef_cffi(
@@ -668,7 +668,7 @@ class TestBindGen(object):
             cpp2c="return cpp_obj->i;",
             instancecheck="""\
             import numbers
-            return isinstance(obj, numbers.Number)"""))
+            return isinstance(py_obj, numbers.Number)"""))
 
         module.addItem(FunctionDef(
             type='int', argsString='(string *str)', name='std_string_len',

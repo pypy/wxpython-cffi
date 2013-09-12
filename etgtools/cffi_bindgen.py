@@ -765,7 +765,7 @@ class CffiModuleGenerator(object):
 
             pyfile.write(nci("""\
             @staticmethod
-            def __instancecheck__(obj):""", indent + 8))
+            def __instancecheck__(py_obj):""", indent + 8))
             pyfile.write(nci(klass.instancecheck, indent + 12))
 
             noneTest = '' if klass.allowNone else 'py_obj is None or '
@@ -1261,7 +1261,7 @@ class CffiModuleGenerator(object):
         pyfile.write(nci("""\
         class {0.name}(wrapper_lib.MappedBase):
             @classmethod
-            def __instancecheck__(cls, obj):
+            def __instancecheck__(cls, py_obj):
 {1}
             @classmethod
             def c2py(cls, cdata):
