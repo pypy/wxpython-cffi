@@ -642,7 +642,7 @@ class CffiModuleGenerator(object):
                                        method.argsString)
 
     def printDefineCDef(self, define, pyfile):
-        print >> pyfile, "extern const int %s;" % define.cName
+        print >> pyfile, "extern const long long %s;" % define.cName
 
     def printEnumCDef(self, enum, pyfile):
         for val in enum:
@@ -1180,7 +1180,7 @@ class CffiModuleGenerator(object):
 
     def printDefine(self, define, pyfile, cppfile):
         print >> pyfile, "%s = clib.%s" % (define.pyName, define.cName)
-        print >> cppfile, ("""extern "C" const int %s = %s;""" %
+        print >> cppfile, ("""extern "C" const long long %s = %s;""" %
                               (define.cName, define.name))
 
     def printEnum(self, enum, pyfile, cppfile, indent=0, parent=None):
