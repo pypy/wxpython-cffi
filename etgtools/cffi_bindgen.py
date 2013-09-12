@@ -1323,7 +1323,7 @@ class CffiModuleGenerator(object):
         self.printDocString(func, pyfile, indent)
         pyfile.write(nci(func.body, indent + 4))
 
-    def printPyCode(self, code, pyfile, indent):
+    def printPyCode(self, code, pyfile, indent, parent=None):
         pyfile.write(nci(code.code, indent))
 
     def printPyProperty(self, property, pyfile, indent, parent=None):
@@ -1559,9 +1559,8 @@ class CffiModuleGenerator(object):
         wrapperName = func.cName + CPPCODE_WRAPPER_SUFIX
         wrapperBody = nci("""\
         {0.type.name} {1}{0.wrapperArgs}
-        {{
-        {2}
-        }}""".format(func, wrapperName, nci(func.cppCode[0], 4)))
+        {{""".format(func, wrapperName))
+        wrapperBody += nci(func.cppCode[0], 4) + '}'
 
         return (wrapperName, wrapperBody)
 
