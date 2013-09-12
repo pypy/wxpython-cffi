@@ -1,7 +1,9 @@
-from etgtools.extractors import FunctionDef, GlobalVarDef
+from etgtools.extractors import FunctionDef, TypedefDef, GlobalVarDef
 
 def run(module):
     module.addHeaderCode('#include <wx/wx.h>')
+
+    module.addItem(TypedefDef(name='wxCoord', type='int'))
 
     module.addPyCode('from ._core import *', order=0)
 

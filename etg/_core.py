@@ -32,7 +32,7 @@ ITEMS  = [ ]
 # promoted script to be the same as its NAME.
 
 INCLUDES = [  # base and core stuff
-              #'defs',
+              'defs',
               #'debug',
               'object',
               #'wxpy_api',

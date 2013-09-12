@@ -84,12 +84,10 @@ def run():
         const int RELEASE_NUMBER = wxRELEASE_NUMBER;     
         const int SUBRELEASE_NUMBER = wxSUBRELEASE_NUMBER;
         """)
-    module.addItem(etgtools.WigCode("""
-        const int MAJOR_VERSION;
-        const int MINOR_VERSION;
-        const int RELEASE_NUMBER;
-        const int SUBRELEASE_NUMBER;
-        """))
+    module.addItem(etgtools.GlobalVarDef(type='const int', name='MAJOR_VERSION'))
+    module.addItem(etgtools.GlobalVarDef(type='const int', name='MINOR_VERSION'))
+    module.addItem(etgtools.GlobalVarDef(type='const int', name='RELEASE_NUMBER'))
+    module.addItem(etgtools.GlobalVarDef(type='const int', name='SUBRELEASE_NUMBER'))
 
     module.addPyCode("BG_STYLE_CUSTOM = BG_STYLE_PAINT")
     module.addItem(etgtools.DefineDef(name='wxADJUST_MINSIZE', value='0'))

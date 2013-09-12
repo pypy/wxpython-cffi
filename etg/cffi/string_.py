@@ -10,41 +10,17 @@ DOCSTRING = ""
 def run():
     module = ModuleDef(PACKAGE, MODULE, NAME, DOCSTRING)
 
-    module.addItem(DefineDef(name='wxUSE_UNICODE', value=''))
-
     module.addItem(MappedTypeDef_cffi(
-        name='wxChar', cType='void *',
-        py2c="""\
-        if wxUSE_UNICODE:
-            type_name = 'wchar_t[]'
-        else:
-            type_name = 'char[]'
-        copy = ffi.new(type_name, py_obj)
-        return copy
-        """,
-        c2py="""
-        if wxUSE_UNICODE:
-            type_name = 'wchar_t*'
-        else:
-            type_name = 'char*'
-        ret = ffi.string(ffi.cast(type_name, cdata))
-        return ret
-        """,
-        c2cpp="return (wxChar*)cdata;",
-        cpp2c="return cpp_obj;",
-        instancecheck='return isinstance(obj, (str, unicode))',))
-
-    module.addItem(MappedTypeDef_cffi(
-        name='wxString', cType='char *',
-        py2c="return (ffi.new('char[]', py_obj), None)",
+        name='wxString', cType='const wchar_t *',
+        py2c="return (ffi.new('wchar_t[]', py_obj), None)",
         c2py="""
         ret = ffi.string(cdata)
         clib.free(cdata)
         return ret
         """,
         c2cpp="return new wxString(cdata);",
-        cpp2c="return wxStrdup(cpp_obj->c_str());",
-        instancecheck='return isinstance(obj, (str, unicode))',))
+        cpp2c="return wxStrdup(cpp_obj->wc_str());",
+        instancecheck='return isinstance(py_obj, (str, unicode))',))
 
     tools.runGenerators(module)
 
