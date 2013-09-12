@@ -488,8 +488,10 @@ class BasicTypeInfo(TypeInfo):
         self.cReturnType = self.cType
         self.cdefReturnType = self.cType
 
-        if self.pyInt:
-            self.cdefType = 'signed char'
+        if self.pyInt and not 'signed' in self.name:
+            #if 'signed' in self.name:
+            #self.cdefType = 'signed char'
+            self.cdefType = self.cdefType.replace('char', 'signed char')
 
         if self.isConst:
             self.cType = 'const ' + self.cType
