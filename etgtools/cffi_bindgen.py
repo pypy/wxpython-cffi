@@ -225,6 +225,8 @@ class CffiModuleGenerator(object):
         import cffi
         import types
         import numbers
+        import collections
+
         import wrapper_lib
 
         {0} = sys.modules[__name__]""".format(self.module.name))

@@ -139,25 +139,6 @@ def run():
     module.addPyCode(pycode)
 
     
-    c.addCppMethod('PyObject*', 'Get', '(bool includeAlpha=true)', """\
-        int red = -1;
-        int green = -1;
-        int blue = -1;
-        int alpha = wxALPHA_OPAQUE;
-        if (self->IsOk()) {
-            red =   self->Red();
-            green = self->Green();
-            blue =  self->Blue();
-            alpha = self->Alpha();
-        }
-        if (includeAlpha)
-            return sipBuildResult(0, "(iiii)", red, green, blue, alpha);
-        else
-            return sipBuildResult(0, "(iii)", red, green, blue);
-    """, briefDoc="""\
-        Get(includeAlpha=False) -> (r,g,b) or (r,g,b,a)\n
-        Returns the RGB intensity values as a tuple, optionally the alpha value as well.""")
-    
         
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
@@ -274,6 +255,62 @@ def run():
             sipPy, sipType_wxColour, sipTransferObj, SIP_NO_CONVERTORS, 0, sipIsErr));
         return 0; // not a new instance
     """
+    c.convertFromPyObject_cffi = """\
+    if py_obj is None:
+        return NullColour
+
+    if isinstance(py_obj, (str, unicode)):
+        if py_obj[0] == '#' and (len(py_obj) == 7 or len(py_obj) == 9):
+            try:
+                red = int(py_obj[1:3], 16)
+            except ValueError:
+                red = 0
+            try:
+                green = int(py_obj[3:5], 16)
+            except ValueError:
+                green = 0
+            try:
+                blue = int(py_obj[5:7], 16)
+            except ValueError:
+                blue = 0
+
+            if len(py_obj) == 7:
+                return Colour(red, green, blue)
+            else:
+                try:
+                    alpha = int(py_obj[7:9], 16)
+                except ValueError:
+                    alpha = 255
+                return Colour(red, green, blue, alpha)
+
+        pos = py_obj.find(':')
+        if pos != -1:
+            try:
+                alpha = int(py_obj[pos + 1:], 16)
+            except ValueError:
+                alpha = 255
+            c = Colour(py_obj[:pos])
+            c.Set(c.Red(), c.Green(), c.Blue(), alpha)
+            return c
+        else:
+            return Colour(py_obj)
+
+    if len(py_obj) == 3:
+        return Colour(py_obj[0], py_obj[1], py_obj[2])
+    return Colour(py_obj[0], py_obj[1], py_obj[2], py_obj[3])
+    """
+    c.instancecheck = """\
+    if py_obj is None or isinstance(py_obj, (str, unicode)):
+        return True
+    if not isinstance(py_obj, collections.Sequence):
+        return False
+
+    obj_len = len(py_obj)
+    if not (obj_len == 3 or obj_len == 4):
+        return False
+    return ((obj_len == 3 or obj_len == 4) and
+            all([isinstance(py_obj[i], numbers.Number) for i in range(obj_len)]))
+    """
 
     module.addPyCode('NamedColour = wx.deprecated(Colour, "Use Colour instead.")')
         
@@ -285,10 +322,12 @@ def run():
         return c;
     }
     """)
-    module.addItem(etgtools.WigCode("""\
-    wxColour testColourTypeMap(const wxColour& c);
-    """))
+    module.addItem(etgtools.FunctionDef(
+        type='wxColour', name='testColourTypeMap', argsString='(const wxColour& c)',
+        items=[etgtools.ParamDef(type='const wxColour&', name='c')]))
     
+
+    tools.runGeneratorSpecificScript(module)
     
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

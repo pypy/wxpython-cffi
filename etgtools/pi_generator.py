@@ -138,6 +138,7 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             extractors.PyClassDef       : self.generatePyClass,            
             extractors.CppMethodDef     : self.generateCppMethod,
             extractors.CppMethodDef_sip : self.generateCppMethod_sip,
+            extractors.CppMethodDef_cffi: self.generateCppMethod_cffi,
             extractors.MappedTypeDef_cffi : lambda x, y: None,
             }
         
@@ -397,6 +398,7 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
             extractors.EnumDef          : self.generateEnum,
             extractors.CppMethodDef     : self.generateCppMethod,
             extractors.CppMethodDef_sip : self.generateCppMethod_sip,
+            extractors.CppMethodDef_cffi: self.generateCppMethod_cffi,
             extractors.PyMethodDef      : self.generatePyMethod,
             extractors.PyCodeDef        : self.generatePyCode,
             extractors.WigCode          : self.generateWigCode,
@@ -510,6 +512,10 @@ class PiWrapperGenerator(generators.WrapperGeneratorBase, FixWxPrefix):
 
     def generateCppMethod_sip(self, method, stream, indent=''):
         assert isinstance(method, extractors.CppMethodDef_sip)
+        self.generateMethod(method, stream, indent)
+
+    def generateCppMethod_cffi(self, method, stream, indent=''):
+        assert isinstance(method, extractors.CppMethodDef_cffi)
         self.generateMethod(method, stream, indent)
         
 

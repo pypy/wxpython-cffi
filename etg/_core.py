@@ -63,7 +63,7 @@ INCLUDES = [  # base and core stuff
               #'geometry',
               #'affinematrix2d',
               #'position',
-              #'colour',
+              'colour',
 
               #'stream', 'filesys',
 
