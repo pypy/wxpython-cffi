@@ -478,6 +478,11 @@ class BasicTypeInfo(TypeInfo):
             raise TypeError('use of the PyInt annotation is unsupported on '
                             "'%'parameters" % typeName)
 
+        if self.isPtr:
+            self.name += '*'
+        if self.isRef:
+            self.name += '&'
+
         self.cType = self.name.strip('*& ')
         self.cdefType = self.cType
         self.cReturnType = self.cType
