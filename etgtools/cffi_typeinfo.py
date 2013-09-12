@@ -31,7 +31,6 @@ class TypeInfo(object):
         self.name = typeName
         self.typedef = typedef
         self.ptrCount = typeName.count('*')
-        self.isConst = 'const ' in typeName
         self.__dict__.update(kwargs)
 
         if self.out and self.inOut or (self.out or self.inOut) and self.array:
@@ -43,12 +42,14 @@ class TypeInfo(object):
         typeName = typeName.strip()
         isRef = False
         isPtr = False
+        isConst = False
         typedef = None
 
         name = typeName
         while True:
             isRef = (isRef or '&' in name)
             isPtr = (isPtr or '*' in name)
+            isConst = (isConst or 'const ' in name)
             name = (name.replace('::', '.').replace('const ', '').strip(' *&'))
             typedef = findItem(name) if name != '' else None
             if isinstance(typedef, extractors.TypedefDef):
@@ -56,18 +57,21 @@ class TypeInfo(object):
             else:
                 break
 
-        type = BasicTypeInfo
         if isinstance(typedef, extractors.ClassDef):
             type = WrappedTypeInfo
         elif isinstance(typedef, extractors.MappedTypeDef_cffi):
             type = MappedTypeInfo
         elif isPtr and 'char' in name:
             type = CharPtrTypeInfo
+            typeName = name
+        else:
+            type = BasicTypeInfo
+            typeName = name
 
         key = (typeName, frozenset(kwargs.items()))
         if key not in cls._cache:
             typeInfo = type(typeName, isRef=isRef, isPtr=isPtr,
-                            typedef=typedef, **kwargs)
+                            isConst=isConst, typedef=typedef, **kwargs)
             cls._cache[typeName] = typeInfo
             return typeInfo
         return cls._cache[key]
@@ -444,15 +448,15 @@ class MappedTypeInfo(TypeInfo):
 class CharPtrTypeInfo(TypeInfo):
     def __init__(self, typeName, typedef, **kwargs):
         super(CharPtrTypeInfo, self).__init__(typeName, typedef, **kwargs)
-        self.cType = 'char *'
-        self.cdefType = 'char *'
-        self.overloadType = '(__builtin__.unicode, __builtin__.str)'
-        self.cReturnType = 'char *'
-        self.cdefReturnType = 'char *'
-
+        self.name = '%s *' % typeName
         if self.isConst:
-            self.cType = 'const char *'
-            self.cdefType = 'const char *'
+            self.name = 'const ' + self.name
+
+        self.cType = self.name
+        self.cdefType = self.name
+        self.overloadType = '(__builtin__.unicode, __builtin__.str)'
+        self.cReturnType = self.name
+        self.cdefReturnType = self.name
 
         self.cCbType = self.cType
         self.cdefCbType = self.cdefType
@@ -503,6 +507,17 @@ class BasicTypeInfo(TypeInfo):
         self.cCbType = self.cType
         self.cdefCbType = self.cdefType
 
+    def lookupConversion(self):
+        name = self.cdefType.strip('* ')
+        if name in BASIC_CTYPES:
+            return BASIC_CTYPES[name]
+
+        if name.startswith('unsigned'):
+            name = name[8:].strip(' ')
+        if name.startswith('signed'):
+            name = name[6:].strip(' ')
+        return BASIC_CTYPES[name]
+
     def py2cPrecall(self, varName, inplace=False):
         if self.out:
             return "{0}{1} = ffi.new('{2}')".format(varName, OUT_PARAM_SUFFIX,
@@ -511,22 +526,22 @@ class BasicTypeInfo(TypeInfo):
             return """\
             {0} = {1}({0})
             {0}{2} = ffi.new('{3}', {0})
-            """.format(varName, BASIC_CTYPES[self.cdefType.strip('* ')],
+            """.format(varName, self.lookupConversion(),
                         OUT_PARAM_SUFFIX, self.cdefType)
 
     def py2cParam(self, varName):
         if self.out or self.inOut:
             return varName + OUT_PARAM_SUFFIX
         # Use cdefType here to catch changes made by because PyInt
-        return "%s(%s)" % (BASIC_CTYPES[self.cdefType], varName)
+        return "%s(%s)" % (self.lookupConversion(), varName)
 
     def py2cPostcall(self, inVar, outVar):
         if self.out or self.inOut:
             # For out and inOut cases, we're writing into a pointer
             return "%s[0] = %s(%s)" % (
-                outVar, BASIC_CTYPES[self.cdefType.strip('* ')], inVar)
+                outVar, self.lookupConversion(), inVar)
         return "%s = %s(%s)" % (
-            outVar, BASIC_CTYPES[self.cdefType.strip('* ')], inVar)
+            outVar, self.lookupConversion(), inVar)
 
     def c2py(self, varName):
         if self.out or self.inOut:
