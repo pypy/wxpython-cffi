@@ -312,6 +312,9 @@ class TestBindGen(object):
         c.addItem(EnumDef(name='BOOLEAN', items=[
             EnumValueDef(name='BOOL_TRUE'),
             EnumValueDef(name='BOOL_FALSE')]))
+        c.addItem(MethodDef(
+            type='BOOLEAN', name='flip', argsString='(BOOLEAN b)',
+            items=[ParamDef(type='BOOLEAN', name='b')]))
         module.addItem(c)
 
         c = ClassDef(name='PyIntClass')
@@ -1101,6 +1104,9 @@ class TestBindGen(object):
     def test_nested_enum(self):
         assert self.mod.ClassWithEnum.BOOL_TRUE == -10
         assert self.mod.ClassWithEnum.BOOL_FALSE == -20
+
+        obj = self.mod.ClassWithEnum()
+        assert obj.flip(obj.BOOL_FALSE) == obj.BOOL_TRUE
 
     def test_operators(self):
         obj = self.mod.OperatorsClass(10, 10)

@@ -404,6 +404,7 @@ class MappedTypeInfo(TypeInfo):
         if self.out:
             return "*{0} = {1}({0}_converted);".format(varName,
                     self.typedef.cpp2cFunc)
+        # TODO: if transfering the mapped type, don't delete it?
         return 'delete %s_converted;' % varName
 
     def cpp2c(self, varName):
@@ -489,8 +490,6 @@ class BasicTypeInfo(TypeInfo):
         self.cdefReturnType = self.cType
 
         if self.pyInt and not 'signed' in self.name:
-            #if 'signed' in self.name:
-            #self.cdefType = 'signed char'
             self.cdefType = self.cdefType.replace('char', 'signed char')
 
         if self.isConst:
@@ -499,6 +498,9 @@ class BasicTypeInfo(TypeInfo):
         if self.name == 'bool' or isinstance(self.typedef, extractors.EnumDef):
             self.cType = 'int'
             self.cdefType = 'int'
+            # Restore the original C++ scope operator that was removed when
+            # looking up the typedef
+            self.name = self.name.replace('.', '::')
 
         if (self.isPtr or self.isRef) and not self.inOut:
             self.out = True
@@ -556,6 +558,9 @@ class BasicTypeInfo(TypeInfo):
         return varName
 
     def c2cppParam(self, varName):
+        if isinstance(self.typedef, extractors.EnumDef):
+            ptr = '*' if self.isPtr or self.isRef else ''
+            varName = "(%s%s)%s" % (self.typedef.unscopedName, ptr, varName)
         if self.isRef:
             assert self.out or self.inOut
             return '*' + varName

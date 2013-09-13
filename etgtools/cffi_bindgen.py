@@ -79,7 +79,7 @@ class CffiModuleGenerator(object):
             extractors.CppMethodDef         : self.initCppMethod,
             extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
             extractors.GlobalVarDef         : self.initGlobalVar,
-            extractors.EnumDef              : self.initEnum,
+            #extractors.EnumDef              : self.initEnum,
             extractors.DefineDef            : self.initDefine,
         }
         self.dispatchClassItemInit = {
@@ -87,7 +87,7 @@ class CffiModuleGenerator(object):
             extractors.MethodDef            : self.initMethod,
             extractors.CppMethodDef         : self.initCppMethod,
             extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
-            extractors.EnumDef              : self.initEnum,
+            #extractors.EnumDef              : self.initEnum,
         }
         self.dispatchCDefs = {
             extractors.FunctionDef          : self.printFunctionCDef,
@@ -161,8 +161,10 @@ class CffiModuleGenerator(object):
                       extractors.PyFunctionDef)
         categories = categorize(self.module.items, pydefTypes,
                                 extractors.ClassDef,
-                                extractors.MappedTypeDef_cffi)
-        self.pyItems, self.classes, self.mappedTypes, self.globalItems = categories
+                                extractors.MappedTypeDef_cffi,
+                                extractors.EnumDef)
+        self.pyItems, self.classes, self.mappedTypes = categories[0:3]
+        self.enums, self.globalItems = categories[3:]
 
         self.pyItems.sort(key=lambda item: item.order if item.order is not None
                                                       else sys.maxint)
@@ -171,12 +173,18 @@ class CffiModuleGenerator(object):
             self.initClass(klass)
         self.sortClasses()
 
+        for enum in self.enums:
+            self.initEnum(enum)
+
         for mType in self.mappedTypes:
             self.initMappedType(mType)
 
         for klass in self.classes:
             self.initClassItems(klass)
         dispatchItems(self.dispatchInit, self.globalItems)
+
+        # Re-add enums to global items. They only needed to be inited early
+        self.globalItems.extend(self.enums)
 
 
     def writeFiles(self, pyfile, cppfile, hfile, userPyfile, verify_args=''):
@@ -379,19 +387,43 @@ class CffiModuleGenerator(object):
             innerclass.klass = klass
 
             innerclass.pyName = innerclass.pyName or innerclass.name
-            innerclass.unscopedPyName = klass.pyName + '.' + innerclass.pyName
-            innerclass.unscopedName = klass.name + '::' + innerclass.name
+            innerclass.unscopedPyName = '%s.%s' % (klass.unscopedPyName,
+                                                   innerclass.pyName)
+            innerclass.unscopedName = '%s::%s' % (klass.unscopedName,
+                                                  innerclass.name)
 
             replace = r'\1' + innerclass.unscopedName
             pattern = re.compile(r'( |^)%s' % innerclass.name)
-            for item in klass:
-                if isinstance(getattr(item, 'type', None), str):
-                    item.type = pattern.sub(replace, item.type)
+            self.unscopeTypeNames(pattern, replace, klass.items)
+
             self.initClass(innerclass)
+
+        # Same as above, but for enums. Also, init nested enums here since they
+        # must all be inited before methods/variables are inited
+        for enum in klass.items:
+            if not isinstance(enum, extractors.EnumDef):
+                continue
+            self.initEnum(enum, klass)
+
+            replace = r'\1' + enum.unscopedName
+            pattern = re.compile(r'( |^)%s' % enum.name)
+            self.unscopeTypeNames(pattern, replace, klass.items)
 
         ctor = klass.findItem(klass.name)
         klass.hasDefaultCtor = (ctor is None or
                                 any(len(m.items) == 0 for m in ctor.all()))
+
+    def unscopeTypeNames(self, pattern, replace, items):
+        for item in items:
+            if isinstance(getattr(item, 'type', None), str):
+                item.type = pattern.sub(replace, item.type)
+
+            if hasattr(item, 'items'):
+                self.unscopeTypeNames(pattern, replace, item.items)
+            if hasattr(item, 'overloads'):
+                self.unscopeTypeNames(pattern, replace, item.overloads)
+            if hasattr(item, 'innerclasses'):
+                self.unscopeTypeNames(pattern, replace, item.innerclasses)
 
 
     def initClassItems(self, klass):
@@ -509,11 +541,14 @@ class CffiModuleGenerator(object):
         method.retStmt = 'return ' if method.name != 'void' else ''
         method.briefDoc = method.briefDoc if method.briefDoc is not None else ''
 
-        if method.isVirtual:
-            method.virtualIndex = len(parent.virtualMethods)
-            parent.virtualMethods.append(method)
-        if method.protection == 'protected' and not method.isDtor:
-            parent.protectedMethods.append(method)
+        if not parent.abstract:
+            # An abstract class won't have a subclass even if it has virtual
+            # and/or protected methods
+            if method.isVirtual:
+                method.virtualIndex = len(parent.virtualMethods)
+                parent.virtualMethods.append(method)
+            if method.protection == 'protected' and not method.isDtor:
+                parent.protectedMethods.append(method)
 
         for param in method.items:
             if param.keepReference:
@@ -588,6 +623,12 @@ class CffiModuleGenerator(object):
         assert not enum.ignored
         for val in enum.items:
             assert not val.ignored
+
+        enum.unscopedName = enum.name
+        if parent is not None:
+            enum.unscopedName = parent.unscopedName + '::' + enum.name
+
+        # Prefixes are used for the enum's values
         enum.cPrefix = ENUM_PREFIX + ('' if parent is None
                                            else (parent.cName + '_88_'))
         enum.cppPrefix = '' if parent is None else (parent.unscopedName + '::')

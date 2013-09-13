@@ -175,6 +175,13 @@ public:
         BOOL_TRUE = -10,
         BOOL_FALSE = -20
     };
+
+    BOOLEAN flip(BOOLEAN b)
+    {
+        if(b == BOOL_TRUE)
+            return BOOL_FALSE;
+        return BOOL_TRUE;
+    }
 };
 
 class OperatorsClass
