@@ -1469,6 +1469,8 @@ class CffiModuleGenerator(object):
         func.cppCallArgs = []
         func.overloadArgs = []
 
+        func.wrapperCallArgs = []
+
         if parent is not None and not func.isStatic:
             func.pyArgs.append('self')
             if not func.isCtor:
@@ -1479,6 +1481,8 @@ class CffiModuleGenerator(object):
                 func.cdefCbArgs.append('void *self')
                 func.cbCallArgs.append('this')
                 func.vtdArgs.append('self')
+
+                func.wrapperCallArgs.append('self')
 
         for i, param in enumerate(func.items):
             if param.arraySize:
@@ -1493,7 +1497,7 @@ class CffiModuleGenerator(object):
             cdefArg = param.type.cdefType
             cCbArg = param.type.cCbType
             cdefCbArg = param.type.cdefCbType
-            cCallArg = param.type.c2cppParam(param.name)
+            cCallArg = param.type.c2cppParam(param.name, func.cppCode is not None)
             cbCallArg = param.type.cpp2c(param.name)
 
             cppArg = "%s %s" % (param.type.name, param.name)
@@ -1512,6 +1516,8 @@ class CffiModuleGenerator(object):
             pyCallArg = param.type.py2cParam(param.name)
             vtdArg = param.name
             vtdCallArg = param.type.c2py(param.name)
+
+            wrapperCallArg = cppCallArg
 
             if not isOverload:
                 overloadArg = '%s, %s, "%s"' % (param.type.overloadType,
@@ -1546,10 +1552,10 @@ class CffiModuleGenerator(object):
             # protected and not static
             func.wrapperArgs = ([parent.cppClassName + " *self"] +
                                 func.cppArgs)
-            func.wrapperCallArgs = ['self'] + func.cppCallArgs
+            func.wrapperCallArgs = ['self'] + func.cCallArgs
         else:
             func.wrapperArgs = func.cppArgs
-            func.wrapperCallArgs = func.cppCallArgs
+            func.wrapperCallArgs = func.cCallArgs
 
         func.vtdCallArgs.append('')
 
@@ -1568,6 +1574,8 @@ class CffiModuleGenerator(object):
         func.wrapperArgs = '(' + ', '.join(func.wrapperArgs) + ')'
         func.wrapperCallArgs = '(' + ', '.join(func.wrapperCallArgs) + ')'
         func.overloadArgs = '(' + ', '.join(func.overloadArgs) + ')'
+
+        func.wrapperArgs = func.wrapperArgs.replace('&', '*')
 
     def printDocString(self, item, pyfile, indent=0):
         if not isinstance(item.briefDoc, str):

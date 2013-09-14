@@ -96,7 +96,7 @@ class TypeInfo(object):
     def c2cppPrecall(self, varName):
         return None
 
-    def c2cppParam(self, varName):
+    def c2cppParam(self, varName, refsAsPtrs=False):
         return varName
 
     def c2cppPostcall(self, varName):
@@ -118,7 +118,7 @@ class WrappedTypeInfo(TypeInfo):
         super(WrappedTypeInfo, self).__init__(typeName, typedef, **kwargs)
         self.cType = self.typedef.unscopedName + ' *'
         self.cdefType = 'void *'
-        self.cReturnType = self.typedef.name + ' *'
+        self.cReturnType = self.typedef.unscopedName + ' *'
         self.cdefReturnType = 'void *'
 
         if self.isConst:
@@ -236,7 +236,7 @@ class WrappedTypeInfo(TypeInfo):
                 ARRAY_SIZE_PARAM)
         return None
 
-    def c2cppParam(self, varName):
+    def c2cppParam(self, varName, refsAsPtrs=False):
         if self.array:
             return varName + "_converted"
         if self.out or self.inOut:
@@ -246,7 +246,8 @@ class WrappedTypeInfo(TypeInfo):
                 return '*' + varName
             else:
                 return varName
-        return ('*' if not self.isPtr else '') + varName
+        deref = not self.isPtr and not (self.isRef and refsAsPtrs)
+        return ('*' if deref else '') + varName
 
     def c2cppPostcall(self, varName):
         if self.array and not self.transfer:
@@ -375,7 +376,7 @@ class MappedTypeInfo(TypeInfo):
         return '{0} {1}_converted = {2}({3}{1});'.format(
             self.cReturnType, varName, self.typedef.c2cppFunc, deref)
 
-    def c2cppParam(self, varName):
+    def c2cppParam(self, varName, refsAsPtrs=False):
         varName += '_converted'
         if self.array:
             return varName
@@ -389,7 +390,8 @@ class MappedTypeInfo(TypeInfo):
                 return '*' + varName
             else:
                 return varName
-        return ('*' if not self.isPtr else '') + varName
+        deref = not self.isPtr and not (self.isRef and refsAsPtrs)
+        return ('*' if deref else '') + varName
 
     def c2cppPostcall(self, varName):
         if self.array:
@@ -557,7 +559,7 @@ class BasicTypeInfo(TypeInfo):
             return varName + '[0]'
         return varName
 
-    def c2cppParam(self, varName):
+    def c2cppParam(self, varName, refsAsPtrs=False):
         if isinstance(self.typedef, extractors.EnumDef):
             ptr = '*' if self.isPtr or self.isRef else ''
             varName = "(%s%s)%s" % (self.typedef.unscopedName, ptr, varName)
