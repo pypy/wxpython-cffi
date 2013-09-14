@@ -560,9 +560,9 @@ class BasicTypeInfo(TypeInfo):
         return varName
 
     def c2cppParam(self, varName, refsAsPtrs=False):
-        if isinstance(self.typedef, extractors.EnumDef):
+        if self.name == 'bool' or isinstance(self.typedef, extractors.EnumDef):
             ptr = '*' if self.isPtr or self.isRef else ''
-            varName = "(%s%s)%s" % (self.typedef.unscopedName, ptr, varName)
+            varName = "(%s%s)%s" % (self.name, ptr, varName)
         if self.isRef:
             assert self.out or self.inOut
             return '*' + varName
