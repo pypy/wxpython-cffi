@@ -942,8 +942,9 @@ class CffiModuleGenerator(object):
                       .format(funcPtrName, method, parent))
 
             if not method.isDtor:
-                sig = ("{0.type.name} {1.cppClassName}::{0.name}{0.cppArgs}"
-                        .format(method, parent))
+                isConst = ' const' if method.isConst else ''
+                sig = ("{0.type.name} {1.cppClassName}::{0.name}{0.cppArgs}{2}"
+                        .format(method, parent, isConst))
             else:
                 sig = "{0.cppClassName}::~{0.cppClassName}()".format(parent)
 
@@ -1494,7 +1495,7 @@ class CffiModuleGenerator(object):
                 func.pyCallArgs.append('wrapper_lib.get_ptr(self)')
                 func.cArgs.append('%s *self' % parent.cppClassName)
                 func.cdefArgs.append('void *self')
-                func.cCbArgs.append('%s *self' % parent.cppClassName)
+                func.cCbArgs.append('const %s *self' % parent.cppClassName)
                 func.cdefCbArgs.append('void *self')
                 func.cbCallArgs.append('this')
                 func.vtdArgs.append('self')
