@@ -648,6 +648,14 @@ def convertTwoIntegersTemplate(CLASS):
     return SIP_TEMPORARY;
     """.format(**locals())
 
+def convertTwoIntegersTemplate_cffi(klass):
+    klass.convertFromPyObject_cffi="""\
+    return {PYNAME}(py_obj[0], py_obj[1])
+    """
+    klass.instancecheck="""\
+    return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 2 and
+            all([isinstance(py_obj[i], numbers.Number) for i in range(2)]))
+    """
 
 def convertFourIntegersTemplate(CLASS):
     # Note: The GIL is already acquired where this code is used.
@@ -695,6 +703,15 @@ def convertFourIntegersTemplate(CLASS):
     """.format(**locals())
 
 
+def convertFourIntegersTemplate_cffi(klass):
+    klass.convertFromPyObject_cffi="""\
+    return {PYNAME}(py_obj[0], py_obj[1], py_obj[2], py_obj[3])
+    """
+    klass.instancecheck="""\
+    return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 4 and
+            all([isinstance(py_obj[i], numbers.Number) for i in range(4)]))
+    """
+
 
 def convertTwoDoublesTemplate(CLASS):
     # Note: The GIL is already acquired where this code is used.
@@ -734,6 +751,15 @@ def convertTwoDoublesTemplate(CLASS):
     Py_DECREF(o2);
     return SIP_TEMPORARY;
     """.format(**locals())
+
+def convertTwoDoublesTemplate_cffi(klass):
+    klass.convertFromPyObject_cffi="""\
+    return {PYNAME}(py_obj[0], py_obj[1])
+    """
+    klass.instancecheck="""\
+    return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 2 and
+            all([isinstance(py_obj[i], numbers.Number) for i in range(2)]))
+    """
 
 
 def convertFourDoublesTemplate(CLASS):
@@ -781,6 +807,15 @@ def convertFourDoublesTemplate(CLASS):
     Py_DECREF(o2);
     return SIP_TEMPORARY;
     """.format(**locals())
+
+def convertFourDoublesTemplate_cffi(klass):
+    klass.convertFromPyObject_cffi="""\
+    return {PYNAME}(py_obj[0], py_obj[1], py_obj[2], py_obj[3])
+    """
+    klass.instancecheck="""\
+    return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 4 and
+            all([isinstance(py_obj[i], numbers.Number) for i in range(4)]))
+    """
 
 
 
