@@ -373,8 +373,11 @@ class CffiModuleGenerator(object):
         klass.hasSubClass = (
             not klass.abstract and
             len([i for i in klass if isinstance(i, extractors.MethodDef) and
-                                     (i.protection == 'protected' or
-                                      i.isVirtual)]) > 0)
+                                      i.isVirtual]) > 0)
+        if any(i for i in klass if getattr(i, 'protection', 0) == 'protected'):
+            # If there are any protected methods, no matter what create a
+            # subclass
+            klass.hasSubClass = True
         klass.cppClassName = (klass.unscopedName if not klass.hasSubClass
                                           else SUBCLASS_PREFIX + klass.cName)
 
@@ -466,12 +469,10 @@ class CffiModuleGenerator(object):
                 ctor.overloads.append(c)
 
 
-        if klass.hasSubClass:
-            # While we init the class's items, we'll build a list of the
-            # virtual and protected methods' declarations to place in the
-            # subclass's body
-            klass.virtualMethods = []
-            klass.protectedMethods = []
+        # While we init the class's items, we'll build a list of the virtual
+        # and protected methods' declarations to place in the subclass's body
+        klass.virtualMethods = []
+        klass.protectedMethods = []
 
         # Move all Py*Def items into a seperate list
         pydefTypes = (extractors.PyMethodDef, extractors.PyPropertyDef,
@@ -552,14 +553,11 @@ class CffiModuleGenerator(object):
         method.retStmt = 'return ' if method.name != 'void' else ''
         method.briefDoc = method.briefDoc if method.briefDoc is not None else ''
 
-        if not parent.abstract:
-            # An abstract class won't have a subclass even if it has virtual
-            # and/or protected methods
-            if method.isVirtual:
-                method.virtualIndex = len(parent.virtualMethods)
-                parent.virtualMethods.append(method)
-            if method.protection == 'protected' and not method.isDtor:
-                parent.protectedMethods.append(method)
+        if method.isVirtual:
+            method.virtualIndex = len(parent.virtualMethods)
+            parent.virtualMethods.append(method)
+        if method.protection == 'protected' and not method.isDtor:
+            parent.protectedMethods.append(method)
 
         for param in method.items:
             if param.keepReference:
@@ -665,7 +663,7 @@ class CffiModuleGenerator(object):
     #------------------------------------------------------------------------#
 
     def printClassCDefs(self, klass, pyfile):
-        if klass.hasSubClass and len(klass.virtualMethods) > 0:
+        if not klass.abstract and len(klass.virtualMethods) > 0:
             pyfile.write(nci("""\
             {0.vtableDef}
             void {0.cName}_set_flag(void *, int);
@@ -727,29 +725,30 @@ class CffiModuleGenerator(object):
         {{
         public:""".format(klass.cppClassName, klass.unscopedName)))
 
-        #ctors = [m for m in klass if getattr(m, 'isCtor', False)][0].all()
-        ctors = klass.findItem(klass.name).all()
-        # Signatures all Ctors
-        for ctor in ctors:
-            hfile.write(nci("""\
-            {0.cppClassName}{1.cppArgs}
-                : {0.unscopedName}{1.cppCallArgs}
-            {{}};""".format(klass, ctor), 4))
+        if not klass.abstract:
+            #ctors = [m for m in klass if getattr(m, 'isCtor', False)][0].all()
+            ctors = klass.findItem(klass.name).all()
+            # Signatures all Ctors
+            for ctor in ctors:
+                hfile.write(nci("""\
+                {0.cppClassName}{1.cppArgs}
+                    : {0.unscopedName}{1.cppCallArgs}
+                {{}};""".format(klass, ctor), 4))
 
 
-        # Signatures for re-implemented virtual methods
-        if len(klass.virtualMethods) > 0:
-            hfile.write(nci("""\
-            signed char vflags[%d];
-            //Reimplement every virtual method"""
-            % len(klass.virtualMethods), 4))
-        for vmeth in klass.virtualMethods:
-            if vmeth.isDtor:
-                print >> hfile, "    virtual ~%s();" % klass.cppClassName
-                continue
-            const = ' const' if vmeth.isConst else ''
-            print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppArgs}{1};"
-                               .format(vmeth, const))
+            # Signatures for re-implemented virtual methods
+            if len(klass.virtualMethods) > 0:
+                hfile.write(nci("""\
+                signed char vflags[%d];
+                //Reimplement every virtual method"""
+                % len(klass.virtualMethods), 4))
+            for vmeth in klass.virtualMethods:
+                if vmeth.isDtor:
+                    print >> hfile, "    virtual ~%s();" % klass.cppClassName
+                    continue
+                const = ' const' if vmeth.isConst else ''
+                print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppArgs}{1};"
+                                .format(vmeth, const))
 
         # Signatures for protected methods
         if len(klass.protectedMethods) > 0:
@@ -764,7 +763,7 @@ class CffiModuleGenerator(object):
 
         print >> hfile, "};"
 
-        if len(klass.virtualMethods) > 0:
+        if len(klass.virtualMethods) > 0 and not klass.abstract:
             cppfile.write(nci("""\
             extern "C" {0}
 
@@ -799,7 +798,7 @@ class CffiModuleGenerator(object):
             __metaclass__ = wrapper_lib.WrapperType"""
         % (klass.pyName, pyBases), indent))
 
-        if klass.hasSubClass and len(klass.virtualMethods) > 0:
+        if not klass.abstract and len(klass.virtualMethods) > 0:
             pyfile.write(nci("""\
             _vtable = clib.{0}_vtable
 
@@ -1018,11 +1017,16 @@ class CffiModuleGenerator(object):
             # We only need to do the special handling of a protected method if
             # it has no custom code.
             callName = PROTECTED_PREFIX + method.name
+            callClass = parent.unscopedName + '::'
+            if method.isPureVirtual:
+                # For a pure virtual method, there is not base implementation
+                # to try to call
+                callClass = ''
             cppfile.write(nci("""\
             {0.type.name} {1.cppClassName}::{2}{0.cppArgs}
             {{
-                {0.retStmt}{1.unscopedName}::{0.name}{0.cppCallArgs};
-            }}""".format(method, parent, callName)))
+                {0.retStmt}{3}{0.name}{0.cppCallArgs};
+            }}""".format(method, parent, callName, callClass)))
 
             call = "self->" + callName + method.cCallArgs
             if method.isStatic:
