@@ -23,6 +23,10 @@ PY3 = sys.version_info[0] == 3
 magicMethods = {
     'operator!='    : '__ne__',
     'operator=='    : '__eq__',
+    'operator<'     : '__lt__',
+    'operator<='    : '__le__',
+    'operator>'     : '__gt__',
+    'operator>='    : '__ge__',
     'operator+'     : '__add__',
     'operator-'     : '__sub__',
     'operator*'     : '__mul__',
