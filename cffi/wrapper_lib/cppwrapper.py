@@ -239,6 +239,8 @@ def register_cpp_classname(cppname, subclass):
     classname_registry[cppname] = subclass
 
 def obj_from_ptr(ptr, klass=CppWrapper, is_new=False):
+    if ptr == ffi.NULL:
+        return None
     if hasattr(klass, '_get_cpp_classname_'):
         str_ptr = klass._get_cpp_classname_(ptr)
         classname = ffi.string(str_ptr)
@@ -283,6 +285,8 @@ def get_ptr(obj):
     raise TypeError('obj is not a wrapper for a C++ object')
 
 def remember_ptr(obj, ptr, external_ref=False):
+    if obj is None:
+        return
     if external_ref:
         # In some (one) situtations, obj needs to be kept alive even if it
         # stops being referenced by Python.
@@ -299,12 +303,16 @@ def forget_ptr(ptr):
         # TODO: does obj need to detach from its parent too?
 
 def take_ownership(obj):
+    if obj is None:
+        return
     obj._py_owned = True
     cpp_owned_objects.discard(obj)
     _detach_from_parent(obj)
 
 global_references = set()
 def keep_reference(obj, key=None, owner=None):
+    if obj is None:
+        return
     if owner is None:
         # If this was called from a static method or global function, we need
         # to keep obj alive forever.
@@ -316,6 +324,8 @@ def keep_reference(obj, key=None, owner=None):
     owner._extra_references[key] = obj
 
 def give_ownership(obj, parent=None, external_ref=False):
+    if obj is None:
+        return
     obj._py_owned = False
 
     _detach_from_parent(obj)
