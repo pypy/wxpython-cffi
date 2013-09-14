@@ -258,7 +258,8 @@ class TestBindGen(object):
 
         c = ClassDef(name='NestedClassesOuter')
         ic = ClassDef(name='NestedClassesInner')
-        c.innerclasses = [ic]
+        ic2 = ClassDef(name='NestedClassesInnerVirtual')
+        c.innerclasses = [ic, ic2]
         ic.addItem(MethodDef(
             type='int', argsString='()', name='vmeth', pyName='vmeth',
             isVirtual=True))
@@ -288,6 +289,9 @@ class TestBindGen(object):
                 items=[ParamDef(type='double', name='f')])]))
 
         ic.addAutoProperties()
+
+        ic2.addMethod(
+            'NestedClassesInnerVirtual *', 'make', '()', isVirtual=True)
         module.addItem(c)
 
         c = ClassDef(name='OperatorsClass')

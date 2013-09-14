@@ -153,6 +153,15 @@ public:
         void overloaded();
         void overloaded(double f);
     };
+
+    class NestedClassesInnerVirtual
+    {
+    public:
+        NestedClassesInnerVirtual* make()
+        {
+            return new NestedClassesInnerVirtual();
+        }
+    };
 };
 
 class NestedClassReturnDependant

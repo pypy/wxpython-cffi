@@ -373,7 +373,7 @@ class CffiModuleGenerator(object):
             len([i for i in klass if isinstance(i, extractors.MethodDef) and
                                      (i.protection == 'protected' or
                                       i.isVirtual)]) > 0)
-        klass.cppClassName = (klass.cName if not klass.hasSubClass
+        klass.cppClassName = (klass.unscopedName if not klass.hasSubClass
                                           else SUBCLASS_PREFIX + klass.cName)
 
         if klass.abstract:
@@ -394,7 +394,8 @@ class CffiModuleGenerator(object):
 
             replace = r'\1' + innerclass.unscopedName
             pattern = re.compile(r'( |^)%s' % innerclass.name)
-            self.unscopeTypeNames(pattern, replace, klass.items)
+            self.unscopeTypeNames(pattern, replace,
+                                  klass.items + klass.innerclasses)
 
             self.initClass(innerclass)
 
@@ -438,18 +439,30 @@ class CffiModuleGenerator(object):
                 isCtor=True
             )
             klass.addItem(ctor)
-        # Add a copy constructor
-        # TODO: do we need to check for an existing copy ctor?
         if not klass.abstract and not klass.privateCopyCtor:
-            ctor.overloads.append(extractors.MethodDef(
-                name=klass.name,
-                argsString='(const %s & other)' % klass.unscopedName,
-                items=[extractors.ParamDef(
-                        type='const %s &' % klass.unscopedName,
-                        name='other')
-                    ],
-                isCtor=True
-            ))
+            # Check if we have a copy Ctor and add one if we don't
+            hasCopyCtor = False
+            for c in ctor.all():
+                if len(c.items) != 1:
+                    continue
+                param = c.items[0]
+                self.getTypeInfo(param)
+                if (param.type.typedef is klass and param.type.isRef and
+                    param.type.isConst):
+                    hasCopyCtor = True
+                    break
+            if not hasCopyCtor:
+                c = extractors.MethodDef(
+                    name=klass.name,
+                    argsString='(const %s & other)' % klass.unscopedName,
+                    items=[extractors.ParamDef(
+                            type='const %s &' % klass.unscopedName,
+                            name='other')
+                        ],
+                    isCtor=True
+                )
+                ctor.overloads.append(c)
+
 
         if klass.hasSubClass:
             # While we init the class's items, we'll build a list of the
@@ -523,21 +536,17 @@ class CffiModuleGenerator(object):
         if method.isCtor:
             method.type = parent.unscopedName + '*'
             method.pyName = '__init__'
-        if method.isDtor:
+        elif method.isDtor:
             # We need a special case for the dtor since '~' isn't allowed in an
             # function name
             method.pyName = '__del__'
-            method.cName = METHOD_PREFIX + parent.cName + '_88_delete'
         elif method.name in magicMethods:
             method.pyName = magicMethods[method.name]
-            method.cName = ('%s%s_88_operator%s%s' %
-                            (METHOD_PREFIX, parent.cName,
-                             method.pyName.strip('_'), overload))
-        else:
-            method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, parent.cName,
-                                             method.name, overload)
-
+        
         method.pyName = method.pyName or method.name
+        method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, parent.cName,
+                                         method.pyName, overload)
+
         method.retStmt = 'return ' if method.name != 'void' else ''
         method.briefDoc = method.briefDoc if method.briefDoc is not None else ''
 
@@ -736,8 +745,9 @@ class CffiModuleGenerator(object):
             if vmeth.isDtor:
                 print >> hfile, "    virtual ~%s();" % klass.cppClassName
                 continue
-            print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppArgs};"
-                               .format(vmeth))
+            const = ' const' if vmeth.isConst else ''
+            print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppArgs}{1};"
+                               .format(vmeth, const))
 
         # Signatures for protected methods
         if len(klass.protectedMethods) > 0:
@@ -923,7 +933,7 @@ class CffiModuleGenerator(object):
     def printMethod(self, method, pyfile, cppfile, indent, parent,
                     isOverload=False):
         # Write C++ implementation
-        if method.isVirtual:
+        if method.isVirtual and not parent.abstract:
             funcPtrName = '%s_%s_FUNCPTR' % (parent.cName, method.virtualIndex)
             cbCall = ('(({0}){2.cName}_vtable[{1.virtualIndex}]){1.cbCallArgs}'
                       .format(funcPtrName, method, parent))
@@ -1029,7 +1039,7 @@ class CffiModuleGenerator(object):
             self.printExternCWrapper(method, call, cppfile)
 
         # Write Python implementation
-        if method.isVirtual:
+        if method.isVirtual and not parent.abstract:
             pyfile.write(nci("""\
             @wrapper_lib.VirtualDispatcher({0.virtualIndex})
             @ffi.callback('{0.type.cdefReturnType}(*){0.cdefCbArgs}')
