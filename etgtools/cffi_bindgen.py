@@ -1026,14 +1026,26 @@ class CffiModuleGenerator(object):
                     .format(method, parent))
         elif method.isCtor:
             call = "new " + parent.cppClassName +  method.cCallArgs
+        elif method.isDtor:
+            call = 'delete self'
+        elif method.name.startswith('operator'):
+            deref = '*' if not method.type.isPtr else ''
+            # Uniary operators
+            if len(method.items) == 0:
+                call = method.name[8:] + deref + 'self'
+            # Binary operators
+            elif len(method.items) == 1:
+                call = deref + 'self %s %s' % (method.name[8:], method.cCallArgs)
+            # Other operators (actually only call operator?)
+            else:
+                call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
+                        .format(method, parent))
         else:
             # Just in case, we'll always specify the original implementation,
             # for both regular and virtual methods
             call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
                     .format(method, parent))
 
-        if method.isDtor:
-            call = 'delete self'
         if not method.isPureVirtual:
             # Pure virtual methods cannot have an extern "C" wrapper as they
             # cannot be called directly.
