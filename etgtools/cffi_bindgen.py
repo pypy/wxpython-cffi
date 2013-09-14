@@ -347,6 +347,7 @@ class CffiModuleGenerator(object):
 
     def initClass(self, klass):
         assert not klass.ignored
+        self.module.cppCode.extend(klass.cppCode)
 
         if not hasattr(klass, 'klass'):
             klass.unscopedName = klass.name
