@@ -19,9 +19,6 @@ from buildtools.config import Config
 cfg = Config(noWxConfig=True)
 DEF_DIR = os.path.join(cfg.ROOT_DIR, 'cffi', 'def_gen')
 
-STATIC_MODULES = ('wxpy_api', 'arrayholder', 'filename', 'treeitemdata',
-                  'wxpybuffer', 'arrays', 'longlong', 'userdata', 'clntdata',
-                  'stockgdi', 'variant', 'dvcvariant', 'string', 'wxpy_api')
 
 SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
@@ -64,8 +61,6 @@ class CffiModuleGenerator(object):
 
         for mod in self.module.includes:
             # We need to ignore the hand written sip modules for now
-            if mod in STATIC_MODULES:
-                continue
             with open(path_pattern % mod, 'rb') as f:
                 mod = pickle.load(f)
                 for attr in ('headerCode', 'cppCode', 'initializerCode',
@@ -415,6 +410,11 @@ class CffiModuleGenerator(object):
             pattern = re.compile(r'( |^)%s' % enum.name)
             self.unscopeTypeNames(pattern, replace, klass.items)
 
+            for val in enum:
+                self.unscopeDefaults(
+                    val.name, klass.unscopedPyName + '.' + val.name,
+                    klass.items + klass.innerclasses)
+
         ctor = klass.findItem(klass.name)
         klass.hasDefaultCtor = (ctor is None or
                                 any(len(m.items) == 0 for m in ctor.all()))
@@ -430,6 +430,18 @@ class CffiModuleGenerator(object):
                 self.unscopeTypeNames(pattern, replace, item.overloads)
             if hasattr(item, 'innerclasses'):
                 self.unscopeTypeNames(pattern, replace, item.innerclasses)
+
+    def unscopeDefaults(self, name, unscopedName, items):
+        for item in items:
+            if getattr(item, 'default', None) == name:
+                item.default = unscopedName
+
+            if hasattr(item, 'items'):
+                self.unscopeDefaults(name, unscopedName, item.items)
+            if hasattr(item, 'overloads'):
+                self.unscopeDefaults(name, unscopedName, item.overloads)
+            if hasattr(item, 'innerclasses'):
+                self.unscopeDefaults(name, unscopedName, item.innerclasses)
 
 
     def initClassItems(self, klass):
