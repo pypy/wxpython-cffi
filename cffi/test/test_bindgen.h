@@ -52,6 +52,7 @@ class PMethClass
 {
 protected:
     char protected_method(char c);
+    static int static_protected_method() { return -2; }
 };
 
 class VDtorClass

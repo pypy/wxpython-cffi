@@ -756,8 +756,10 @@ class CffiModuleGenerator(object):
         for pmeth in klass.protectedMethods:
             if pmeth.isCtor or pmeth.isDtor:
                 continue
-            print >> hfile, ("    {0.type.name} unprotected_{0.name}"
-                               "{0.cppArgs};").format(pmeth)
+            isStatic = 'static ' if pmeth.isStatic else ''
+            print >> hfile, ("    {1}{0.type.name} {2}{0.name}"
+                               "{0.cppArgs};").format(pmeth, isStatic,
+                                                      PROTECTED_PREFIX)
 
         print >> hfile, "};"
 
@@ -1021,6 +1023,9 @@ class CffiModuleGenerator(object):
             }}""".format(method, parent, callName)))
 
             call = "self->" + callName + method.cCallArgs
+            if method.isStatic:
+                call = ("{1.cppClassName}::{2}{0.cCallArgs}"
+                        .format(method, parent, callName))
         elif method.isStatic:
             call = ("{1.unscopedName}::{0.name}{0.cCallArgs}"
                     .format(method, parent))

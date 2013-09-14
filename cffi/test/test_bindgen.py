@@ -125,6 +125,9 @@ class TestBindGen(object):
             protection='protected', type='char', argsString='(char c)',
             name='protected_method', pyName='protected_method',
             items=[ParamDef(type='char', name='c')]))
+        c.addMethod(
+            type='int', name='static_protected_method', argsString='()',
+            protection='protected', isStatic=True)
 
         module.addItem(c)
 
@@ -954,6 +957,7 @@ class TestBindGen(object):
     def test_protected_method(self):
         obj = self.mod.PMethClass()
         assert obj.protected_method('a') == 'A'
+        assert obj.static_protected_method() == -2
 
     def test_protected_ctor(self):
         assert self.mod.PCtorClass(15).get() == 15
