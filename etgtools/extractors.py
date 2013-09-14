@@ -913,6 +913,10 @@ class ClassDef(BaseDef):
             self.findItem(md.name).overloads.append(md)
         else:
             self.items.append(md)
+
+    def addMethod(self, type, name, argsString, **kwargs):
+        self._addMethod(MethodDef(type=type, name=name, argsString=argsString,
+                                  **kwargs))
         
     def addCppMethod(self, type, name, argsString, body, doc=None, isConst=False, 
                      cppSignature=None, **kw):
