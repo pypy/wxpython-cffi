@@ -10,6 +10,9 @@
         strcpy(cffiexception_string, string);\
     } while(0);
 
+#define CFFI_CHECK_EXCEPTION()\
+    (cffiexception_name != NULL)
+
 template<typename T, typename CType>
 struct cfficonvert_mappedtype
 {
