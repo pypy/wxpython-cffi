@@ -1198,9 +1198,12 @@ class CppMethodDef_cffi(CppMethodDef):
     of generated automatically. This allows, among other things, custom
     conversion of arbitrary Python types into arbitrary C++ types.
     """
-    def __init__(self, pyBody='', *args, **kwargs):
-        super(CppMethodDef_cffi, self).__init__(*args, **kwargs)
+    def __init__(self, type, name, argsString, pyArgsString, body='',
+                 pyBody='', *args, **kwargs):
+        super(CppMethodDef_cffi, self).__init__(type, name, argsString,
+                                                body, *args, **kwargs)
         self.pyBody = pyBody
+        self.pyArgsString = pyArgsString
 
 
 #---------------------------------------------------------------------------
