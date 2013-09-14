@@ -70,7 +70,7 @@ class CffiModuleGenerator(object):
                 mod = pickle.load(f)
                 for attr in ('headerCode', 'cppCode', 'initializerCode',
                              'preInitializerCode', 'postInitializerCode',
-                             'includes', 'imports', 'items'):
+                             'includes', 'imports', 'items', 'cdefs_cffi'):
                     getattr(self.module, attr).extend(getattr(mod, attr))
         TypeInfo.clearCache()
 
@@ -195,6 +195,10 @@ class CffiModuleGenerator(object):
         cppfile.write(nci("""\
         #include <cstring>
         #include <wrapper_lib.h>
+
+        extern "C" char *cffiexception_name;
+        extern "C" char *cffiexception_string;
+
         #include "{0}.h"
         """.format(self.module.name)))
 
@@ -203,9 +207,6 @@ class CffiModuleGenerator(object):
 
         initFunc = 'cffiinitcode_%s' % (self.module.name)
         cppfile.write(nci("""\
-        extern "C" char *cffiexception_name;
-        extern "C" char *cffiexception_string;
-
         extern "C" void %s()
         {
         """ % initFunc))
@@ -542,7 +543,7 @@ class CffiModuleGenerator(object):
             method.pyName = '__del__'
         elif method.name in magicMethods:
             method.pyName = magicMethods[method.name]
-        
+
         method.pyName = method.pyName or method.name
         method.cName = '%s%s_88_%s%s' % (METHOD_PREFIX, parent.cName,
                                          method.pyName, overload)
