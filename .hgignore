@@ -7,4 +7,9 @@ a.out
 *.o
 *.pyc
 __pycache__/*
+bin/*
+cffi/cpp_gen/*
 cffi/def_gen/*
+cffi/wx/*
+sip/cpp/*
+sip/gen/*
