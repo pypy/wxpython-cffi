@@ -89,23 +89,33 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxPoint& other)',
         body="return *self != *other;")
     
-    c.addItem(etgtools.WigCode("""\
-        wxPoint operator+(const wxPoint& other);
-        wxPoint operator-();
-        wxPoint operator-(const wxPoint& other);
-        wxPoint operator*(int i);
-        wxPoint operator/(int i);
-        """))
+    # TODO: replace these with MethodDefs
+    #c.addItem(etgtools.WigCode("""\
+    #    wxPoint operator+(const wxPoint& other);
+    #    wxPoint operator-();
+    #    wxPoint operator-(const wxPoint& other);
+    #    wxPoint operator*(int i);
+    #    wxPoint operator/(int i);
+    #    """))
+
+    c.addMethod(
+        'wxPoint', 'operator+', '(const wxPoint& other)',
+        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
+    c.addMethod(
+        'wxPoint', 'operator-', '(const wxPoint& other)',
+        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
+    c.addMethod('wxPoint', 'operator-', '()')
+    c.addMethod(
+        'wxPoint', 'operator*', '(int i)',
+        items=[etgtools.ParamDef(type='int', name='i')])
+    c.addMethod(
+        'wxPoint', 'operator/', '(int i)',
+        items=[etgtools.ParamDef(type='int', name='i')])
     
     
     # wxPoint typemap
     c.convertFromPyObject = tools.convertTwoIntegersTemplate('wxPoint')
-    
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(ii)", self->x, self->y);
-        """, 
-        pyArgsString="() -> (x,y)",
-        briefDoc="Return the x and y properties as a tuple.")
+    tools.convertTwoIntegersTemplate_cffi(c)
     
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
@@ -122,6 +132,7 @@ def run():
                   """) 
     c.addPyCode('Point.__safe_for_unpickling__ = True')
                                     
+    # TODO: how do I handle this?
     module.addItem(
         tools.wxListWrapperTemplate('wxPointList', 'wxPoint', module, includeConvertToType=True))
     
@@ -156,27 +167,49 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxSize& other)',
         body="return *self != *other;")
     
-    c.addItem(etgtools.WigCode("""\
-        wxSize operator+(const wxSize& other);
-        wxSize operator-(const wxSize& other);
-        wxSize operator*(int i);
-        wxSize operator/(int i);
+    # TODO: replace these with Method Defs
+    #c.addItem(etgtools.WigCode("""\
+    #    wxSize operator+(const wxSize& other);
+    #    wxSize operator-(const wxSize& other);
+    #    wxSize operator*(int i);
+    #    wxSize operator/(int i);
 
-        wxPoint operator+(const wxPoint& other);
-        wxPoint operator-(const wxPoint& other);
-        wxRealPoint operator+(const wxRealPoint& other);
-        wxRealPoint operator-(const wxRealPoint& other);
-        """))
+    #    wxPoint operator+(const wxPoint& other);
+    #    wxPoint operator-(const wxPoint& other);
+    #    wxRealPoint operator+(const wxRealPoint& other);
+    #    wxRealPoint operator-(const wxRealPoint& other);
+    #    """))
+
+    c.addMethod(
+        'wxSize', 'operator+', '(const wxSize& other)',
+        items=[etgtools.ParamDef(type='const wxSize&', name='other')])
+    c.addMethod(
+        'wxSize', 'operator-', '(const wxSize& other)',
+        items=[etgtools.ParamDef(type='const wxSize&', name='other')])
+    c.addMethod(
+        'wxSize', 'operator*', '(int i)',
+        items=[etgtools.ParamDef(type='int', name='i')])
+    c.addMethod(
+        'wxSize', 'operator/', '(int i)',
+        items=[etgtools.ParamDef(type='int', name='i')])
+
+    c.addMethod(
+        'wxPoint', 'operator+', '(const wxPoint& other)',
+        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
+    c.addMethod(
+        'wxPoint', 'operator-', '(const wxPoint& other)',
+        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
+    c.addMethod(
+        'wxRealPoint', 'operator+', '(const wxRealPoint& other)',
+        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
+    c.addMethod(
+        'wxRealPoint', 'operator-', '(const wxRealPoint& other)',
+        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
     
     
     # wxSize typemap
     c.convertFromPyObject = tools.convertTwoIntegersTemplate('wxSize')
-    
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(ii)", self->GetWidth(), self->GetHeight());
-        """,
-        pyArgsString="() -> (width, height)",
-        briefDoc="Return the width and height properties as a tuple.")
+    tools.convertTwoIntegersTemplate_cffi(c)
     
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
@@ -222,10 +255,18 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxRect& other)',
         body="return *self != *other;")
     
-    c.addItem(etgtools.WigCode("""\
-        wxRect operator+(const wxRect& other);
-        wxRect operator*(const wxRect& other);
-        """))
+    # TODO: replace these with MethodDefs
+    #c.addItem(etgtools.WigCode("""\
+    #    wxRect operator+(const wxRect& other);
+    #    wxRect operator*(const wxRect& other);
+    #    """))
+
+    c.addMethod(
+        'wxRect', 'operator+', '(const wxRect& other)',
+        items=[etgtools.ParamDef(type='const wxRect&', name='other')])
+    c.addMethod(
+        'wxRect', 'operator*', '(const wxRect& other)',
+        items=[etgtools.ParamDef(type='const wxRect&', name='other')])
 
     
     # Because of our add-ons that make wx.Point and wx.Size act like 2-element
@@ -248,13 +289,7 @@ def run():
     
     # wxRect typemap
     c.convertFromPyObject = tools.convertFourIntegersTemplate('wxRect')
-    
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(iiii)", 
-                              self->x, self->y, self->width, self->height);
-        """, 
-        pyArgsString="() -> (x, y, width, height)",
-        briefDoc="Return the rectangle's properties as a tuple.")
+    tools.convertFourIntegersTemplate_cffi(c)
     
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
@@ -291,23 +326,34 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxRealPoint& other)',
         body="return *self != *other;")
     
-    c.addItem(etgtools.WigCode("""\
-        wxRealPoint operator+(const wxRealPoint& other);
-        wxRealPoint operator-(const wxRealPoint& other);
-        wxRealPoint operator*(int i);
-        wxRealPoint operator/(int i);
-        """))
+    # TODO: replace these with MethodDefs
+    #c.addItem(etgtools.WigCode("""\
+    #    wxRealPoint operator+(const wxRealPoint& other);
+    #    wxRealPoint operator-(const wxRealPoint& other);
+    #    wxRealPoint operator*(int i);
+    #    wxRealPoint operator/(int i);
+    #    """))
+
+    c.addMethod(
+        'wxRealPoint', 'operator+',
+        '(const wxRealPoint& other)',
+        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
+    c.addMethod(
+        'wxRealPoint', 'operator-',
+        '(const wxRealPoint& other)',
+        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
+    c.addMethod(
+        'wxRealPoint', 'operator*', '(int i)',
+        items=[etgtools.ParamDef(type='int', name='i')])
+    c.addMethod(
+        'wxRealPoint', 'operator/', '(int i)',
+        items=[etgtools.ParamDef(type='int', name='i')])
 
         
     # wxRealPoint typemap
     c.convertFromPyObject = tools.convertTwoDoublesTemplate('wxRealPoint')
+    tools.convertTwoDoublesTemplate_cffi(c)
 
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(dd)", self->x, self->y);
-        """, 
-        pyArgsString="() -> (x, y)",
-        briefDoc="Return the point's properties as a tuple.")
-    
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
     c.addPyMethod('__repr__', '(self)',            'return "wx.RealPoint"+str(self.Get())')
@@ -331,6 +377,7 @@ def run():
 
     module.find('wxTheColourDatabase').ignore()
         
+    tools.runGeneratorSpecificScript(module)
                                
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

@@ -16,6 +16,7 @@ MODULE    = "_core"
 NAME      = "app"   # Base name of the file to generate to for this script
 DOCSTRING = ""
 
+
 # The classes and/or the basename of the Doxygen XML files to be processed by
 # this script. 
 ITEMS  = [ 'wxAppConsole',
@@ -23,6 +24,7 @@ ITEMS  = [ 'wxAppConsole',
            ]    
 
 OTHERDEPS = [ 'src/app_ex.cpp',   # and some C++ code too
+              'src/cffi/app_ex.cpp',
               ]
 
 #---------------------------------------------------------------------------
@@ -525,6 +527,7 @@ def run():
             item.ignore()
                 
 
+    tools.runGeneratorSpecificScript(module)
     
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

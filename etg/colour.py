@@ -324,7 +324,7 @@ def run():
     """)
     module.addItem(etgtools.FunctionDef(
         type='wxColour', name='testColourTypeMap', argsString='(const wxColour& c)',
-        items=[etgtools.ParamDef(type='const wxColour&', name='c')]))
+        items=[etgtools.ParamDef(type='const wxColour&', name='c')], isCore=True))
     
 
     tools.runGeneratorSpecificScript(module)
