@@ -24,6 +24,7 @@ SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
 FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
+ASSIGN_PREFIX = "cffiassign_"
 DEFINE_PREFIX = "cffidefine_"
 MEMBER_VAR_PREFIX = "cffimvar_"
 GLOBAL_VAR_PREFIX = "cffigvar_"
@@ -684,6 +685,9 @@ class CffiModuleGenerator(object):
         if hasattr(klass, 'detectSubclassCode_cffi'):
             print >> pyfile, ("char * cffigetclassname_%s(void *);" %
                               klass.cName)
+        if not klass.privateAssignOp:
+            print >> pyfile, ("void {0}{1}(void*, void*);"
+                              .format(ASSIGN_PREFIX, klass.name))
         dispatchItems(self.dispatchClassItemCDefs, klass.items, pyfile)
 
         for ic in klass.innerclasses:
@@ -729,6 +733,13 @@ class CffiModuleGenerator(object):
     def printClassCppBody(self, klass, hfile, cppfile):
         for ic in klass.innerclasses:
             self.printClassCppBody(ic, hfile, cppfile)
+
+        if not klass.privateAssignOp:
+            cppfile.write(nci("""\
+            extern "C" void {0}{1}({2} * dst, {2} * src)
+            {{
+                *dst = *src;
+            }}""".format(ASSIGN_PREFIX, klass.name, klass.unscopedName)))
 
         if not klass.hasSubClass:
             return
@@ -984,6 +995,11 @@ class CffiModuleGenerator(object):
 
             if method.type.name == 'void':
                 cppfile.write(nci(cbCall + ';', 8))
+            elif (isinstance(method.type, WrappedTypeInfo) and
+                  not (method.type.isRef or method.type.isPtr)):
+                cppfile.write(nci("""\
+                {0.type.typedef.cppClassName} py_return;
+                {1};""".format(method, cbCall), 8))
             else:
                 cppfile.write(nci("""\
                     {0.type.cReturnType} py_return = {1};
@@ -1003,7 +1019,10 @@ class CffiModuleGenerator(object):
                 if isBasicType or method.type.isPtr and (isMappedType or
                    isWrappedType) or isCharPtrType:
                     cppfile.write(nci("return py_return;", 8))
-                elif (isWrappedType or isMappedType) and method.type.isRef:
+                elif isWrappedType and not (method.type.isPtr or
+                      method.type.isRef):
+                    cppfile.write(nci("return py_return;", 8))
+                elif (isWrappedType or isMappedType) and not method.type.isPtr:
                     cppfile.write(nci("return *py_return;", 8))
                 else:
                     assert isMappedType
@@ -1076,6 +1095,7 @@ class CffiModuleGenerator(object):
             # cannot be called directly.
             self.printExternCWrapper(method, call, cppfile)
 
+
         # Write Python implementation
         if method.isVirtual and not parent.abstract:
             pyfile.write(nci("""\
@@ -1111,17 +1131,24 @@ class CffiModuleGenerator(object):
                 if method.returnCount > 1:
                     varName += '[0]'
 
-                convertCode = method.type.py2cPostcall(varName, 'return_tmp')
-                if convertCode is not None:
-                    pyfile.write(nci(convertCode, indent + 4))
-
-                if method.factory:
+                if method.factory or method.transferBack:
                     pyfile.write(nci(
-                        'wrapper_lib.give_ownership(wrapper_lib.obj_from_ptr('
-                        'return_tmp, %s), None, True)' %
-                        method.type.typedef.unscopedPyName, indent + 4))
+                        'wrapper_lib.give_ownership(%s, None, True)' % varName,
+                        indent + 4))
 
-                pyfile.write(nci('return return_tmp', indent + 4))
+                if (not isinstance(method.type, WrappedTypeInfo) or
+                    method.type.isRef or method.type.isPtr):
+
+                    convertCode = method.type.py2cPostcall(varName, 'return_tmp')
+                    if convertCode is not None:
+                        pyfile.write(nci(convertCode, indent + 4))
+
+                    pyfile.write(nci('return return_tmp', indent + 4))
+                else:
+                    pyfile.write(nci(
+                        'clib.%s%s(return_ptr, wrapper_lib.get_ptr(%s))' %
+                        (ASSIGN_PREFIX, method.type.typedef.name, varName),
+                        indent + 4))
 
             pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" %
                                      method.virtualIndex,
@@ -1594,6 +1621,14 @@ class CffiModuleGenerator(object):
             func.wrapperArgs = func.cppArgs
             func.wrapperCallArgs = func.cCallArgs
 
+        if isinstance(func.type, WrappedTypeInfo) and not (func.type.isRef or
+            func.type.isPtr):
+            # When returning a wrapped type by value, pass in a pointer
+            func.cbCallArgs.append('&py_return')
+            func.cCbArgs.append('%s*' % func.type.typedef.cppClassName)
+            func.cdefCbArgs.append('void*')
+            func.vtdArgs.append('return_ptr')
+
         func.vtdCallArgs.append('')
 
         func.cArgs = '(' + ', '.join(func.cArgs) + ')'
@@ -1662,7 +1697,7 @@ class CffiModuleGenerator(object):
         """
         wrapperName = func.cName + CPPCODE_WRAPPER_SUFIX
         wrapperBody = nci("""\
-        {0.type.name} {1}{0.wrapperArgs}
+        static inline {0.type.name} {1}{0.wrapperArgs}
         {{""".format(func, wrapperName))
         wrapperBody += nci(func.cppCode[0], 4) + '}'
 

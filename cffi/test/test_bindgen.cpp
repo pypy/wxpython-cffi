@@ -281,6 +281,37 @@ string MappedTypeClass::call_concat(string *s, int len)
     return concat(s, len);
 }
 
+
+CtorsClass & WrappedTypeClass::get_ref()
+{
+    return *new CtorsClass(10);
+}
+
+CtorsClass & WrappedTypeClass::call_get_ref()
+{
+    return get_ref();
+}
+
+CtorsClass * WrappedTypeClass::get_ptr()
+{
+    return new CtorsClass(11);
+}
+
+CtorsClass * WrappedTypeClass::call_get_ptr()
+{
+    return get_ptr();
+}
+
+CtorsClass WrappedTypeClass::get_value()
+{
+    return CtorsClass(12);
+}
+
+CtorsClass WrappedTypeClass::call_get_value()
+{
+    return get_value();
+}
+
 int OutClass::get_coords_ptr(int *x, int *y)
 {
     *x = 3;

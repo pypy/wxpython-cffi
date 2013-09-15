@@ -239,6 +239,19 @@ public:
     string call_concat(string *s, int len);
 };
 
+class WrappedTypeClass
+{
+public:
+    virtual CtorsClass & get_ref();
+    CtorsClass & call_get_ref();
+
+    virtual CtorsClass * get_ptr();
+    CtorsClass * call_get_ptr();
+
+    virtual CtorsClass get_value();
+    CtorsClass call_get_value();
+};
+
 struct Vector
 {
     Vector() { }

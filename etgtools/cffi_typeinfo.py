@@ -121,6 +121,12 @@ class WrappedTypeInfo(TypeInfo):
         self.cReturnType = self.typedef.unscopedName + ' *'
         self.cdefReturnType = 'void *'
 
+        if not (self.isPtr or self.isRef):
+            # Functions that return wrapped types by value will return via a
+            # pointer parameter
+            self.cReturnType = 'void'
+            self.cdefReturnType = 'void'
+
         if self.isConst:
             self.cType = 'const ' + self.cType
 

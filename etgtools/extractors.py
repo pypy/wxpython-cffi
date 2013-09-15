@@ -631,6 +631,7 @@ class ClassDef(BaseDef):
         self.isInner = False
 
         self.privateCopyCtor = False
+        self.privateAssignOp = False
         
         # Stuff that needs to be generated after the class instead of within
         # it. Some back-end generators need to put stuff inside the class, and
@@ -1044,6 +1045,7 @@ class ClassDef(BaseDef):
 private:
     {CLASS}& operator=(const {CLASS}&);""".format(CLASS=self.name))
         self.addItem(wig)
+        self.privateAssignOp = True
 
     def addDtor(self, prot='protected'):
         # add declaration of a destructor to this class
