@@ -24,8 +24,6 @@ BASIC_CTYPES = {
     'bool': 'bool',
     'void': None,
 }
-if sys.platform == 'win32':
-    BASIC_CTYPES['time_t'] = 'long'
 
 ARRAY_SIZE_PARAM = 'array_size_'
 OUT_PARAM_SUFFIX = '_ptr'

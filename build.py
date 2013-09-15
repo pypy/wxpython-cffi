@@ -460,6 +460,10 @@ def getTool(cmdName, version, MD5, envVar, platformBinary):
             ext = ''
             if platform == 'win32':
                 ext = '.exe'
+            if platform == 'linux' and PYTHON_ARCH == '32bit':    
+                print('ERROR: 32 bit platform tools not available')
+                print('       Set %s in the environment to use a local build of %s instead' % (envVar, cmdName))
+                sys.exit(1)
             cmd = opj(phoenixDir(), 'bin', '%s-%s-%s%s' % (cmdName, version, platform, ext))
             md5 = MD5[platform]
         else:
