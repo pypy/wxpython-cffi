@@ -35,7 +35,7 @@ INCLUDES = [  # base and core stuff
               'defs',
               #'debug',
               'object',
-              #'wxpy_api',
+              'wxpy_api',
               #'arrayholder',
               'string',
               'string_',  # Suffixed with an _ to avoid collisions with stdlib

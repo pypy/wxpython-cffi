@@ -929,6 +929,7 @@ def cmd_cffi_gen(options, args):
     cxxflags = shlex.split(cxxflags)
     cxxflags.append('-I' + opj(CFFI_DIR, 'include'))
     cxxflags.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
+    cxxflags.append('-I' + opj(cfg.ROOT_DIR, 'src'))
     verify_args = 'extra_compile_args=%s, extra_link_args=%s' % (cxxflags,
                                                                 libs)
 

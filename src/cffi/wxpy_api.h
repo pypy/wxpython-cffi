@@ -1,0 +1,21 @@
+// Redefine some of the marcos used to set exceptions in sip backend to make
+// porting to the cffi backend easier
+
+#define wxPyErr_SetString CFFI_SET_EXCEPTION
+#define PyErr_NoMemory() CFFI_SET_EXCEPTION(PyExc_MemoryError, "")
+
+#define PyErr_Occurred() CFFI_CHECK_EXCEPTION()
+
+// Redefine CPython's exception names so we can reuse them
+#define PyExc_ValueError "ValueError"
+#define PyExc_TypeError "TypeError"
+#define PyExc_MemoryError "MemoryError"
+#define PyExc_RuntimeError "RuntimeError"
+
+typedef void* wxPyThreadBlocker;
+
+typedef ssize_t Py_ssize_t;
+typedef unsigned char  byte;
+typedef unsigned char* buffer;
+
+
