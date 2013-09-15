@@ -281,10 +281,10 @@ class CffiModuleGenerator(object):
             self.printClassFinalization(klass, pyfile)
         dispatchItems(self.dispatchFinalize, self.globalItems, pyfile)
 
-        # Print Py*Defs
-        for klass in self.classes:
-            self.printClassPyDefs(klass, pyfile)
+        # Print Py*Defs (globals first)
         dispatchItems(self.dispatchPrintPyDefs, self.pyItems, userPyfile, 0)
+        for klass in self.classes:
+            self.printClassPyDefs(klass, userPyfile)
 
         print >> hfile, "#endif"
 
