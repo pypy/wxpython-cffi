@@ -41,6 +41,7 @@ INCLUDES = [  # base and core stuff
               'string_',  # Suffixed with an _ to avoid collisions with stdlib
               #'filename',
               #'arrays',
+              'wxstring',
               #'clntdata',
               #'clntdatactnr',
               #'userdata',

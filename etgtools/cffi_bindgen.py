@@ -60,7 +60,6 @@ class CffiModuleGenerator(object):
         self.completed = False
 
         for mod in self.module.includes:
-            # We need to ignore the hand written sip modules for now
             with open(path_pattern % mod, 'rb') as f:
                 mod = pickle.load(f)
                 for attr in ('headerCode', 'cppCode', 'initializerCode',
@@ -343,6 +342,8 @@ class CffiModuleGenerator(object):
     def initClass(self, klass):
         assert not klass.ignored
         self.module.cppCode.extend(klass.cppCode)
+        for inc in klass.includes:
+            self.module.headerCode.append('#include <%s>' % inc)
 
         if not hasattr(klass, 'klass'):
             klass.unscopedName = klass.name

@@ -4,7 +4,7 @@ from etgtools import ModuleDef, DefineDef, MappedTypeDef_cffi
 
 PACKAGE   = "wx"
 MODULE    = "_core"
-NAME      = "string_"   # Base name of the file to generate to for this script
+NAME      = "wxstring"   # Base name of the file to generate to for this script
 DOCSTRING = ""
 
 def run():
