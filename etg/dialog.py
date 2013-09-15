@@ -47,7 +47,11 @@ def run():
     
     # Release the GIL for potentially blocking or long-running functions
     c.find('ShowModal').releaseGIL()
-    
+
+    # Uses a template, but it would be easier to reimplement it in Python if
+    # it is ever needed so don't bother complexifying the wrapper for it.
+    c.find('ShowWindowModalThenDo').ignore()
+
     # context manager methods
     c.addPyMethod('__enter__', '(self)', 'return self')
     c.addPyMethod('__exit__', '(self, exc_type, exc_val, exc_tb)', 'self.Destroy()')
