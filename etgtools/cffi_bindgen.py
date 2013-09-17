@@ -378,6 +378,8 @@ class CffiModuleGenerator(object):
         klass.cppClassName = (klass.unscopedName if not klass.hasSubClass
                                           else SUBCLASS_PREFIX + klass.cName)
 
+        self.checkBaseClassPrivateAssignAndCtor(klass)
+
         if klass.abstract:
             klass.items = [i for i in klass if not getattr(i, 'isCtor', False)]
 
@@ -421,6 +423,13 @@ class CffiModuleGenerator(object):
         klass.hasDefaultCtor = (ctor is None or
                                 any(len(m.items) == 0 for m in ctor.all()))
 
+    def checkBaseClassPrivateAssignAndCtor(self, klass):
+        for base in klass.bases:
+            a, c = self.checkBaseClassPrivateAssignAndCtor(self.findItem(base))
+            klass.privateAssignOp = klass.privateAssignOp or a
+            klass.privateCopyCtor = klass.privateCopyCtor or c
+        return klass.privateAssignOp, klass.privateCopyCtor
+
     def unscopeTypeNames(self, pattern, replace, items):
         for item in items:
             if isinstance(getattr(item, 'type', None), str):
@@ -448,10 +457,10 @@ class CffiModuleGenerator(object):
 
     def initClassItems(self, klass):
         ctor = klass.findItem(klass.name)
-        if ctor is None and not klass.abstract:
+        if ctor is None and not klass.abstract and not klass.privateCopyCtor:
             assert klass.hasDefaultCtor
             # If the class doesn't have a ctor specified, we need to add a
-            # default ctor
+            # default ctor. A private copy ctor would suppress a default ctor.
             ctor = extractors.MethodDef(
                 name=klass.name,
                 argsString='()',
@@ -685,7 +694,8 @@ class CffiModuleGenerator(object):
         if hasattr(klass, 'detectSubclassCode_cffi'):
             print >> pyfile, ("char * cffigetclassname_%s(void *);" %
                               klass.cName)
-        if not klass.privateAssignOp:
+        if (not klass.privateAssignOp and not klass.privateCopyCtor and
+            not klass.abstract):
             print >> pyfile, ("void {0}{1}(void*, void*);"
                               .format(ASSIGN_PREFIX, klass.name))
         dispatchItems(self.dispatchClassItemCDefs, klass.items, pyfile)
@@ -734,7 +744,8 @@ class CffiModuleGenerator(object):
         for ic in klass.innerclasses:
             self.printClassCppBody(ic, hfile, cppfile)
 
-        if not klass.privateAssignOp:
+        if (not klass.privateAssignOp and not klass.privateCopyCtor and
+            not klass.abstract):
             cppfile.write(nci("""\
             extern "C" void {0}{1}({2} * dst, {2} * src)
             {{
