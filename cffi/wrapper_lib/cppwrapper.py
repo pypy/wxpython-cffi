@@ -1,16 +1,9 @@
-import cffi
 import weakref
 import collections
 
+from _ffi import ffi, clib
 from multimethod import Multimethod
 
-ffi = cffi.FFI()
-ffi.cdef("""
-void free(void*);
-""")
-clib = ffi.verify("""
-#include <stdlib.h>
-""")
 
 class WrapperType(type):
     """

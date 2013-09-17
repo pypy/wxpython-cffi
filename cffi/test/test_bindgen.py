@@ -367,6 +367,11 @@ class TestBindGen(object):
             name='call_sum_virt',
             items=[ParamDef(type='ArrayClass *', name='objs', array=True),
                    ParamDef(type='int', name='len', arraySize=True)]))
+        c.addItem(MethodDef(
+            type='int', argsString='(Vector *objs, int len)',
+            name='sum_mapped_type', isStatic=True,
+            items=[ParamDef(type='Vector *', name='objs', array=True),
+                   ParamDef(type='int', name='len', arraySize=True)]))
         c.addItem(MemberVarDef(type='int', name='m_i'))
         module.addItem(c)
 
@@ -1152,6 +1157,9 @@ class TestBindGen(object):
 
         objs = [AC(1), AC(2), AC(3)]
         assert AC.sum(objs) == 6
+
+        objs = [(1, 2), (3, 4)]
+        assert AC.sum_mapped_type(objs) == 10
 
     def test_mappedtype(self):
         assert self.mod.std_string_len("Test") == 4
