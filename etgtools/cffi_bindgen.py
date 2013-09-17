@@ -1309,8 +1309,13 @@ class CffiModuleGenerator(object):
             print >> pyfile, (' ' * indent + '%s = clib.%s' % (val.name, cName))
 
     def printGlobalVar(self, var, pyfile, cppfile):
+        assignVal = var.type.cpp2c(var.name)
+        if isinstance(var.type, WrappedTypeInfo) and not var.type.isPtr:
+            # A special case for global wrapped variables: take the object's
+            # address instead of copying onto the heap
+            assignVal = '&' + var.name
         print >> cppfile, ('extern "C" {0.type.cType} {0.cName} = {1};'.
-                            format(var, var.type.cpp2c(var.name)))
+                            format(var, assignVal))
         print >> pyfile, var.pyName + ' = ' + var.type.c2py('clib.' + var.cName)
 
     def printMemberVar(self, var, pyfile, cppfile, indent, parent):

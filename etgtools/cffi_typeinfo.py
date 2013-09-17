@@ -225,7 +225,9 @@ class WrappedTypeInfo(TypeInfo):
         # heap, with Python taking ownership of the new object.
         if self.isPtr:
             return varName
-        elif self.isRef and not self.isConst or self.noCopy:
+        elif self.isRef and (not self.isConst or self.noCopy or
+                             not self.typedef.abstract or
+                             not self.typedef.pureVirtualAbstract):
             return '&' + varName
         else:
             return "new %s(%s)" % (self.typedef.cppClassName, varName)
