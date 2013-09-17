@@ -1128,17 +1128,15 @@ class CffiModuleGenerator(object):
             else:
                 call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
                         .format(method, parent))
-        else:
+        elif method.isVirtual and not method.isPureVirtual:
             # Just in case, we'll always specify the original implementation,
-            # for both regular and virtual methods
+            # for  virtual methods
             call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
                     .format(method, parent))
+        else:
+            call = "self->{0.name}{0.cCallArgs}".format(method, parent)
 
-        if not method.isPureVirtual:
-            # Pure virtual methods cannot have an extern "C" wrapper as they
-            # cannot be called directly.
-            self.printExternCWrapper(method, call, cppfile)
-
+        self.printExternCWrapper(method, call, cppfile)
 
         # Write Python implementation
         if method.isVirtual and not parent.abstract:
@@ -1229,7 +1227,6 @@ class CffiModuleGenerator(object):
         if not isOverload:
             self.printDocString(method, pyfile, indent)
 
-        if not isOverload:
             # Do type checking on non-multi method's inside the method's body
             pyfile.write(nci("wrapper_lib.check_args_types" +
                              method.overloadArgs, indent + 4))
