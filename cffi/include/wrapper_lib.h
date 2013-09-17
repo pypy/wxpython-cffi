@@ -1,6 +1,8 @@
 #include <cstring>
 #include <cstdlib>
 
+extern "C" void (*wrapper_lib_adjust_refcount)(void *, int);
+
 #define CFFI_SET_EXCEPTION(name, string)\
     do\
     {\
@@ -67,3 +69,27 @@ T** cfficonvert_wrappedtype_cpp2c_array(T *objs, int count)
         array[i] = objs + i;
     return array;
 }
+
+template<typename T>
+class cffiRefCountedPyObjBase : public T
+{
+public:
+    cffiRefCountedPyObjBase(void *handle)
+      : m_handle(handle)
+    {
+        wrapper_lib_adjust_refcount(handle, 1);
+    }
+
+    ~cffiRefCountedPyObjBase()
+    {
+        wrapper_lib_adjust_refcount(m_handle, -1);
+    }
+
+    void *get_handle()
+    {
+        return m_handle;
+    }
+
+protected:
+    void *m_handle;
+};

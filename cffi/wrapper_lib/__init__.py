@@ -10,6 +10,7 @@ from lazy_defaults import LD, eval_func_defaults
 from annotations import create_array_type, allocate_cstring
 from deprecated import deprecated
 from exceptions import register_exception, check_exception
+from refcounting import adjust_refcount, get_refcounted_handle
 
 def eval_class_attrs(cls):
     for attr in cls.__dict__.itervalues():
