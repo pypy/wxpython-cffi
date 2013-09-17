@@ -9,6 +9,8 @@ BASIC_CTYPES = {
     'long': 'int',
     'long long': 'int',
     'unsigned': 'int',
+    'size_t' : 'int',
+    'ssize_t' : 'int',
     'float': 'float',
     'double': 'float',
     'char': 'str',
@@ -508,6 +510,7 @@ class BasicTypeInfo(TypeInfo):
         if self.name == 'bool' or isinstance(self.typedef, extractors.EnumDef):
             self.cType = 'int'
             self.cdefType = 'int'
+            self.cdefReturnType = 'int'
             # Restore the original C++ scope operator that was removed when
             # looking up the typedef
             self.name = self.name.replace('.', '::')
@@ -568,9 +571,12 @@ class BasicTypeInfo(TypeInfo):
         return varName
 
     def c2cppParam(self, varName, refsAsPtrs=False):
-        if self.name == 'bool' or isinstance(self.typedef, extractors.EnumDef):
+        if self.name == 'bool':
             ptr = '*' if self.isPtr or self.isRef else ''
-            varName = "(%s%s)%s" % (self.name, ptr, varName)
+            varName = "(bool %s)%s" % (ptr, varName)
+        if isinstance(self.typedef, extractors.EnumDef):
+            ptr = '*' if self.isPtr or self.isRef else ''
+            varName = "(%s %s)%s" % (self.typedef.unscopedName, ptr, varName)
         if self.isRef:
             assert self.out or self.inOut
             return '*' + varName
