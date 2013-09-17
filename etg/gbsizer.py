@@ -39,12 +39,8 @@ def run():
     
     # allow a 2 element sequence to be auto converted
     c.convertFromPyObject = tools.convertTwoIntegersTemplate('wxGBPosition')
+    tools.convertTwoIntegersTemplate_cffi(c)
     
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(ii)", self->GetRow(), self->GetCol());
-        """, 
-        pyArgsString="() -> (row, col)",
-        briefDoc="Return the row and col properties as a tuple.")
     c.addCppMethod('void', 'Set', '(int row=0, int col=0)', """\
         self->SetRow(row);
         self->SetCol(col);
@@ -80,12 +76,8 @@ def run():
 
     # allow a 2 element sequence to be auto converted
     c.convertFromPyObject = tools.convertTwoIntegersTemplate('wxGBSpan')
+    tools.convertTwoIntegersTemplate_cffi(c)
     
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(ii)", self->GetRowspan(), self->GetColspan());
-        """, 
-        pyArgsString="() -> (rowspan, colspan)",
-        briefDoc="Return the rowspan and colspan properties as a tuple.")
     c.addCppMethod('void', 'Set', '(int rowspan=0, int colspan=0)', """\
         self->SetRowspan(rowspan);
         self->SetColspan(colspan);
@@ -156,7 +148,8 @@ def run():
     
     #module.addItem(
     #    tools.wxListWrapperTemplate('wxGBSizerItemList', 'wxGBSizerItem', module, 'wxSizerItem'))
-    
+
+    tools.runGeneratorSpecificScript(module)
     
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

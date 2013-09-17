@@ -89,7 +89,6 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxPoint& other)',
         body="return *self != *other;")
     
-    # TODO: replace these with MethodDefs
     #c.addItem(etgtools.WigCode("""\
     #    wxPoint operator+(const wxPoint& other);
     #    wxPoint operator-();
@@ -132,9 +131,7 @@ def run():
                   """) 
     c.addPyCode('Point.__safe_for_unpickling__ = True')
                                     
-    # TODO: how do I handle this?
-    module.addItem(
-        tools.wxListWrapperTemplate('wxPointList', 'wxPoint', module, includeConvertToType=True))
+    tools.wxListWrapperTemplate('wxPointList', 'wxPoint', module, includeConvertToType=True)
     
     
     #---------------------------------------
@@ -167,7 +164,6 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxSize& other)',
         body="return *self != *other;")
     
-    # TODO: replace these with Method Defs
     #c.addItem(etgtools.WigCode("""\
     #    wxSize operator+(const wxSize& other);
     #    wxSize operator-(const wxSize& other);
@@ -255,7 +251,6 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxRect& other)',
         body="return *self != *other;")
     
-    # TODO: replace these with MethodDefs
     #c.addItem(etgtools.WigCode("""\
     #    wxRect operator+(const wxRect& other);
     #    wxRect operator*(const wxRect& other);
@@ -326,7 +321,6 @@ def run():
     c.addCppMethod('bool', '__neq__', '(const wxRealPoint& other)',
         body="return *self != *other;")
     
-    # TODO: replace these with MethodDefs
     #c.addItem(etgtools.WigCode("""\
     #    wxRealPoint operator+(const wxRealPoint& other);
     #    wxRealPoint operator-(const wxRealPoint& other);

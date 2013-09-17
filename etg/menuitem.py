@@ -116,7 +116,7 @@ def run():
         """)
 
     
-    module.addItem(tools.wxListWrapperTemplate('wxMenuItemList', 'wxMenuItem', module))
+    tools.wxListWrapperTemplate('wxMenuItemList', 'wxMenuItem', module)
     
 
     

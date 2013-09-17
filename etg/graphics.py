@@ -101,69 +101,18 @@ def run():
     m.find('descent').out = True
     m.find('externalLeading').out = True    
     
-    c.addCppMethod('PyObject*', 'GetTextExtent', '(const wxString& text)', 
-        pyArgsString="(text) -> (width, height)",
-        doc="Gets the dimensions of the string using the currently selected font.",
-        body="""\
-        wxDouble width = 0.0, height = 0.0;
-        self->GetTextExtent(*text, &width, &height, NULL, NULL);
-        return sipBuildResult(0, "(dd)", width, height);
-        """)
-
     c.addPyCode("GraphicsContext.DrawRotatedText = wx.deprecated(GraphicsContext.DrawText, 'Use DrawText instead.')")
 
-    
-    c.addCppCode(tools.ObjArrayHelperTemplate('wxPoint2D', 'sipType_wxPoint2DDouble',
-                    "Expected a sequence of length-2 sequences or wx.Point2D objects."))
 
     # we'll reimplement this overload as StrokeLineSegments
     c.find('StrokeLines').findOverload('beginPoints').ignore()
-    c.addCppMethod('void', 'StrokeLineSegments', '(PyObject* beginPoints, PyObject* endPoints)', 
-        pyArgsString="(beginPoint2Ds, endPoint2Ds)",
-        doc="Stroke disconnected lines from begin to end points.",
-        body="""\
-        size_t c1, c2, count;
-        wxPoint2D* beginP = wxPoint2D_array_helper(beginPoints, &c1);
-        wxPoint2D* endP =   wxPoint2D_array_helper(endPoints, &c2);
-
-        if ( beginP != NULL && endP != NULL ) {
-            count = wxMin(c1, c2);
-            self->StrokeLines(count, beginP, endP);
-        }
-        delete [] beginP;
-        delete [] endP;
-        """)
 
     # Also reimplement the main StrokeLines method to reuse the same helper
     # function as StrokLineSegments
     m = c.find('StrokeLines').findOverload('points').ignore()
-    c.addCppMethod('void', 'StrokeLines', '(PyObject* points)', 
-        pyArgsString="(point2Ds)",
-        doc="Stroke lines conencting all the points.",
-        body="""\
-        size_t count;
-        wxPoint2D* ptsArray = wxPoint2D_array_helper(points, &count);
-
-        if ( ptsArray != NULL ) {
-            self->StrokeLines(count, ptsArray);
-            delete [] ptsArray;
-        }
-        """)
 
     # and once more for DrawLines
     m = c.find('DrawLines').ignore()
-    c.addCppMethod('void', 'DrawLines', '(PyObject* points, wxPolygonFillMode fillStyle = wxODDEVEN_RULE)', 
-        pyArgsString="(point2Ds, fillStyle=ODDEVEN_RULE)",
-        doc="Draws a polygon.",
-        body="""\
-        size_t count;
-        wxPoint2D* ptsArray = wxPoint2D_array_helper(points, &count);
-
-        if ( ptsArray != NULL ) {
-            self->DrawLines(count, ptsArray, fillStyle);
-            delete [] ptsArray;
-        }
-        """)
     
     #---------------------------------------------
     c = module.find('wxGraphicsPath')
@@ -224,6 +173,8 @@ def run():
     tools.changeTypeNames(module, 'wxPoint2DDouble', 'wxPoint2D')
     tools.changeTypeNames(module, 'wxRect2DDouble', 'wxRect2D')
     
+
+    tools.runGeneratorSpecificScript(module)
 
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

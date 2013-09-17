@@ -32,10 +32,11 @@ def run():
     # Tweak the parsed meta objects in the module object as needed for
     # customizing the generated code and docstrings.
     
-    module.insertItem(0, etgtools.WigCode("""\
-        // forward declarations
-        class wxToolBarBase;
-        """))
+    #module.insertItem(0, etgtools.WigCode("""\
+    #    // forward declarations
+    #    class wxToolBarBase;
+    #    """))
+    module.insertItem(0, etgtools.ClassDef(name='wxToolBarBase', abstract=True))
 
     # Use wxPyUserData for the clientData values instead of a plain wxObject
     def _fixClientData(c):

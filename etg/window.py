@@ -84,8 +84,7 @@ def run():
     c.addPyMethod('SetClientRect', '(self, rect)', 'return self.SetClientSize(rect)')
     c.addPyProperty('ClientRect GetClientRect SetClientRect')
                     
-    m = c.find('GetTextExtent').findOverload('int *')
-    m.pyName = 'GetFullTextExtent'
+    m = c.find('GetTextExtent').renameOverload('int *', 'GetFullTextExtent')
     m.find('w').out = True
     m.find('h').out = True
     m.find('descent').out = True
@@ -306,7 +305,7 @@ def run():
     
     # Add a wrapper for wxWindowList and a new iterator class for it that
     # makes wxWindowList quack like a read-only Python sequence.
-    module.addItem(tools.wxListWrapperTemplate('wxWindowList', 'wxWindow', module))
+    tools.wxListWrapperTemplate('wxWindowList', 'wxWindow', module)
     
     module.addCppFunction('wxWindowList*', 'GetTopLevelWindows', '()', 
         noCopy=True,

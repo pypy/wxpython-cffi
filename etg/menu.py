@@ -150,7 +150,7 @@ def run():
     c.addPyProperty('Menus GetMenus SetMenus')
     
 
-    module.addItem(tools.wxListWrapperTemplate('wxMenuList', 'wxMenu', module))
+    tools.wxListWrapperTemplate('wxMenuList', 'wxMenu', module)
 
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

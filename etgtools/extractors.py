@@ -90,6 +90,12 @@ class BaseDef(object):
                     return item
                 else:
                     return item.find(tail)                
+            if isinstance(item, EnumDef):
+                try:
+                    return item.find(head)
+                except ExtractorError:
+                    pass
+                
         else: # got though all items with no match
             raise ExtractorError("Unable to find item named '%s' within %s named '%s'" %
                                  (head, self.__class__.__name__, self.name))

@@ -48,8 +48,10 @@ def run():
     tools.removeVirtuals(c)
     
     # rename the more complex overload for these two, like in classic wxPython
-    c.find('GetTextExtent').findOverload('wxCoord *').pyName = 'GetFullTextExtent'
-    c.find('GetMultiLineTextExtent').findOverload('wxCoord *').pyName = 'GetFullMultiLineTextExtent'                   
+    #c.find('GetTextExtent').findOverload('wxCoord *').pyName = 'GetFullTextExtent'
+    #c.find('GetMultiLineTextExtent').findOverload('wxCoord *').pyName = 'GetFullMultiLineTextExtent'                   
+    c.find('GetTextExtent').renameOverload('wxCoord *', 'GetFullTextExtent')
+    c.find('GetMultiLineTextExtent').renameOverload('wxCoord *','GetFullMultiLineTextExtent')
     
     # Keep only the wxSize overloads of these
     c.find('GetSize').findOverload('wxCoord').ignore()
@@ -81,14 +83,14 @@ def run():
     c.find('GetLogicalOrigin.x').out = True
     c.find('GetLogicalOrigin.y').out = True
     
-    c.find('GetTextExtent.w').out = True
-    c.find('GetTextExtent.h').out = True
-    c.find('GetTextExtent.descent').out = True
-    c.find('GetTextExtent.externalLeading').out = True
+    c.find('GetFullTextExtent.w').out = True
+    c.find('GetFullTextExtent.h').out = True
+    c.find('GetFullTextExtent.descent').out = True
+    c.find('GetFullTextExtent.externalLeading').out = True
 
-    c.find('GetMultiLineTextExtent.w').out = True
-    c.find('GetMultiLineTextExtent.h').out = True
-    c.find('GetMultiLineTextExtent.heightLine').out = True
+    c.find('GetFullMultiLineTextExtent.w').out = True
+    c.find('GetFullMultiLineTextExtent.h').out = True
+    c.find('GetFullMultiLineTextExtent.heightLine').out = True
     
     c.find('GetClippingBox.x').out = True
     c.find('GetClippingBox.y').out = True
@@ -172,51 +174,6 @@ def run():
     c.addPyCode('DC.GetGdkDrawable = wx.deprecated(DC.GetGdkDrawable, "Use GetHandle instead.")')
     
     
-    # This file contains implementations of functions for quickly drawing
-    # lists of items on the DC. They are called from the CppMethods defined
-    # below, which in turn are called from the PyMethods below that.
-    c.includeCppCode('src/dc_ex.cpp')
-    
-    c.addCppMethod('PyObject*', '_DrawPointList', '(PyObject* pyCoords, PyObject* pyPens, PyObject* pyBrushes)',
-        body="return wxPyDrawXXXList(*self, wxPyDrawXXXPoint, pyCoords, pyPens, pyBrushes);")
-
-    c.addCppMethod('PyObject*', '_DrawLineList', '(PyObject* pyCoords, PyObject* pyPens, PyObject* pyBrushes)',
-        body="return wxPyDrawXXXList(*self, wxPyDrawXXXLine, pyCoords, pyPens, pyBrushes);")
-
-    c.addCppMethod('PyObject*', '_DrawRectangleList', '(PyObject* pyCoords, PyObject* pyPens, PyObject* pyBrushes)',
-        body="return wxPyDrawXXXList(*self, wxPyDrawXXXRectangle, pyCoords, pyPens, pyBrushes);")
-
-    c.addCppMethod('PyObject*', '_DrawEllipseList', '(PyObject* pyCoords, PyObject* pyPens, PyObject* pyBrushes)',
-        body="return wxPyDrawXXXList(*self, wxPyDrawXXXEllipse, pyCoords, pyPens, pyBrushes);")
-
-    c.addCppMethod('PyObject*', '_DrawPolygonList', '(PyObject* pyCoords, PyObject* pyPens, PyObject* pyBrushes)',
-        body="return wxPyDrawXXXList(*self, wxPyDrawXXXPolygon, pyCoords, pyPens, pyBrushes);")
-
-    c.addCppMethod('PyObject*', '_DrawTextList', 
-        '(PyObject* textList, PyObject* pyPoints, PyObject* foregroundList, PyObject* backgroundList)',
-        body="return wxPyDrawTextList(*self, textList, pyPoints, foregroundList, backgroundList);")
-
-    
-    c.addPyMethod('DrawPointList', '(self, points, pens=None)',
-        doc="""\
-            Draw a list of points as quickly as possible.
-    
-            :param points: A sequence of 2-element sequences representing 
-                           each point to draw, (x,y).
-            :param pens:   If None, then the current pen is used.  If a single 
-                           pen then it will be used for all points.  If a list of 
-                           pens then there should be one for each point in points.
-            """,
-        body="""\
-            if pens is None:
-                pens = []
-            elif isinstance(pens, wx.Pen):
-                pens = [pens]
-            elif len(pens) != len(points):
-                raise ValueError('points and pens must have same length')
-            return self._DrawPointList(points, pens, [])
-            """)
-
     c.addPyMethod('DrawLineList', '(self, lines, pens=None)',
         doc="""\
             Draw a list of lines as quickly as possible.
@@ -411,6 +368,7 @@ def run():
     c.addPyMethod('__enter__', '(self)', 'return self')
     c.addPyMethod('__exit__', '(self, exc_type, exc_val, exc_tb)', 'return False')
     
+    tools.runGeneratorSpecificScript(module)
     
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

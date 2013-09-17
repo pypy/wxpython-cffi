@@ -13,7 +13,7 @@ def run(module):
     module.addItem(GlobalVarDef(type='const char *', name='wxPlatform',
                                 pyName='Platform'))
     module.addItem(GlobalVarDef(type='const char *', name='wxPlatformInfo',
-                                pyName='Platform'))
+                                pyName='PlatformInfo'))
 
     module.includeCppCode('src/cffi/core_ex.cpp')
 
@@ -29,5 +29,5 @@ def run(module):
             pass
         class PyAssertionError(wxAssertionError):
             pass
-        PlatformInfo = tuple(wx._core.PlatformInfo.strip(', ').split(', '))
+        PlatformInfo = tuple(PlatformInfo.strip(', ').split(', '))
         """)

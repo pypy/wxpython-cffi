@@ -58,13 +58,8 @@ def run():
     
     
     c.convertFromPyObject = tools.convertTwoDoublesTemplate('wxPoint2DDouble')
+    tools.convertTwoDoublesTemplate_cffi(c)
     
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(dd)", self->m_x, self->m_y);
-        """, 
-        briefDoc="""\
-        Get() -> (x,y)\n    
-        Return the x and y properties as a tuple.""")
     
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
@@ -102,14 +97,7 @@ def run():
     c.find('m_height').pyName = 'height'
     
     c.convertFromPyObject = tools.convertFourDoublesTemplate('wxRect2DDouble')
-    
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(dddd)", 
-                    self->m_x, self->m_y, self->m_width, self->m_height);
-        """, 
-        briefDoc="""\
-        Get() -> (x, y, width, height)\n    
-        Return the rectangle's properties as a tuple.""")
+    tools.convertFourDoublesTemplate_cffi(c)
     
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
@@ -128,6 +116,8 @@ def run():
                   """) 
     c.addPyCode('Rect2D.__safe_for_unpickling__ = True')
     
+
+    tools.runGeneratorSpecificScript(module)
     
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
