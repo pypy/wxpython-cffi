@@ -70,19 +70,17 @@ class CffiModuleGenerator(object):
         TypeInfo.clearCache()
 
         self.dispatchInit = {
-            extractors.FunctionDef          : self.initFunction,
-            extractors.CppMethodDef         : self.initCppMethod,
-            extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
             extractors.GlobalVarDef         : self.initGlobalVar,
-            #extractors.EnumDef              : self.initEnum,
             extractors.DefineDef            : self.initDefine,
         }
         self.dispatchClassItemInit = {
             extractors.MemberVarDef         : self.initMemberVar,
+        }
+        self.dispatchFunctionInit = {
+            extractors.FunctionDef          : self.initFunction,
             extractors.MethodDef            : self.initMethod,
             extractors.CppMethodDef         : self.initCppMethod,
             extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
-            #extractors.EnumDef              : self.initEnum,
         }
         self.dispatchCDefs = {
             extractors.FunctionDef          : self.printFunctionCDef,
@@ -177,6 +175,8 @@ class CffiModuleGenerator(object):
         for klass in self.classes:
             self.initClassItems(klass)
         dispatchItems(self.dispatchInit, self.globalItems)
+
+        self.initFunctions(self.module.items)
 
         # Re-add enums to global items. They only needed to be inited early
         self.globalItems.extend(self.enums)
@@ -383,6 +383,8 @@ class CffiModuleGenerator(object):
         if klass.abstract:
             klass.items = [i for i in klass if not getattr(i, 'isCtor', False)]
 
+        subclasses = self.getAllSubclasses(klass)
+
         # Typenames of nested classes used in this class don't have to use the
         # type's full name. This messes up the type lookup, so replace short
         # names with the full name. This can be pretty simple because we are
@@ -399,7 +401,8 @@ class CffiModuleGenerator(object):
             replace = r'\1' + innerclass.unscopedName
             pattern = re.compile(r'( |^)%s' % innerclass.name)
             self.unscopeTypeNames(pattern, replace,
-                                  klass.items + klass.innerclasses)
+                                  klass.items + klass.innerclasses +
+                                  subclasses)
 
             self.initClass(innerclass)
 
@@ -412,12 +415,14 @@ class CffiModuleGenerator(object):
 
             replace = r'\1' + enum.unscopedName
             pattern = re.compile(r'( |^)%s' % enum.name)
-            self.unscopeTypeNames(pattern, replace, klass.items)
+            self.unscopeTypeNames(pattern, replace,
+                                  klass.items + klass.innerclasses +
+                                  subclasses)
 
             for val in enum:
                 self.unscopeDefaults(
-                    val.name, klass.unscopedPyName + '.' + val.name,
-                    klass.items + klass.innerclasses)
+                    val.name, val.unscopedPyName,
+                    klass.items + klass.innerclasses + subclasses)
 
         ctor = klass.findItem(klass.name)
         klass.hasDefaultCtor = (ctor is None or
@@ -429,6 +434,15 @@ class CffiModuleGenerator(object):
             klass.privateAssignOp = klass.privateAssignOp or a
             klass.privateCopyCtor = klass.privateCopyCtor or c
         return klass.privateAssignOp, klass.privateCopyCtor
+
+    def getAllSubclasses(self, klass):
+        subclasses = []
+        for cls in self.classes:
+            if klass.name in cls.bases:
+                subclasses.append(cls)
+                subclasses.extend(self.getAllSubclasses(cls))
+        return subclasses
+
 
     def unscopeTypeNames(self, pattern, replace, items):
         for item in items:
@@ -445,7 +459,7 @@ class CffiModuleGenerator(object):
     def unscopeDefaults(self, name, unscopedName, items):
         for item in items:
             if getattr(item, 'default', None) == name:
-                item.default = unscopedName
+                item.pyDefault = unscopedName
 
             if hasattr(item, 'items'):
                 self.unscopeDefaults(name, unscopedName, item.items)
@@ -467,6 +481,7 @@ class CffiModuleGenerator(object):
                 isCtor=True
             )
             klass.addItem(ctor)
+
         if not klass.abstract and not klass.privateCopyCtor:
             # Check if we have a copy Ctor and add one if we don't
             hasCopyCtor = False
@@ -506,12 +521,18 @@ class CffiModuleGenerator(object):
 
         dispatchItems(self.dispatchClassItemInit, klass.items, parent=klass)
 
-        if klass.hasSubClass:
-            klass.vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
-                                                     len(klass.virtualMethods))
-
         for ic in klass.innerclasses:
             self.initClassItems(ic)
+
+    def initFunctions(self, items, parent=None):
+        for item in items:
+            if type(item) in self.dispatchFunctionInit:
+                func = self.dispatchFunctionInit[type(item)]
+                func(item, parent=parent)
+            else:
+                self.initFunctions(item.items, item)
+                for ic in  getattr(item, 'innerclasses', []):
+                    self.initFunctions(ic.items, ic)
 
     def initMappedType(self, mType):
         mType.pyName = mType.name
@@ -531,7 +552,7 @@ class CffiModuleGenerator(object):
         mType.c2cppPyFunc = '%s_c2cpp' % mType.name
         mType.c2cppFunc = templateClass + 'c2cpp'
 
-    def initFunction(self, func, overload=''):
+    def initFunction(self, func, overload='', parent=None):
         assert not func.ignored
 
         self.getTypeInfo(func)
@@ -554,7 +575,7 @@ class CffiModuleGenerator(object):
         func.briefDoc = func.briefDoc if func.briefDoc is not None else ''
 
         for i, f in enumerate(func.overloads):
-            self.initFunction(f, '_%d' % i)
+            self.initFunction(f, overload='_%d' % i)
 
     def initMethod(self, method, parent, overload=''):
         assert not method.ignored
@@ -649,16 +670,22 @@ class CffiModuleGenerator(object):
     def initDefine(self, define):
         assert not define.ignored
         define.pyName = define.pyName or define.name
+        define.unscopedPyName = self.module.name + '.' + define.pyName
         define.cName = DEFINE_PREFIX + define.name
 
     def initEnum(self, enum, parent=None):
         assert not enum.ignored
-        for val in enum.items:
-            assert not val.ignored
 
         enum.unscopedName = enum.name
+        pyPrefix = self.module.name
         if parent is not None:
             enum.unscopedName = parent.unscopedName + '::' + enum.name
+            pyPrefix = parent.unscopedPyName
+
+        for val in enum.items:
+            assert not val.ignored
+            val.pyName = val.pyName or val.name
+            val.unscopedPyName = pyPrefix + "." + val.pyName
 
         # Prefixes are used for the enum's values
         enum.cPrefix = ENUM_PREFIX + ('' if parent is None
@@ -669,6 +696,7 @@ class CffiModuleGenerator(object):
         assert not var.ignored
         self.getTypeInfo(var)
         var.pyName = var.pyName or var.name
+        var.unscopedPyName = var.pyName
         var.cName = GLOBAL_VAR_PREFIX + var.name
 
     def initMemberVar(self, var, parent):
@@ -687,10 +715,13 @@ class CffiModuleGenerator(object):
 
     def printClassCDefs(self, klass, pyfile):
         if not klass.abstract and len(klass.virtualMethods) > 0:
+            vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
+                                                     len(klass.virtualMethods))
             pyfile.write(nci("""\
-            {0.vtableDef}
+            {1}
             void {0.cName}_set_flag(void *, int);
-            void {0.cName}_set_flags(void *, char*);""".format(klass)))
+            void {0.cName}_set_flags(void *, char*);
+            """.format(klass, vtableDef)))
         if hasattr(klass, 'detectSubclassCode_cffi'):
             print >> pyfile, ("char * cffigetclassname_%s(void *);" %
                               klass.cName)
@@ -782,7 +813,7 @@ class CffiModuleGenerator(object):
                     print >> hfile, "    virtual ~%s();" % klass.cppClassName
                     continue
                 const = ' const' if vmeth.isConst else ''
-                print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppArgs}{1};"
+                print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppDefaultsArgs}{1};"
                                 .format(vmeth, const))
 
         # Signatures for protected methods
@@ -793,12 +824,14 @@ class CffiModuleGenerator(object):
                 continue
             isStatic = 'static ' if pmeth.isStatic else ''
             print >> hfile, ("    {1}{0.type.name} {2}{0.name}"
-                               "{0.cppArgs};").format(pmeth, isStatic,
+                               "{0.cppDefaultsArgs};").format(pmeth, isStatic,
                                                       PROTECTED_PREFIX)
 
         print >> hfile, "};"
 
         if len(klass.virtualMethods) > 0 and not klass.abstract:
+            vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
+                                                     len(klass.virtualMethods))
             cppfile.write(nci("""\
             extern "C" {0}
 
@@ -810,7 +843,7 @@ class CffiModuleGenerator(object):
             extern "C" void {1}_set_flags({2} * self, char * flags)
             {{
                 memcpy(self->vflags, flags, sizeof(self->vflags));
-            }}""".format(klass.vtableDef, klass.cName, klass.cppClassName)))
+            }}""".format(vtableDef, klass.cName, klass.cppClassName)))
 
 
     #------------------------------------------------------------------------#
@@ -876,7 +909,7 @@ class CffiModuleGenerator(object):
             self.printClass(ic, pyfile, cppfile, indent=indent + 4,
                             parent=klass)
 
-        pyfile.write(nci("wrapper_lib.register_cpp_classname('%s', %s)" % 
+        pyfile.write(nci("wrapper_lib.register_cpp_classname('%s', %s)" %
                          (klass.name, klass.pyName), indent))
 
         if hasattr(klass, 'detectSubclassCode_cffi'):
@@ -1317,7 +1350,7 @@ class CffiModuleGenerator(object):
             cName = enum.cPrefix + val.name
             cppName = enum.cppPrefix + val.name
             print >> cppfile, ('extern "C" const int %s = %s;' % (cName, cppName))
-            print >> pyfile, (' ' * indent + '%s = clib.%s' % (val.name, cName))
+            print >> pyfile, (' ' * indent + '%s = clib.%s' % (val.pyName, cName))
 
     def printGlobalVar(self, var, pyfile, cppfile):
         assignVal = var.type.cpp2c(var.name)
@@ -1530,6 +1563,7 @@ class CffiModuleGenerator(object):
             'false': 'False',
             'NULL':  'None',
             'wxString()': '""',
+            'wxEmptyString': '""',
             'wxArrayString()' : '[]',
             'wxArrayInt()' : '[]',
         }
@@ -1546,6 +1580,7 @@ class CffiModuleGenerator(object):
         func.vtdArgs = []
         func.vtdCallArgs = []
         func.cppArgs = []
+        func.cppDefaultsArgs= []
         func.cppCallArgs = []
         func.overloadArgs = []
 
@@ -1583,15 +1618,24 @@ class CffiModuleGenerator(object):
             cppArg = "%s %s" % (param.type.name, param.name)
             cppCallArg = "%s" % param.name
 
+            if param.default != '' and param.default is not None:
+                cppDefaultsArg = "%s %s=%s" % (param.type.name, param.name,
+                                               param.default)
+            else:
+                cppDefaultsArg = cppArg
+
             pyArg = param.name
-            if param.default != '':
-                defineTypedef = self.findItem(param.default)
-                if defineTypedef is None:
-                    pyArg += '=' + defValueMap.get(param.default,
-                                   'wrapper_lib.LD("%s")' % param.default)
+            if not hasattr(param, 'pyDefault'):
+                param.pyDefault = param.default.strip('*&')
+            param.pyDefault = param.pyDefault.replace('::', '.')
+            if param.pyDefault != '':
+                # Check if the value is a define (or maybe a global variable)
+                typedef = self.findItem(param.pyDefault)
+                if typedef is None:
+                    pyArg += '=' + defValueMap.get(param.pyDefault,
+                                   'wrapper_lib.LD("%s")' % param.pyDefault)
                 else:
-                    pyArg += '=wrapper_lib.LD("%s")' % (
-                                defineTypedef.pyName or defineTypedef.name)
+                    pyArg += '=wrapper_lib.LD("%s")' % typedef.unscopedPyName
 
             pyCallArg = param.type.py2cParam(param.name)
             vtdArg = param.name
@@ -1614,6 +1658,7 @@ class CffiModuleGenerator(object):
             func.cCallArgs.append(cCallArg)
             func.cbCallArgs.append(cbCallArg)
             func.cppArgs.append(cppArg)
+            func.cppDefaultsArgs.append(cppDefaultsArg)
             func.cppCallArgs.append(cppCallArg)
             #func.pyArgs.append(pyArg)
             func.pyCallArgs.append(pyCallArg)
@@ -1656,6 +1701,7 @@ class CffiModuleGenerator(object):
         func.pyArgs = '(' + ', '.join(func.pyArgs) + ')'
         func.pyCallArgs = '(' + ', '.join(func.pyCallArgs) + ')'
         func.cppArgs = '(' + ', '.join(func.cppArgs) + ')'
+        func.cppDefaultsArgs = '(' + ', '.join(func.cppDefaultsArgs) + ')'
         func.cppCallArgs = '(' + ', '.join(func.cppCallArgs) + ')'
         func.vtdArgs = '(' + ', '.join(func.vtdArgs) + ')'
         func.vtdCallArgs = '(' + ', '.join(func.vtdCallArgs) + ')'
