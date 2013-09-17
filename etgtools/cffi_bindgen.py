@@ -1492,11 +1492,15 @@ class CffiModuleGenerator(object):
 
     def printPyProperty(self, property, pyfile, indent, parent=None):
         if parent is not None:
-            isinstance(parent, extractors.ClassDef)
+            assert isinstance(parent, extractors.ClassDef)
+            pyName = parent.unscopedPyName.partition('.')[2]
+            gs = "{1}.{0.getter}".format(property, pyName)
+            if property.setter is not None:
+                gs += ", {1}.{0.setter}".format(property, pyName)
+
             pyfile.write(nci(
-            "{1.unscopedPyName}.{0.name} = "
-            "property({1.unscopedPyName}.{0.getter}, "
-            "{1.unscopedPyName}.{0.setter})".format(property, parent)))
+            "{1}.{0.name} = property({2})"
+            .format(property, pyName, gs)))
         else:
             self.printProperty(property, pyfile, None, indent, parent)
 
@@ -1509,13 +1513,14 @@ class CffiModuleGenerator(object):
         if method.deprecated:
             # XXX: this is wxPython specific, maybe it should be more general?
             assignName = "wx.deprecated(" + assignName + ")"
+        pyName = parent.unscopedPyName.partition('.')[2]
 
         print >> pyfile, 'def %s%s:' % (methName, method.argsString)
         self.printDocString(method, pyfile)
         pyfile.write(nci(method.body, 4))
         pyfile.write(nci("""\
-        {0.klass.unscopedPyName}.{0.name} = {1}
-        del {2}""".format(method, assignName, methName)))
+        {3}.{0.name} = {1}
+        del {2}""".format(method, assignName, methName, pyName)))
 
     #------------------------------------------------------------------------#
 
