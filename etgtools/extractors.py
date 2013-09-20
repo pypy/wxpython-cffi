@@ -636,6 +636,7 @@ class ClassDef(BaseDef):
         self.innerclasses = []
         self.isInner = False
 
+        self.pyCode_cffi = None     # Extra code to include inthe class body
         self.privateCopyCtor = False
         self.privateAssignOp = False
         
@@ -1206,12 +1207,14 @@ class CppMethodDef_cffi(CppMethodDef):
     of generated automatically. This allows, among other things, custom
     conversion of arbitrary Python types into arbitrary C++ types.
     """
-    def __init__(self, type, name, argsString, pyArgsString, body='',
-                 pyBody='', *args, **kwargs):
+    def __init__(self, type, name, argsString, pyArgsString, pyArgs=[], body='',
+                 pyBody='', callArgs='()', *args, **kwargs):
         super(CppMethodDef_cffi, self).__init__(type, name, argsString,
                                                 body, *args, **kwargs)
         self.pyBody = pyBody
+        self.pyArgs = pyArgs
         self.pyArgsString = pyArgsString
+        self.callArgs = callArgs
 
 
 #---------------------------------------------------------------------------

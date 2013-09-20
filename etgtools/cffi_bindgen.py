@@ -627,8 +627,10 @@ class CffiModuleGenerator(object):
             method.returnVars = None
 
         for i, m in enumerate(method.overloads):
-            if isinstance(m, extractors.CppMethodDef):
+            if type(m) is  extractors.CppMethodDef:
                 self.initCppMethod(m, parent, '_%d' % i)
+            if type(m) is extractors.CppMethodDef_cffi:
+                self.initCppMethod_cffi(m, parent, '_%d' % i)
             else:
                 self.initMethod(m, parent, '_%d' % i)
 
@@ -657,6 +659,24 @@ class CffiModuleGenerator(object):
         # the needed conversion code
         method.items = []
 
+        isOverload = method.hasOverloads() or overload != ''
+
+
+        method.overloadArgs = []
+        for param in method.pyArgs:
+            typedef = self.findItem(param.type)
+            if typedef is not None:
+                self.getTypeInfo(param)
+                param.type = "'" + param.type.overloadType + "'"
+
+            if not isOverload:
+                overloadArg = '%s, %s, "%s"' % (param.type,
+                                                param.name, param.name)
+            else:
+                overloadArg = param.name + "='" + param.type + "'"
+            method.overloadArgs.append(overloadArg)
+        method.overloadArgs_ = '(' + ', '.join(method.overloadArgs) + ')'
+
         # We may not know how to handle the type, so temporarily replace it
         # with 'void' before getTypeInfo is called
         typeTmp = method.type
@@ -666,6 +686,9 @@ class CffiModuleGenerator(object):
         else:
             self.initMethod(method, parent, overload)
         method.type = typeTmp
+        method.cppArgs = method.argsString
+        method.cppCallArgs = method.callArgs
+        method.overloadArgs = method.overloadArgs_
 
     def initDefine(self, define):
         assert not define.ignored
@@ -738,7 +761,14 @@ class CffiModuleGenerator(object):
         print >> pyfile, "%s %s%s;" % (func.type.cdefType, func.cName,
                                        func.cdefArgs)
         for f in func.overloads:
-            self.printFunctionCDef(f, pyfile)
+            if type(f) is extractors.FunctionDef:
+                self.printFunctionCDef(f, pyfile)
+            elif type(f) is extractors.MethodDef:
+                self.printMethodCDef(f, pyfile)
+            elif type(f) is extractors.CppMethodDef:
+                self.printCppMethodCDef(f, pyfile)
+            elif type(f) is extractors.CppMethodDef_cffi:
+                self.printCppMethodCDef_cffi(f, pyfile)
 
     def printMethodCDef(self, method, pyfile):
         if not method.isPureVirtual:
@@ -750,7 +780,13 @@ class CffiModuleGenerator(object):
     def printCppMethodCDef_cffi(self, method, pyfile):
         print >> pyfile, "%s %s%s;" % (method.type, method.cName,
                                        method.argsString)
-
+        for m in method.overloads:
+            if type(m) is extractors.MethodDef:
+                self.printMethodCDef(m, pyfile)
+            elif type(m) is extractors.CppMethodDef:
+                self.printCppMethodCDef(m, pyfile)
+            elif type(m) is extractors.CppMethodDef_cffi:
+                self.printCppMethodCDef_cffi(m, pyfile)
     def printDefineCDef(self, define, pyfile):
         print >> pyfile, "extern const long long %s;" % define.cName
 
@@ -908,6 +944,9 @@ class CffiModuleGenerator(object):
         for ic in klass.innerclasses:
             self.printClass(ic, pyfile, cppfile, indent=indent + 4,
                             parent=klass)
+
+        if klass.pyCode_cffi is not None:
+            pyfile.write(nci(klass.pyCode_cffi, indent + 4))
 
         pyfile.write(nci("wrapper_lib.register_cpp_classname('%s', %s)" %
                          (klass.name, klass.pyName), indent))
@@ -1262,7 +1301,12 @@ class CffiModuleGenerator(object):
                 "overridden')" % (parent.pyName, method.pyName), indent + 4))
 
         for m in method.overloads:
-            self.printMethod(m, pyfile, cppfile, indent, parent, True)
+            if type(m) is extractors.MethodDef:
+                self.printMethod(m, pyfile, cppfile, indent, parent, True)
+            elif type(m) is extractors.CppMethodDef:
+                self.printCppMethod(m, pyfile, cppfile, indent, parent, True)
+            if type(m) is extractors.CppMethodDef_cffi:
+                self.printCppMethod_cffi(m, pyfile, cppfile, indent, parent, True)
 
     def printOwnershipChanges(self, func, pyfile, indent=0, parent=None):
         owner = ''
@@ -1312,25 +1356,69 @@ class CffiModuleGenerator(object):
         elif func.factory:
             pyfile.write(nci("wrapper_lib.take_ownership(return_tmp)", indent + 4))
 
-    def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
+    def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None,
+                       isOverload=False):
         if parent is None:
-            self.printFunction(func, pyfile, cppfile)
+            self.printFunction(func, pyfile, cppfile, isOverload)
         else:
-            self.printMethod(func, pyfile, cppfile, indent, parent)
+            self.printMethod(func, pyfile, cppfile, indent, parent, isOverload)
 
     def printCppMethod_cffi(self, func, pyfile, cppfile, indent=0,
-                            parent=None):
-        cppfile.write(nci("""
+                            parent=None, isOverload=False):
+        cppfile.write(nci("""\
         extern "C" {0.type} {0.cName}{0.argsString}
         {{""".format(func)))
         cppfile.write(nci(func.body, 4))
         print >> cppfile, '}'
 
+        isOverload = isOverload or func.hasOverloads()
+
+        if func.hasOverloads():
+            isOverload = True
+            mmType = '' if not func.isStatic else 'Static'
+            pyfile.write(nci("""\
+            @wrapper_lib.{1}Multimethod
+            def {0.pyName}():""".format(func, mmType), indent))
+            self.printDocString(func, pyfile, indent)
+            print >> pyfile, ' ' * (indent + 4) + 'pass'
+
+        if isOverload:
+            if not func.deprecated:
+                pyfile.write(nci("""\
+                @{0.pyName}.overload{0.overloadArgs}
+                """.format(func, parent), indent))
+            else:
+                pyfile.write(nci("""\
+                @{0}.deprecated_overload('{1}', {2}
+                """.format(func.pyName, parent.unscopedPyName,
+                           func.overloadArgs[1:]), indent))
+        elif func.deprecated:
+            pyfile.write(nci("@wrapper_lib.deprecated('%s')" % parent.unscopedPyName, indent))
+
+        if func.isStatic and not isOverload:
+            # @staticmethod isn't needed if this is a multifunc because the
+            # StaticMutlifunc decorator takes care of it
+            pyfile.write(nci("@staticmethod", indent))
+
         pyfile.write(nci("def {0.pyName}{0.pyArgsString}:".format(func),
                          indent))
         self.printDocString(func, pyfile, indent)
+
+        if not isOverload:
+            # Do type checking on functions that aren't overloaed inside the
+            # funciton body
+            pyfile.write(nci("wrapper_lib.check_args_types" +
+                             func.overloadArgs, indent + 4))
         pyfile.write(nci("call = clib.%s" % func.cName, indent + 4))
         pyfile.write(nci(func.pyBody, indent + 4))
+
+        for m in func.overloads:
+            if type(m) is extractors.MethodDef:
+                self.printMethod(m, pyfile, cppfile, indent, parent, True)
+            elif type(m) is extractors.CppMethodDef:
+                self.printCppMethod(m, pyfile, cppfile, indent, parent, True)
+            if type(m) is extractors.CppMethodDef_cffi:
+                self.printCppMethod_cffi(m, pyfile, cppfile, indent, parent, True)
 
     def printProperty(self, property, pyfile, cppfile, indent, parent):
         pyfile.write(nci("{0.name} = property({0.getter}, {0.setter})"

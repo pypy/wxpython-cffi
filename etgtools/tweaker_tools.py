@@ -979,6 +979,8 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
     c.addItem(extractors.CppMethodDef_cffi(
         'void *', '_new',
         '(size_t count, void **elements)', '(elements)',
+        pyArgs=[extractors.ParamDef(name='elements', type=ItemClass)],
+        isStatic=True,
         body='return new %s(count, (%s **)elements);' % (ListClass, ItemClass),
         pyBody="""\
         wrapper_lib.check_args_types(
