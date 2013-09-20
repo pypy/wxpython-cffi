@@ -25,8 +25,8 @@ def run():
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxClientData', cType='void*',
         py2c="""\
-            handle = wrapper_lib.get_refcounted_handle(py_obj)
-            return (clib.new_wxPyClientData(handle), None)
+            with wrapper_lib.get_refcounted_handle(py_obj) as handle:
+                return (clib.new_wxPyClientData(handle), None)
         """,
         c2cpp="return (wxPyClientData*)cdata;",
         cpp2c="return ((wxPyClientData*)cpp_obj)->get_handle();",

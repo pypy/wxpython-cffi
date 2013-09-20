@@ -80,6 +80,12 @@ public:
         wrapper_lib_adjust_refcount(handle, 1);
     }
 
+    cffiRefCountedPyObjBase(const cffiRefCountedPyObjBase &other)
+      : m_handle(other.m_handle)
+    {
+        wrapper_lib_adjust_refcount(other.m_handle, 1);
+    }
+
     ~cffiRefCountedPyObjBase()
     {
         wrapper_lib_adjust_refcount(m_handle, -1);
