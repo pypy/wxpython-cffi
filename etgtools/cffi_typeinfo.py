@@ -485,11 +485,11 @@ class BasicTypeInfo(TypeInfo):
         super(BasicTypeInfo, self).__init__(typeName, typedef, **kwargs)
         if self.array:
             raise TypeError('use of the Array annotation is unsupported on '
-                            "'%'parameters" % typeName)
+                            "'%s' parameters" % typeName)
 
         if self.pyInt and 'char' not in self.name:
             raise TypeError('use of the PyInt annotation is unsupported on '
-                            "'%'parameters" % typeName)
+                            "'%s' parameters" % typeName)
 
         if self.isPtr:
             self.name += '*'

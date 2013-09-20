@@ -3,7 +3,7 @@ import os
 import sys
 import glob
 import types
-import pickle
+import cPickle as pickle
 import cStringIO
 
 import etgtools.extractors as extractors
@@ -519,6 +519,9 @@ class CffiModuleGenerator(object):
 
         klass.keepReferenceIndex = -2
 
+        sortKey = (lambda item: 0 if isinstance(item, extractors.PropertyDef)
+                                   else -1)
+        klass.items.sort(key=sortKey)
         dispatchItems(self.dispatchClassItemInit, klass.items, parent=klass)
 
         for ic in klass.innerclasses:
@@ -890,7 +893,7 @@ class CffiModuleGenerator(object):
 
         if klass.abstract:
             pyfile.write(nci("@wrapper_lib.abstract_class", indent))
-        elif any([b.abstract for b in baseClassDefs]):
+        elif any([b.abstract or b.pureVirtualAbstract for b in baseClassDefs]):
             pyfile.write(nci("@wrapper_lib.concrete_subclass", indent))
         elif klass.pureVirtualAbstract:
             pyfile.write(nci("@wrapper_lib.purevirtual_abstract_class", indent))
@@ -912,6 +915,16 @@ class CffiModuleGenerator(object):
 
             def _set_vflags(self, flags):
                 clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
+            """.format(klass.cName), indent + 4))
+        else:
+            # Temporary hack to prevent things from crashing
+            pyfile.write(nci("""\
+            _vtable = []
+            def _set_vflag(self, i):
+                pass
+
+            def _set_vflags(self, flags):
+                pass
             """.format(klass.cName), indent + 4))
 
         if hasattr(klass, 'detectSubclassCode_cffi'):
@@ -1538,7 +1551,7 @@ class CffiModuleGenerator(object):
             @classmethod
             def py2c(cls, py_obj):
                 if py_obj is None:
-                    return ffi.NULL
+                    return (ffi.NULL, None)
 {3}
         """.format(mType, checkCode, c2pyCode, py2cCode)))
 
