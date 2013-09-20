@@ -1083,58 +1083,52 @@ def wxArrayWrapperTemplate(ArrayClass, ItemClass, module):
     # *** TODO: This can probably be done in a way that is not SIP-specfic.
     # Try creating extractor objects from scratch and attach cppMethods to
     # them as needed, etc..
-        
-    return extractors.WigCode('''\
-class {ArrayClass} 
-{{
-public:
-    SIP_SSIZE_T __len__();
-    %MethodCode
-        sipRes = sipCpp->GetCount();
-    %End
 
-    {ItemClass}& __getitem__(size_t index);
-    %MethodCode
-        if (index < sipCpp->GetCount()) {{
-            sipRes = &sipCpp->Item(index);
-        }}
-        else {{
+    c = extractors.ClassDef(name=ArrayClass)
+    c.addMethod(
+        'SIP_SSIZE_T', '__len__', '()',
+        cppCode=('return self->GetCount();', 'function'))
+    c.addMethod(
+        ItemClass + '*', '__getitem__', '(size_t index)',
+        items=[extractors.ParamDef(type='size_t', name='index')],
+        cppCode=("""\
+        if(index < self->GetCount())
+            return &self->Item(index);
+        else
+        {
             wxPyErr_SetString(PyExc_IndexError, "sequence index out of range");
-            sipError = sipErrorFail;
-        }}
-    %End
+            return NULL;
+        }""", 'function'))
+    c.addMethod(
+        'int', '__contains__', '(const %s& obj)' % ItemClass,
+        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
+        cppCode=("""\
+        return (self->Index(*obj, false) != wxNOT_FOUND);
+        """, 'function'))
+    c.addMethod(
+        'void', 'append', '(const %s& obj)' % ItemClass,
+        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
+        cppCode=("self->Add(*obj);", 'function'))
 
-    int __contains__(const {ItemClass}& obj);
-    %MethodCode
-        int idx = sipCpp->Index(*obj, false);
-        sipRes = idx != wxNOT_FOUND;
-    %End
-
-    void append(const {ItemClass}& obj);
-    %MethodCode
-        sipCpp->Add(*obj);
-    %End
-
-    // TODO:  add support for index(value, [start, [stop]])
-    int index(const {ItemClass}& obj);
-    %MethodCode
-        int idx = sipCpp->Index(*obj, false);
-        if (idx == wxNOT_FOUND) {{
-            sipError = sipErrorFail;
+    # TODO:  add support for index(value, [start, [stop]])
+    c.addMethod(
+        'int', 'index', '(const %s& obj)' % ItemClass,
+        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
+        cppCode=("""\
+        int idx = self->Index(*obj, false);
+        if(idx == wxNOT_FOUND)
+        {
             wxPyErr_SetString(PyExc_ValueError,
                               "sequence.index(x): x not in sequence");
-            }}
-        sipRes = idx;
-    %End
-}};
+            return -1;
+        }
+        return idx;
+        """, 'function'))
+    c.addPyMethod(
+        '__repr__', '(self)',
+        body='return "%s: " + repr(list(self))' % ArrayClass_pyName)
 
-%Extract(id=pycode{moduleName})
-def _{ArrayClass_pyName}___repr__(self):
-    return "{ArrayClass_pyName}: " + repr(list(self))
-{ArrayClass_pyName}.__repr__ = _{ArrayClass_pyName}___repr__
-del _{ArrayClass_pyName}___repr__
-%End
-'''.format(**locals()))
+    module.addItem(c)
 
 
 

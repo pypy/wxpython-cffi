@@ -17,6 +17,9 @@
 #define PyExc_RuntimeError "RuntimeError"
 #define PyExc_StopIteration "StopIteration"
 #define PyExc_IndexError "IndexError"
+#define PyExc_SystemExit "SystemExit"
+#define PyExc_SystemError "SystemError"
+#define wxAssertionError "wxAssertionError"
 
 typedef void* wxPyThreadBlocker;
 

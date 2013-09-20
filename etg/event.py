@@ -70,6 +70,9 @@ ITEMS  = [
 
 OTHERDEPS = [ 'src/event_ex.py',  
               'src/event_ex.cpp', 
+              'src/cffi/event_ex.cpp', 
+               'etg/sip/event.py',
+               'etg/cffi/event.py',
               ]
 
 #---------------------------------------------------------------------------

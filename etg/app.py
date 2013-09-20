@@ -25,6 +25,8 @@ ITEMS  = [ 'wxAppConsole',
 
 OTHERDEPS = [ 'src/app_ex.cpp',   # and some C++ code too
               'src/cffi/app_ex.cpp',
+              'etg/sip/app.py',
+              'etg/cffi/app.py',
               ]
 
 #---------------------------------------------------------------------------
@@ -85,7 +87,6 @@ def run():
     # platforms, and other goodies, then change the name so SIP will
     # generate code wrapping this class as if it was the wxApp class seen in
     # the DoxyXML. 
-    c.includeCppCode('src/app_ex.cpp')
     
     # Now change the class name, ctors and dtor names from wxApp to wxPyApp
     for item in c.allItems():  
@@ -146,25 +147,49 @@ def run():
     #
     # TODO: Add them as etg method objects instead of a WigCode block so the
     # documentation generators will see them too
-    c.addItem(etgtools.WigCode("""\
-        virtual int  MainLoop() /ReleaseGIL/;
-        virtual void OnPreInit();
-        virtual bool OnInit();
-        virtual bool OnInitGui();
-        virtual int  OnRun();
-        virtual int  OnExit();
-        
-        void         _BootstrapApp();
+    #c.addItem(etgtools.WigCode("""\
+    #    virtual int  MainLoop() /ReleaseGIL/;
+    #    virtual void OnPreInit();
+    #    virtual bool OnInit();
+    #    virtual bool OnInitGui();
+    #    virtual int  OnRun();
+    #    virtual int  OnExit();
 
-        static long GetMacAboutMenuItemId();
-        static long GetMacPreferencesMenuItemId();
-        static long GetMacExitMenuItemId();
-        static wxString GetMacHelpMenuTitleName();
-        static void SetMacAboutMenuItemId(long val);
-        static void SetMacPreferencesMenuItemId(long val);
-        static void SetMacExitMenuItemId(long val);
-        static void SetMacHelpMenuTitleName(const wxString& val);
-        """))
+    #    void         _BootstrapApp();
+
+    #    static long GetMacAboutMenuItemId();
+    #    static long GetMacPreferencesMenuItemId();
+    #    static long GetMacExitMenuItemId();
+    #    static wxString GetMacHelpMenuTitleName();
+    #    static void SetMacAboutMenuItemId(long val);
+    #    static void SetMacPreferencesMenuItemId(long val);
+    #    static void SetMacExitMenuItemId(long val);
+    #    static void SetMacHelpMenuTitleName(const wxString& val);
+    #    """))
+
+    c.addMethod('int', 'MainLoop', '()', releaseGIL=True, isVirtual=True)
+    c.addMethod('void', 'OnPreInit', '()', isVirtual=True)
+    c.addMethod('bool', 'OnInit', '()', isVirtual=True)
+    c.addMethod('bool', 'OnInitGui', '()', isVirtual=True)
+    c.addMethod('int', 'OnRun', '()', isVirtual=True)
+    c.addMethod('int', 'OnExit', '()', isVirtual=True)
+
+    c.addMethod('void', '_BootstrapApp', '()')
+
+    c.addMethod('long', 'GetMacAboutMenuItemId', '()', isStatic=True)
+    c.addMethod('long', 'GetMacPreferencesMenuItemId', '()', isStatic=True)
+    c.addMethod('long', 'GetMacExitMenuItemId', '()', isStatic=True)
+    c.addMethod('wxString', 'GetMacHelpMenuTitleName', '()', isStatic=True)
+    c.addMethod('void', 'SetMacAboutMenuItemId', '(long val)', isStatic=True,
+                items=[etgtools.ParamDef(type='long', name='val')])
+    c.addMethod('void', 'SetMacPreferencesMenuItemId', '(long val)',
+                isStatic=True,
+                items=[etgtools.ParamDef(type='long', name='val')])
+    c.addMethod('void', 'SetMacExitMenuItemId', '(long val)', isStatic=True,
+                items=[etgtools.ParamDef(type='long', name='val')])
+    c.addMethod('void', 'SetMacHelpMenuTitleName', '(const wxString& val)',
+                isStatic=True,
+                items=[etgtools.ParamDef(type='const wxString&', name='val')])
 
 
     # Add these methods by creating extractor objects so they can be tweaked
@@ -189,7 +214,7 @@ def run():
         """,
         className=c.name)
     
-    m.addItem(etgtools.ParamDef(type='wxAppAssertMode', name='wxAppAssertMode'))
+    m.addItem(etgtools.ParamDef(type='wxAppAssertMode', name='mode'))
     c.addItem(m)
 
     c.addItem(etgtools.MethodDef(

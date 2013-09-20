@@ -27,7 +27,9 @@ def run(module):
     module.addPyCode("""\
         class wxAssertionError(Exception):
             pass
+        wrapper_lib.register_exception(wxAssertionError)
         class PyAssertionError(wxAssertionError):
             pass
+        wrapper_lib.register_exception(PyAssertionError)
         PlatformInfo = tuple(PlatformInfo.strip(', ').split(', '))
         """)

@@ -3,6 +3,18 @@ import etgtools
 def run(module):
     c = module.find('wxColour')
 
+    '''
+    m = c.find('wxColour')
+    for o in m.overloads:
+        if 'wxString' in o.argsString:
+            o.ignored = False
+            break
+    m.renameOverload('wxString', '_fromString')
+    '''
+    c.addCppMethod(
+        'wxColour*', '_fromString', '(const wxString* name)', isStatic=True,
+        factory=True, body="return new wxColour(*name);")
+
     # Add a wxBLACK manually so that it works in funciton paramter defaults
     module.addCppCode('wxColour *wxPyBLACK = new wxColour;')
     module.addItem(etgtools.GlobalVarDef(

@@ -67,6 +67,8 @@ def run(module):
                                         &wxPyCallback::EventThunker);
             }
         """)
+
+    #-----------------------------------------------------------------
     c = module.find('wxDropFilesEvent')
 
     # wxDropFilesEvent assumes that the C array of wxString objects will

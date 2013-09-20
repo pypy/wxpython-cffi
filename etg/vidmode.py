@@ -31,13 +31,13 @@ def run():
     # customizing the generated code and docstrings.
 
     c = module.find('wxVideoMode')
+    c.addHeaderCode('#include <wx/display.h>')
     
     c.addCppMethod('int', '__nonzero__', '()', """\
         return self->IsOk();
         """)
 
-    module.addItem(tools.wxArrayWrapperTemplate(
-        'wxArrayVideoModes', 'wxVideoMode', module))
+    tools.wxArrayWrapperTemplate('wxArrayVideoModes', 'wxVideoMode', module)
     
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
