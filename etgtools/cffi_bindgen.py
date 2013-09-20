@@ -829,7 +829,8 @@ class CffiModuleGenerator(object):
 
         if not klass.abstract:
             #ctors = [m for m in klass if getattr(m, 'isCtor', False)][0].all()
-            ctors = klass.findItem(klass.name).all()
+            ctor = klass.findItem(klass.name)
+            ctors = ctor.all() if ctor is not None else []
             # Signatures all Ctors
             for ctor in ctors:
                 hfile.write(nci("""\
@@ -1144,7 +1145,11 @@ class CffiModuleGenerator(object):
                 {0.retStmt}{3}{0.name}{0.cppCallArgs};
             }}""".format(method, parent, callName, callClass)))
 
-            call = "self->" + callName + method.cCallArgs
+            # We need to cast self to the subclass type to call the wrapper 
+            # method. It should be cast back implicitly when the protected
+            # method iteself is invoked.
+            call = "((%s*)self)->" % parent.cppClassName
+            call += callName + method.cCallArgs
             if method.isStatic:
                 call = ("{1.cppClassName}::{2}{0.cCallArgs}"
                         .format(method, parent, callName))
@@ -1155,6 +1160,11 @@ class CffiModuleGenerator(object):
             call = "new " + parent.cppClassName +  method.cCallArgs
         elif method.isDtor:
             call = 'delete self'
+            if method.protection == 'protected':
+                # We can't delete an object with a protected Dtor. Unlike
+                # the regular protected methods, it is never safe to try to
+                # call the Dtor via a subclass pointer.
+                call = ''
         elif method.name.startswith('operator'):
             deref = '*' if not method.type.isPtr else ''
             # Uniary operators
@@ -1178,7 +1188,7 @@ class CffiModuleGenerator(object):
         self.printExternCWrapper(method, call, cppfile)
 
         # Write Python implementation
-        if method.isVirtual and not parent.abstract:
+        if method.isVirtual and not parent.abstract and not method.isDtor:
             pyfile.write(nci("""\
             @wrapper_lib.VirtualDispatcher({0.virtualIndex})
             @ffi.callback('{0.type.cdefReturnType}(*){0.cdefCbArgs}')
@@ -1680,9 +1690,9 @@ class CffiModuleGenerator(object):
             func.pyArgs.append('self')
             if not func.isCtor:
                 func.pyCallArgs.append('wrapper_lib.get_ptr(self)')
-                func.cArgs.append('%s *self' % parent.cppClassName)
+                func.cArgs.append('%s *self' % parent.unscopedName)
                 func.cdefArgs.append('void *self')
-                func.cCbArgs.append('const %s *self' % parent.cppClassName)
+                func.cCbArgs.append('const %s *self' % parent.unscopedName)
                 func.cdefCbArgs.append('void *self')
                 func.cbCallArgs.append('this')
                 func.vtdArgs.append('self')
@@ -1765,7 +1775,7 @@ class CffiModuleGenerator(object):
             # We're generating a wrapper function that needs a `self` pointer
             # in its args string if this function has custom C++ code or is
             # protected and not static
-            func.wrapperArgs = ([parent.cppClassName + " *self"] +
+            func.wrapperArgs = ([parent.unscopedName + " *self"] +
                                 func.cppArgs)
             func.wrapperCallArgs = ['self'] + func.cCallArgs
         else:
