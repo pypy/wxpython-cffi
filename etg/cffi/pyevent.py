@@ -27,6 +27,11 @@ def setupPyEvent(cls):
     cls.addItem(CppMethodDef_cffi(
         'void', '__getattr__', '()', '(self, attr)', body="",
         pyBody="""\
+        if attr == '_dict':
+            # The only way __getattr__ can be called for '_dict' is if an
+            # attribute that doesn't exist is being looked up before _dict is
+            # set.
+            raise KeyError
         try:
             return self._dict[attr]
         except KeyError:
@@ -35,13 +40,20 @@ def setupPyEvent(cls):
 
     cls.addItem(CppMethodDef_cffi(
         'void', '__delattr__', '()', '(self, attr)', body="",
-        pyBody="del self._dict[attr]"))
+        pyBody="""\
+        if not attr in _dict:
+            raise AttributeError(attr)
+        del self._dict[attr]
+        """))
 
     cls.addItem(CppMethodDef_cffi(
         'void', '__setattr__', '()', '(self, attr, value)', body="",
         pyBody="""\
         # Until the custom dict is set, store attributes directly on the object
-        if not hasattr(self, '_dict'):
+        # Additionally, if the attribute is already stored on the object, store
+        # the new value on the object too.
+        if not hasattr(self, '_dict') or (hasattr(self, attr) and
+                                          attr not in self._dict) :
             super(%s, self).__setattr__(attr, value)
         else:
             self._dict[attr] = value
@@ -58,7 +70,18 @@ def setupPyEvent(cls):
         pyBody="""\
         return ffi.from_handle(call(wrapper_lib.get_ptr(self)))
         """))
-    
+
+    # Retrieve the attribute dictionary so that attributes will persist even
+    # after an event has been copied by C++
+    cls.pyCode_cffi = """\
+    @classmethod
+    def _from_ptr(cls, ptr, py_owned=False, external_ref=False):
+        obj = cls.__new__(cls, _override_abstract_class=True)
+        CppWrapper.__init__(obj, ptr, py_owned, False, external_ref)
+        obj._dict = obj._getAttrDict()
+
+        return obj
+    """
 
 def run(module):
     cls = ClassDef(name='wxPyEvent', bases=['wxEvent'], 
