@@ -1063,7 +1063,7 @@ class CffiModuleGenerator(object):
             {{
             """
             .format(method, parent, funcPtrName, sig)))
-            if not method.isPureVirtual:
+            if not method.isPureVirtual and not method.isDtor:
                 # Pure virtual methods don't have an original implementation to
                 # call, so only checking the flag if this isn't pure virtual
                 cppfile.write(nci("""\
@@ -1117,7 +1117,7 @@ class CffiModuleGenerator(object):
                     return return_instance;
                     """.format(method.type.name), 8))
 
-            if not method.isPureVirtual:
+            if not method.isPureVirtual and not method.isDtor:
                 cppfile.write(nci("""\
                     }}
                     else
@@ -1240,10 +1240,12 @@ class CffiModuleGenerator(object):
                         'clib.%s%s(return_ptr, wrapper_lib.get_ptr(%s))' %
                         (ASSIGN_PREFIX, method.type.typedef.name, varName),
                         indent + 4))
-
             pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" %
-                                     method.virtualIndex,
-                                     indent))
+                             method.virtualIndex, indent))
+        if method.isVirtual and not parent.abstract and method.isDtor:
+            pyfile.write(nci("""\
+            _virtual__{0} = wrapper_lib.VirtualDispatcher({0})(None)
+            """.format(method.virtualIndex), indent))
 
         if method.hasOverloads():
             isOverload = True
@@ -1294,6 +1296,11 @@ class CffiModuleGenerator(object):
                 """ % call, indent + 4))
                 self.printOwnershipChanges(method, pyfile, indent, parent)
                 pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 4))
+            elif method.isDtor:
+                pyfile.write(nci("""\
+                if self._py_owned:
+                    %s
+                """ % call, indent + 4))
             elif method.returnVars is None:
                 pyfile.write(nci(call, indent + 4))
                 self.printOwnershipChanges(method, pyfile, indent, parent)
