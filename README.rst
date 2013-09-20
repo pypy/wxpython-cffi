@@ -5,10 +5,17 @@ The fork is not finished yet, so YMMV.
 
 To get started:
 
-1.  Run the etg scripts: ``./build.py build.py etg --generator=cffi --nodoc``
+1.  Clone the repository, also download sources for wxWidgets. You may need to
+    tell build.py where this is, do ``export WXWIN=../wxWidgets-2.9.5``
+    Also, install doxygen. CD into the toplevel wxPython directory, where the 
+    build.py script lives.
+2.  Since the etg scripts need the wxWidget documentation, make sure
+    ``./build.py dox`` completes cleanly. See the following documentation or
+    wxPython mailing lists if this does not work for you.
+3.  Run the etg scripts: ``./build.py etg --generator=cffi --nodoc``
     (``--nodoc`` may not be necessary for you, but I never got the sphinx generator
     to work, even on a clean upstream copy)
-2.  Run the generator: ``./build.py cffi_gen``
+4.  Run the generator: ``./build.py cffi_gen``
 
 The bindings are outputted to cffi/wx, so you need to use
 ``PYTHONPATH=./cffi python`` (assuming cwd is root of your checkout) to try
