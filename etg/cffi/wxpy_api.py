@@ -15,6 +15,8 @@ def run():
     module = etgtools.ModuleDef(PACKAGE, MODULE, NAME, DOCSTRING)
 
     module.addHeaderCode('#include "cffi/wxpy_api.h"')
+    module.addItem(etgtools.TypedefDef(name='Py_ssize_t', type='ssize_t'))
+    module.addItem(etgtools.TypedefDef(name='SIP_SSIZE_T', type='ssize_t'))
 
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

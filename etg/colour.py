@@ -18,6 +18,8 @@ DOCSTRING = ""
 # The classes and/or the basename of the Doxygen XML files to be processed by
 # this script. 
 ITEMS  = [ 'wxColour' ]    
+
+OTHERDEPS = [ 'etg/cffi/colour.py' ]
     
 #---------------------------------------------------------------------------
 
@@ -289,11 +291,11 @@ def run():
                 alpha = int(py_obj[pos + 1:], 16)
             except ValueError:
                 alpha = 255
-            c = Colour(py_obj[:pos])
+            c = Colour._fromString(py_obj[:pos])
             c.Set(c.Red(), c.Green(), c.Blue(), alpha)
             return c
         else:
-            return Colour(py_obj)
+            return Colour._fromString(py_obj)
 
     if len(py_obj) == 3:
         return Colour(py_obj[0], py_obj[1], py_obj[2])

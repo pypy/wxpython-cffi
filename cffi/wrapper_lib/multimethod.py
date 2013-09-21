@@ -75,7 +75,7 @@ class Multimethod(object):
         return self
 
     def _get_partial(self, instance, owner):
-        return MultimethodPartial(self._resolve_overload, instance)
+        return MultimethodPartial(self, instance)
 
     def __get__(self, instance, owner):
         return self._get(instance, owner)
@@ -87,12 +87,15 @@ class StaticMultimethod(Multimethod):
 
 class ClassMultimethod(Multimethod):
     def _get_partial(self, instance, owner):
-        return MultimethodPartial(self._resolve_overload, owner)
+        return MultimethodPartial(self, owner)
 
 class MultimethodPartial(object):
-    def __init__(self, resolve, instance):
-        self.resolve = resolve
+    def __init__(self, mm, instance):
+        self.resolve = mm._resolve_overload
         self.instance = instance
+
+        self.__name__ = getattr(mm, '__name__', '')
+        self.__doc__ = getattr(mm, '__doc__', '')
 
     def __call__(self, *args, **kwargs):
         if self.instance is None:

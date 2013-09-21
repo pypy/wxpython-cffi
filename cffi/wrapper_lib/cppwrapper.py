@@ -1,16 +1,9 @@
-import cffi
 import weakref
 import collections
 
+from _ffi import ffi, clib
 from multimethod import Multimethod
 
-ffi = cffi.FFI()
-ffi.cdef("""
-void free(void*);
-""")
-clib = ffi.verify("""
-#include <stdlib.h>
-""")
 
 class WrapperType(type):
     """
@@ -26,6 +19,7 @@ class WrapperType(type):
             # to populate the vtable with the dispatcher callbacks
             self._vdata = VData(ffi, self._vtable, self._set_vflag,
                                 self._set_vflags, True)
+
             for name, attr in attrs.iteritems():
                 if isinstance(attr, VirtualDispatcher):
                     self._vtable[attr.index] = ffi.cast('void*', attr.func)
@@ -56,6 +50,13 @@ class WrapperType(type):
         # for the virtual override flags for instances of this subclass.
         self._vdata = VData(ffi, self._vdata.vtable, self._vdata.set_vflag,
                             self._vdata.set_vflags, False)
+
+        # Automatically set the default vflag for the classes Dtor, if it has
+        # a virtual Dtor
+        for dispatcher in base_wrapper._vdata.dispatchers:
+            if dispatcher.func is global_dtor:
+                self._vdata.default_vflags[dispatcher.index] = 1
+                break
 
         # Note this loop will only catch VirtualMethods declared directly on
         # base_wrapper. We don't actually want any declared on base_wrapper's
@@ -155,6 +156,8 @@ class VirtualDispatcher(object):
         self.index = index
 
     def __call__(self, func):
+        if func is None:
+            func = global_dtor
         self.func = func
         return self
 
@@ -186,45 +189,24 @@ class CppWrapper(object):
 
     @classmethod
     def _from_ptr(cls, ptr, py_owned=False, external_ref=False):
-        obj = cls.__new__(cls)
+        obj = CppWrapper.__new__(cls, _override_abstract_class=True)
         CppWrapper.__init__(obj, ptr, py_owned, False, external_ref)
         return obj
 
-def abstract_class(base_class):
-    @staticmethod
-    def __new__(cls, _override_abstract_class=False, *args, **kwargs):
-        if _override_abstract_class:
-            return super(base_class, cls).__new__(cls, *args, **kwargs)
-        raise TypeError('%s cannot be instantiated or sub-classed' %
-                        base_class.__name__)
-    base_class.__new__ = __new__
-    return base_class
-
-def concrete_subclass(base_class):
-    @staticmethod
-    def __new__(cls, *args, **kwargs):
-        return super(base_class, cls).__new__(
-            cls, *args, _override_abstract_class=True, **kwargs)
-    base_class.__new__ = __new__
-    return base_class
-
-def purevirtual_abstract_class(base_class):
-    @staticmethod
-    def __new__(cls, *args, **kwargs):
-        if cls is base_class:
-            raise TypeError("%s represents a C++ abstract class and cannot be "
-                            "instantiated" % base_class.__name__)
-        return super(base_class, cls).__new__(cls, *args, **kwargs)
-    base_class.__new__ = __new__
-    return base_class
 
 
-
+@ffi.callback('void(*)(void*)')
 def global_dtor(ptr):
+    # TODO: set the wrapper object's ptr to NULL and add checks to prevent
+    #       calls to objects that have been deleted.
     if not ptr in object_map:
         #TODO: raise an exception? This is called via a cffi callback, so the
         #      exception wouldn't propagate to regular python code
         return
+    else:
+        # Clear the wrapper object's pointer so it we don't try calling methods
+        # on a deleted object.
+        object_map[ptr]._cpp_obj = ffi.NULL
 
     forget_ptr(ptr)
 

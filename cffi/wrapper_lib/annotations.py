@@ -1,5 +1,8 @@
-from cppwrapper import CppWrapper, MappedBase, ffi, get_ptr, obj_from_ptr
 import collections
+
+from _ffi import ffi
+from cppwrapper import CppWrapper, MappedBase, get_ptr, obj_from_ptr
+
 
 #----------------------------------------------------------------------------#
 # Array
@@ -9,8 +12,12 @@ class SeqType(type):
         if not isinstance(seq, collections.Sequence):
             return False
 
+        if hasattr(self._cls, '_pyobject_mapping_'):
+            type = (self._cls, self._cls._pyobject_mapping)
+        else:
+            type = self._cls
         for obj in seq:
-            if not isinstance(obj, self._cls):
+            if not isinstance(obj, type):
                 return False
         return True
 
@@ -21,10 +28,16 @@ class CppWrapperSeq(object):
     def py2c(self, seq):
         seq_len = len(seq)
         array = ffi.new('void*[]', seq_len)
+        keepalive = []
         for i in range(seq_len):
-            array[i] = get_ptr(seq[i])
+            if isinstance(seq[i], self._cls):
+                array[i] = get_ptr(seq[i])
+            else:
+                obj = self._cls._pyobject_mapping_.convert(seq[i])
+                keepalive.append(obj)
+                array[i] = get_ptr(obj)
 
-        return array, seq_len, array
+        return array, seq_len, (array, keepalive)
 
     @classmethod
     def c2py(self, array, len):

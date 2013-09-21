@@ -3,7 +3,7 @@ import os
 import sys
 import glob
 import types
-import pickle
+import cPickle as pickle
 import cStringIO
 
 import etgtools.extractors as extractors
@@ -24,6 +24,7 @@ SUBCLASS_PREFIX = "cfficlass_"
 PROTECTED_PREFIX = "unprotected_"
 FUNC_PREFIX = "cffifunc_"
 METHOD_PREFIX = "cffimeth_"
+ASSIGN_PREFIX = "cffiassign_"
 DEFINE_PREFIX = "cffidefine_"
 MEMBER_VAR_PREFIX = "cffimvar_"
 GLOBAL_VAR_PREFIX = "cffigvar_"
@@ -69,19 +70,17 @@ class CffiModuleGenerator(object):
         TypeInfo.clearCache()
 
         self.dispatchInit = {
-            extractors.FunctionDef          : self.initFunction,
-            extractors.CppMethodDef         : self.initCppMethod,
-            extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
             extractors.GlobalVarDef         : self.initGlobalVar,
-            #extractors.EnumDef              : self.initEnum,
             extractors.DefineDef            : self.initDefine,
         }
         self.dispatchClassItemInit = {
             extractors.MemberVarDef         : self.initMemberVar,
+        }
+        self.dispatchFunctionInit = {
+            extractors.FunctionDef          : self.initFunction,
             extractors.MethodDef            : self.initMethod,
             extractors.CppMethodDef         : self.initCppMethod,
             extractors.CppMethodDef_cffi    : self.initCppMethod_cffi,
-            #extractors.EnumDef              : self.initEnum,
         }
         self.dispatchCDefs = {
             extractors.FunctionDef          : self.printFunctionCDef,
@@ -176,6 +175,8 @@ class CffiModuleGenerator(object):
         for klass in self.classes:
             self.initClassItems(klass)
         dispatchItems(self.dispatchInit, self.globalItems)
+
+        self.initFunctions(self.module.items)
 
         # Re-add enums to global items. They only needed to be inited early
         self.globalItems.extend(self.enums)
@@ -281,10 +282,10 @@ class CffiModuleGenerator(object):
             self.printClassFinalization(klass, pyfile)
         dispatchItems(self.dispatchFinalize, self.globalItems, pyfile)
 
-        # Print Py*Defs
-        for klass in self.classes:
-            self.printClassPyDefs(klass, pyfile)
+        # Print Py*Defs (globals first)
         dispatchItems(self.dispatchPrintPyDefs, self.pyItems, userPyfile, 0)
+        for klass in self.classes:
+            self.printClassPyDefs(klass, userPyfile)
 
         print >> hfile, "#endif"
 
@@ -377,8 +378,12 @@ class CffiModuleGenerator(object):
         klass.cppClassName = (klass.unscopedName if not klass.hasSubClass
                                           else SUBCLASS_PREFIX + klass.cName)
 
+        self.checkBaseClassPrivateAssignAndCtor(klass)
+
         if klass.abstract:
             klass.items = [i for i in klass if not getattr(i, 'isCtor', False)]
+
+        subclasses = self.getAllSubclasses(klass)
 
         # Typenames of nested classes used in this class don't have to use the
         # type's full name. This messes up the type lookup, so replace short
@@ -396,7 +401,8 @@ class CffiModuleGenerator(object):
             replace = r'\1' + innerclass.unscopedName
             pattern = re.compile(r'( |^)%s' % innerclass.name)
             self.unscopeTypeNames(pattern, replace,
-                                  klass.items + klass.innerclasses)
+                                  klass.items + klass.innerclasses +
+                                  subclasses)
 
             self.initClass(innerclass)
 
@@ -409,16 +415,34 @@ class CffiModuleGenerator(object):
 
             replace = r'\1' + enum.unscopedName
             pattern = re.compile(r'( |^)%s' % enum.name)
-            self.unscopeTypeNames(pattern, replace, klass.items)
+            self.unscopeTypeNames(pattern, replace,
+                                  klass.items + klass.innerclasses +
+                                  subclasses)
 
             for val in enum:
                 self.unscopeDefaults(
-                    val.name, klass.unscopedPyName + '.' + val.name,
-                    klass.items + klass.innerclasses)
+                    val.name, val.unscopedPyName,
+                    klass.items + klass.innerclasses + subclasses)
 
         ctor = klass.findItem(klass.name)
         klass.hasDefaultCtor = (ctor is None or
                                 any(len(m.items) == 0 for m in ctor.all()))
+
+    def checkBaseClassPrivateAssignAndCtor(self, klass):
+        for base in klass.bases:
+            a, c = self.checkBaseClassPrivateAssignAndCtor(self.findItem(base))
+            klass.privateAssignOp = klass.privateAssignOp or a
+            klass.privateCopyCtor = klass.privateCopyCtor or c
+        return klass.privateAssignOp, klass.privateCopyCtor
+
+    def getAllSubclasses(self, klass):
+        subclasses = []
+        for cls in self.classes:
+            if klass.name in cls.bases:
+                subclasses.append(cls)
+                subclasses.extend(self.getAllSubclasses(cls))
+        return subclasses
+
 
     def unscopeTypeNames(self, pattern, replace, items):
         for item in items:
@@ -435,7 +459,7 @@ class CffiModuleGenerator(object):
     def unscopeDefaults(self, name, unscopedName, items):
         for item in items:
             if getattr(item, 'default', None) == name:
-                item.default = unscopedName
+                item.pyDefault = unscopedName
 
             if hasattr(item, 'items'):
                 self.unscopeDefaults(name, unscopedName, item.items)
@@ -447,16 +471,17 @@ class CffiModuleGenerator(object):
 
     def initClassItems(self, klass):
         ctor = klass.findItem(klass.name)
-        if ctor is None and not klass.abstract:
+        if ctor is None and not klass.abstract and not klass.privateCopyCtor:
             assert klass.hasDefaultCtor
             # If the class doesn't have a ctor specified, we need to add a
-            # default ctor
+            # default ctor. A private copy ctor would suppress a default ctor.
             ctor = extractors.MethodDef(
                 name=klass.name,
                 argsString='()',
                 isCtor=True
             )
             klass.addItem(ctor)
+
         if not klass.abstract and not klass.privateCopyCtor:
             # Check if we have a copy Ctor and add one if we don't
             hasCopyCtor = False
@@ -494,14 +519,23 @@ class CffiModuleGenerator(object):
 
         klass.keepReferenceIndex = -2
 
+        sortKey = (lambda item: 0 if isinstance(item, extractors.PropertyDef)
+                                   else -1)
+        klass.items.sort(key=sortKey)
         dispatchItems(self.dispatchClassItemInit, klass.items, parent=klass)
-
-        if klass.hasSubClass:
-            klass.vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
-                                                     len(klass.virtualMethods))
 
         for ic in klass.innerclasses:
             self.initClassItems(ic)
+
+    def initFunctions(self, items, parent=None):
+        for item in items:
+            if type(item) in self.dispatchFunctionInit:
+                func = self.dispatchFunctionInit[type(item)]
+                func(item, parent=parent)
+            else:
+                self.initFunctions(item.items, item)
+                for ic in  getattr(item, 'innerclasses', []):
+                    self.initFunctions(ic.items, ic)
 
     def initMappedType(self, mType):
         mType.pyName = mType.name
@@ -521,7 +555,7 @@ class CffiModuleGenerator(object):
         mType.c2cppPyFunc = '%s_c2cpp' % mType.name
         mType.c2cppFunc = templateClass + 'c2cpp'
 
-    def initFunction(self, func, overload=''):
+    def initFunction(self, func, overload='', parent=None):
         assert not func.ignored
 
         self.getTypeInfo(func)
@@ -544,7 +578,7 @@ class CffiModuleGenerator(object):
         func.briefDoc = func.briefDoc if func.briefDoc is not None else ''
 
         for i, f in enumerate(func.overloads):
-            self.initFunction(f, '_%d' % i)
+            self.initFunction(f, overload='_%d' % i)
 
     def initMethod(self, method, parent, overload=''):
         assert not method.ignored
@@ -596,8 +630,10 @@ class CffiModuleGenerator(object):
             method.returnVars = None
 
         for i, m in enumerate(method.overloads):
-            if isinstance(m, extractors.CppMethodDef):
+            if type(m) is  extractors.CppMethodDef:
                 self.initCppMethod(m, parent, '_%d' % i)
+            if type(m) is extractors.CppMethodDef_cffi:
+                self.initCppMethod_cffi(m, parent, '_%d' % i)
             else:
                 self.initMethod(m, parent, '_%d' % i)
 
@@ -626,6 +662,24 @@ class CffiModuleGenerator(object):
         # the needed conversion code
         method.items = []
 
+        isOverload = method.hasOverloads() or overload != ''
+
+
+        method.overloadArgs = []
+        for param in method.pyArgs:
+            typedef = self.findItem(param.type)
+            if typedef is not None:
+                self.getTypeInfo(param)
+                param.type = "'" + param.type.overloadType + "'"
+
+            if not isOverload:
+                overloadArg = '%s, %s, "%s"' % (param.type,
+                                                param.name, param.name)
+            else:
+                overloadArg = param.name + "='" + param.type + "'"
+            method.overloadArgs.append(overloadArg)
+        method.overloadArgs_ = '(' + ', '.join(method.overloadArgs) + ')'
+
         # We may not know how to handle the type, so temporarily replace it
         # with 'void' before getTypeInfo is called
         typeTmp = method.type
@@ -635,20 +689,29 @@ class CffiModuleGenerator(object):
         else:
             self.initMethod(method, parent, overload)
         method.type = typeTmp
+        method.cppArgs = method.argsString
+        method.cppCallArgs = method.callArgs
+        method.overloadArgs = method.overloadArgs_
 
     def initDefine(self, define):
         assert not define.ignored
         define.pyName = define.pyName or define.name
+        define.unscopedPyName = self.module.name + '.' + define.pyName
         define.cName = DEFINE_PREFIX + define.name
 
     def initEnum(self, enum, parent=None):
         assert not enum.ignored
-        for val in enum.items:
-            assert not val.ignored
 
         enum.unscopedName = enum.name
+        pyPrefix = self.module.name
         if parent is not None:
             enum.unscopedName = parent.unscopedName + '::' + enum.name
+            pyPrefix = parent.unscopedPyName
+
+        for val in enum.items:
+            assert not val.ignored
+            val.pyName = val.pyName or val.name
+            val.unscopedPyName = pyPrefix + "." + val.pyName
 
         # Prefixes are used for the enum's values
         enum.cPrefix = ENUM_PREFIX + ('' if parent is None
@@ -659,6 +722,7 @@ class CffiModuleGenerator(object):
         assert not var.ignored
         self.getTypeInfo(var)
         var.pyName = var.pyName or var.name
+        var.unscopedPyName = var.pyName
         var.cName = GLOBAL_VAR_PREFIX + var.name
 
     def initMemberVar(self, var, parent):
@@ -677,13 +741,20 @@ class CffiModuleGenerator(object):
 
     def printClassCDefs(self, klass, pyfile):
         if not klass.abstract and len(klass.virtualMethods) > 0:
+            vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
+                                                     len(klass.virtualMethods))
             pyfile.write(nci("""\
-            {0.vtableDef}
+            {1}
             void {0.cName}_set_flag(void *, int);
-            void {0.cName}_set_flags(void *, char*);""".format(klass)))
+            void {0.cName}_set_flags(void *, char*);
+            """.format(klass, vtableDef)))
         if hasattr(klass, 'detectSubclassCode_cffi'):
             print >> pyfile, ("char * cffigetclassname_%s(void *);" %
                               klass.cName)
+        if (not klass.privateAssignOp and not klass.privateCopyCtor and
+            not klass.abstract):
+            print >> pyfile, ("void {0}{1}(void*, void*);"
+                              .format(ASSIGN_PREFIX, klass.name))
         dispatchItems(self.dispatchClassItemCDefs, klass.items, pyfile)
 
         for ic in klass.innerclasses:
@@ -693,7 +764,14 @@ class CffiModuleGenerator(object):
         print >> pyfile, "%s %s%s;" % (func.type.cdefType, func.cName,
                                        func.cdefArgs)
         for f in func.overloads:
-            self.printFunctionCDef(f, pyfile)
+            if type(f) is extractors.FunctionDef:
+                self.printFunctionCDef(f, pyfile)
+            elif type(f) is extractors.MethodDef:
+                self.printMethodCDef(f, pyfile)
+            elif type(f) is extractors.CppMethodDef:
+                self.printCppMethodCDef(f, pyfile)
+            elif type(f) is extractors.CppMethodDef_cffi:
+                self.printCppMethodCDef_cffi(f, pyfile)
 
     def printMethodCDef(self, method, pyfile):
         if not method.isPureVirtual:
@@ -705,7 +783,13 @@ class CffiModuleGenerator(object):
     def printCppMethodCDef_cffi(self, method, pyfile):
         print >> pyfile, "%s %s%s;" % (method.type, method.cName,
                                        method.argsString)
-
+        for m in method.overloads:
+            if type(m) is extractors.MethodDef:
+                self.printMethodCDef(m, pyfile)
+            elif type(m) is extractors.CppMethodDef:
+                self.printCppMethodCDef(m, pyfile)
+            elif type(m) is extractors.CppMethodDef_cffi:
+                self.printCppMethodCDef_cffi(m, pyfile)
     def printDefineCDef(self, define, pyfile):
         print >> pyfile, "extern const long long %s;" % define.cName
 
@@ -730,6 +814,14 @@ class CffiModuleGenerator(object):
         for ic in klass.innerclasses:
             self.printClassCppBody(ic, hfile, cppfile)
 
+        if (not klass.privateAssignOp and not klass.privateCopyCtor and
+            not klass.abstract):
+            cppfile.write(nci("""\
+            extern "C" void {0}{1}({2} * dst, {2} * src)
+            {{
+                *dst = *src;
+            }}""".format(ASSIGN_PREFIX, klass.name, klass.unscopedName)))
+
         if not klass.hasSubClass:
             return
 
@@ -740,7 +832,8 @@ class CffiModuleGenerator(object):
 
         if not klass.abstract:
             #ctors = [m for m in klass if getattr(m, 'isCtor', False)][0].all()
-            ctors = klass.findItem(klass.name).all()
+            ctor = klass.findItem(klass.name)
+            ctors = ctor.all() if ctor is not None else []
             # Signatures all Ctors
             for ctor in ctors:
                 hfile.write(nci("""\
@@ -760,7 +853,7 @@ class CffiModuleGenerator(object):
                     print >> hfile, "    virtual ~%s();" % klass.cppClassName
                     continue
                 const = ' const' if vmeth.isConst else ''
-                print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppArgs}{1};"
+                print >> hfile, ("    virtual {0.type.name} {0.name}{0.cppDefaultsArgs}{1};"
                                 .format(vmeth, const))
 
         # Signatures for protected methods
@@ -771,12 +864,14 @@ class CffiModuleGenerator(object):
                 continue
             isStatic = 'static ' if pmeth.isStatic else ''
             print >> hfile, ("    {1}{0.type.name} {2}{0.name}"
-                               "{0.cppArgs};").format(pmeth, isStatic,
+                               "{0.cppDefaultsArgs};").format(pmeth, isStatic,
                                                       PROTECTED_PREFIX)
 
         print >> hfile, "};"
 
         if len(klass.virtualMethods) > 0 and not klass.abstract:
+            vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
+                                                     len(klass.virtualMethods))
             cppfile.write(nci("""\
             extern "C" {0}
 
@@ -788,7 +883,7 @@ class CffiModuleGenerator(object):
             extern "C" void {1}_set_flags({2} * self, char * flags)
             {{
                 memcpy(self->vflags, flags, sizeof(self->vflags));
-            }}""".format(klass.vtableDef, klass.cName, klass.cppClassName)))
+            }}""".format(vtableDef, klass.cName, klass.cppClassName)))
 
 
     #------------------------------------------------------------------------#
@@ -798,7 +893,7 @@ class CffiModuleGenerator(object):
 
         if klass.abstract:
             pyfile.write(nci("@wrapper_lib.abstract_class", indent))
-        elif any([b.abstract for b in baseClassDefs]):
+        elif any([b.abstract or b.pureVirtualAbstract for b in baseClassDefs]):
             pyfile.write(nci("@wrapper_lib.concrete_subclass", indent))
         elif klass.pureVirtualAbstract:
             pyfile.write(nci("@wrapper_lib.purevirtual_abstract_class", indent))
@@ -820,6 +915,16 @@ class CffiModuleGenerator(object):
 
             def _set_vflags(self, flags):
                 clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
+            """.format(klass.cName), indent + 4))
+        else:
+            # Temporary hack to prevent things from crashing
+            pyfile.write(nci("""\
+            _vtable = []
+            def _set_vflag(self, i):
+                pass
+
+            def _set_vflags(self, flags):
+                pass
             """.format(klass.cName), indent + 4))
 
         if hasattr(klass, 'detectSubclassCode_cffi'):
@@ -854,7 +959,10 @@ class CffiModuleGenerator(object):
             self.printClass(ic, pyfile, cppfile, indent=indent + 4,
                             parent=klass)
 
-        pyfile.write(nci("wrapper_lib.register_cpp_classname('%s', %s)" % 
+        if klass.pyCode_cffi is not None:
+            pyfile.write(nci(klass.pyCode_cffi, indent + 4))
+
+        pyfile.write(nci("wrapper_lib.register_cpp_classname('%s', %s)" %
                          (klass.name, klass.pyName), indent))
 
         if hasattr(klass, 'detectSubclassCode_cffi'):
@@ -968,7 +1076,7 @@ class CffiModuleGenerator(object):
             {{
             """
             .format(method, parent, funcPtrName, sig)))
-            if not method.isPureVirtual:
+            if not method.isPureVirtual and not method.isDtor:
                 # Pure virtual methods don't have an original implementation to
                 # call, so only checking the flag if this isn't pure virtual
                 cppfile.write(nci("""\
@@ -984,6 +1092,11 @@ class CffiModuleGenerator(object):
 
             if method.type.name == 'void':
                 cppfile.write(nci(cbCall + ';', 8))
+            elif (isinstance(method.type, WrappedTypeInfo) and
+                  not (method.type.isRef or method.type.isPtr)):
+                cppfile.write(nci("""\
+                {0.type.typedef.cppClassName} py_return;
+                {1};""".format(method, cbCall), 8))
             else:
                 cppfile.write(nci("""\
                     {0.type.cReturnType} py_return = {1};
@@ -1003,7 +1116,10 @@ class CffiModuleGenerator(object):
                 if isBasicType or method.type.isPtr and (isMappedType or
                    isWrappedType) or isCharPtrType:
                     cppfile.write(nci("return py_return;", 8))
-                elif (isWrappedType or isMappedType) and method.type.isRef:
+                elif isWrappedType and not (method.type.isPtr or
+                      method.type.isRef):
+                    cppfile.write(nci("return py_return;", 8))
+                elif (isWrappedType or isMappedType) and not method.type.isPtr:
                     cppfile.write(nci("return *py_return;", 8))
                 else:
                     assert isMappedType
@@ -1014,7 +1130,7 @@ class CffiModuleGenerator(object):
                     return return_instance;
                     """.format(method.type.name), 8))
 
-            if not method.isPureVirtual:
+            if not method.isPureVirtual and not method.isDtor:
                 cppfile.write(nci("""\
                     }}
                     else
@@ -1042,7 +1158,11 @@ class CffiModuleGenerator(object):
                 {0.retStmt}{3}{0.name}{0.cppCallArgs};
             }}""".format(method, parent, callName, callClass)))
 
-            call = "self->" + callName + method.cCallArgs
+            # We need to cast self to the subclass type to call the wrapper 
+            # method. It should be cast back implicitly when the protected
+            # method iteself is invoked.
+            call = "((%s*)self)->" % parent.cppClassName
+            call += callName + method.cCallArgs
             if method.isStatic:
                 call = ("{1.cppClassName}::{2}{0.cCallArgs}"
                         .format(method, parent, callName))
@@ -1053,6 +1173,11 @@ class CffiModuleGenerator(object):
             call = "new " + parent.cppClassName +  method.cCallArgs
         elif method.isDtor:
             call = 'delete self'
+            if method.protection == 'protected':
+                # We can't delete an object with a protected Dtor. Unlike
+                # the regular protected methods, it is never safe to try to
+                # call the Dtor via a subclass pointer.
+                call = ''
         elif method.name.startswith('operator'):
             deref = '*' if not method.type.isPtr else ''
             # Uniary operators
@@ -1065,19 +1190,18 @@ class CffiModuleGenerator(object):
             else:
                 call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
                         .format(method, parent))
-        else:
+        elif method.isVirtual and not method.isPureVirtual:
             # Just in case, we'll always specify the original implementation,
-            # for both regular and virtual methods
+            # for  virtual methods
             call = ("self->{1.unscopedName}::{0.name}{0.cCallArgs}"
                     .format(method, parent))
+        else:
+            call = "self->{0.name}{0.cCallArgs}".format(method, parent)
 
-        if not method.isPureVirtual:
-            # Pure virtual methods cannot have an extern "C" wrapper as they
-            # cannot be called directly.
-            self.printExternCWrapper(method, call, cppfile)
+        self.printExternCWrapper(method, call, cppfile)
 
         # Write Python implementation
-        if method.isVirtual and not parent.abstract:
+        if method.isVirtual and not parent.abstract and not method.isDtor:
             pyfile.write(nci("""\
             @wrapper_lib.VirtualDispatcher({0.virtualIndex})
             @ffi.callback('{0.type.cdefReturnType}(*){0.cdefCbArgs}')
@@ -1111,21 +1235,30 @@ class CffiModuleGenerator(object):
                 if method.returnCount > 1:
                     varName += '[0]'
 
-                convertCode = method.type.py2cPostcall(varName, 'return_tmp')
-                if convertCode is not None:
-                    pyfile.write(nci(convertCode, indent + 4))
-
-                if method.factory:
+                if method.factory or method.transferBack:
                     pyfile.write(nci(
-                        'wrapper_lib.give_ownership(wrapper_lib.obj_from_ptr('
-                        'return_tmp, %s), None, True)' %
-                        method.type.typedef.unscopedPyName, indent + 4))
+                        'wrapper_lib.give_ownership(%s, None, True)' % varName,
+                        indent + 4))
 
-                pyfile.write(nci('return return_tmp', indent + 4))
+                if (not isinstance(method.type, WrappedTypeInfo) or
+                    method.type.isRef or method.type.isPtr):
 
+                    convertCode = method.type.py2cPostcall(varName, 'return_tmp')
+                    if convertCode is not None:
+                        pyfile.write(nci(convertCode, indent + 4))
+
+                    pyfile.write(nci('return return_tmp', indent + 4))
+                else:
+                    pyfile.write(nci(
+                        'clib.%s%s(return_ptr, wrapper_lib.get_ptr(%s))' %
+                        (ASSIGN_PREFIX, method.type.typedef.name, varName),
+                        indent + 4))
             pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" %
-                                     method.virtualIndex,
-                                     indent))
+                             method.virtualIndex, indent))
+        if method.isVirtual and not parent.abstract and method.isDtor:
+            pyfile.write(nci("""\
+            _virtual__{0} = wrapper_lib.VirtualDispatcher({0})(None)
+            """.format(method.virtualIndex), indent))
 
         if method.hasOverloads():
             isOverload = True
@@ -1158,7 +1291,6 @@ class CffiModuleGenerator(object):
         if not isOverload:
             self.printDocString(method, pyfile, indent)
 
-        if not isOverload:
             # Do type checking on non-multi method's inside the method's body
             pyfile.write(nci("wrapper_lib.check_args_types" +
                              method.overloadArgs, indent + 4))
@@ -1177,6 +1309,11 @@ class CffiModuleGenerator(object):
                 """ % call, indent + 4))
                 self.printOwnershipChanges(method, pyfile, indent, parent)
                 pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 4))
+            elif method.isDtor:
+                pyfile.write(nci("""\
+                if self._py_owned:
+                    %s
+                """ % call, indent + 4))
             elif method.returnVars is None:
                 pyfile.write(nci(call, indent + 4))
                 self.printOwnershipChanges(method, pyfile, indent, parent)
@@ -1194,7 +1331,12 @@ class CffiModuleGenerator(object):
                 "overridden')" % (parent.pyName, method.pyName), indent + 4))
 
         for m in method.overloads:
-            self.printMethod(m, pyfile, cppfile, indent, parent, True)
+            if type(m) is extractors.MethodDef:
+                self.printMethod(m, pyfile, cppfile, indent, parent, True)
+            elif type(m) is extractors.CppMethodDef:
+                self.printCppMethod(m, pyfile, cppfile, indent, parent, True)
+            if type(m) is extractors.CppMethodDef_cffi:
+                self.printCppMethod_cffi(m, pyfile, cppfile, indent, parent, True)
 
     def printOwnershipChanges(self, func, pyfile, indent=0, parent=None):
         owner = ''
@@ -1244,25 +1386,69 @@ class CffiModuleGenerator(object):
         elif func.factory:
             pyfile.write(nci("wrapper_lib.take_ownership(return_tmp)", indent + 4))
 
-    def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None):
+    def printCppMethod(self, func, pyfile, cppfile, indent=0, parent=None,
+                       isOverload=False):
         if parent is None:
-            self.printFunction(func, pyfile, cppfile)
+            self.printFunction(func, pyfile, cppfile, isOverload)
         else:
-            self.printMethod(func, pyfile, cppfile, indent, parent)
+            self.printMethod(func, pyfile, cppfile, indent, parent, isOverload)
 
     def printCppMethod_cffi(self, func, pyfile, cppfile, indent=0,
-                            parent=None):
-        cppfile.write(nci("""
+                            parent=None, isOverload=False):
+        cppfile.write(nci("""\
         extern "C" {0.type} {0.cName}{0.argsString}
         {{""".format(func)))
         cppfile.write(nci(func.body, 4))
         print >> cppfile, '}'
 
+        isOverload = isOverload or func.hasOverloads()
+
+        if func.hasOverloads():
+            isOverload = True
+            mmType = '' if not func.isStatic else 'Static'
+            pyfile.write(nci("""\
+            @wrapper_lib.{1}Multimethod
+            def {0.pyName}():""".format(func, mmType), indent))
+            self.printDocString(func, pyfile, indent)
+            print >> pyfile, ' ' * (indent + 4) + 'pass'
+
+        if isOverload:
+            if not func.deprecated:
+                pyfile.write(nci("""\
+                @{0.pyName}.overload{0.overloadArgs}
+                """.format(func, parent), indent))
+            else:
+                pyfile.write(nci("""\
+                @{0}.deprecated_overload('{1}', {2}
+                """.format(func.pyName, parent.unscopedPyName,
+                           func.overloadArgs[1:]), indent))
+        elif func.deprecated:
+            pyfile.write(nci("@wrapper_lib.deprecated('%s')" % parent.unscopedPyName, indent))
+
+        if func.isStatic and not isOverload:
+            # @staticmethod isn't needed if this is a multifunc because the
+            # StaticMutlifunc decorator takes care of it
+            pyfile.write(nci("@staticmethod", indent))
+
         pyfile.write(nci("def {0.pyName}{0.pyArgsString}:".format(func),
                          indent))
         self.printDocString(func, pyfile, indent)
+
+        if not isOverload:
+            # Do type checking on functions that aren't overloaed inside the
+            # funciton body
+            pyfile.write(nci("wrapper_lib.check_args_types" +
+                             func.overloadArgs, indent + 4))
         pyfile.write(nci("call = clib.%s" % func.cName, indent + 4))
         pyfile.write(nci(func.pyBody, indent + 4))
+
+        for m in func.overloads:
+            if type(m) is extractors.MethodDef:
+                self.printMethod(m, pyfile, cppfile, indent, parent, True)
+            elif type(m) is extractors.CppMethodDef:
+                self.printCppMethod(m, pyfile, cppfile, indent, parent, True)
+            if type(m) is extractors.CppMethodDef_cffi:
+                self.printCppMethod_cffi(m, pyfile, cppfile, indent, parent, True)
 
     def printProperty(self, property, pyfile, cppfile, indent, parent):
         pyfile.write(nci("{0.name} = property({0.getter}, {0.setter})"
@@ -1279,11 +1465,16 @@ class CffiModuleGenerator(object):
             cName = enum.cPrefix + val.name
             cppName = enum.cppPrefix + val.name
             print >> cppfile, ('extern "C" const int %s = %s;' % (cName, cppName))
-            print >> pyfile, (' ' * indent + '%s = clib.%s' % (val.name, cName))
+            print >> pyfile, (' ' * indent + '%s = clib.%s' % (val.pyName, cName))
 
     def printGlobalVar(self, var, pyfile, cppfile):
+        assignVal = var.type.cpp2c(var.name)
+        if isinstance(var.type, WrappedTypeInfo) and not var.type.isPtr:
+            # A special case for global wrapped variables: take the object's
+            # address instead of copying onto the heap
+            assignVal = '&' + var.name
         print >> cppfile, ('extern "C" {0.type.cType} {0.cName} = {1};'.
-                            format(var, var.type.cpp2c(var.name)))
+                            format(var, assignVal))
         print >> pyfile, var.pyName + ' = ' + var.type.c2py('clib.' + var.cName)
 
     def printMemberVar(self, var, pyfile, cppfile, indent, parent):
@@ -1360,7 +1551,7 @@ class CffiModuleGenerator(object):
             @classmethod
             def py2c(cls, py_obj):
                 if py_obj is None:
-                    return ffi.NULL
+                    return (ffi.NULL, None)
 {3}
         """.format(mType, checkCode, c2pyCode, py2cCode)))
 
@@ -1419,11 +1610,15 @@ class CffiModuleGenerator(object):
 
     def printPyProperty(self, property, pyfile, indent, parent=None):
         if parent is not None:
-            isinstance(parent, extractors.ClassDef)
+            assert isinstance(parent, extractors.ClassDef)
+            pyName = parent.unscopedPyName.partition('.')[2]
+            gs = "{1}.{0.getter}".format(property, pyName)
+            if property.setter is not None:
+                gs += ", {1}.{0.setter}".format(property, pyName)
+
             pyfile.write(nci(
-            "{1.unscopedPyName}.{0.name} = "
-            "property({1.unscopedPyName}.{0.getter}, "
-            "{1.unscopedPyName}.{0.setter})".format(property, parent)))
+            "{1}.{0.name} = property({2})"
+            .format(property, pyName, gs)))
         else:
             self.printProperty(property, pyfile, None, indent, parent)
 
@@ -1436,13 +1631,14 @@ class CffiModuleGenerator(object):
         if method.deprecated:
             # XXX: this is wxPython specific, maybe it should be more general?
             assignName = "wx.deprecated(" + assignName + ")"
+        pyName = parent.unscopedPyName.partition('.')[2]
 
         print >> pyfile, 'def %s%s:' % (methName, method.argsString)
         self.printDocString(method, pyfile)
         pyfile.write(nci(method.body, 4))
         pyfile.write(nci("""\
-        {0.klass.unscopedPyName}.{0.name} = {1}
-        del {2}""".format(method, assignName, methName)))
+        {3}.{0.name} = {1}
+        del {2}""".format(method, assignName, methName, pyName)))
 
     #------------------------------------------------------------------------#
 
@@ -1487,6 +1683,7 @@ class CffiModuleGenerator(object):
             'false': 'False',
             'NULL':  'None',
             'wxString()': '""',
+            'wxEmptyString': '""',
             'wxArrayString()' : '[]',
             'wxArrayInt()' : '[]',
         }
@@ -1503,6 +1700,7 @@ class CffiModuleGenerator(object):
         func.vtdArgs = []
         func.vtdCallArgs = []
         func.cppArgs = []
+        func.cppDefaultsArgs= []
         func.cppCallArgs = []
         func.overloadArgs = []
 
@@ -1512,9 +1710,9 @@ class CffiModuleGenerator(object):
             func.pyArgs.append('self')
             if not func.isCtor:
                 func.pyCallArgs.append('wrapper_lib.get_ptr(self)')
-                func.cArgs.append('%s *self' % parent.cppClassName)
+                func.cArgs.append('%s *self' % parent.unscopedName)
                 func.cdefArgs.append('void *self')
-                func.cCbArgs.append('const %s *self' % parent.cppClassName)
+                func.cCbArgs.append('const %s *self' % parent.unscopedName)
                 func.cdefCbArgs.append('void *self')
                 func.cbCallArgs.append('this')
                 func.vtdArgs.append('self')
@@ -1540,15 +1738,24 @@ class CffiModuleGenerator(object):
             cppArg = "%s %s" % (param.type.name, param.name)
             cppCallArg = "%s" % param.name
 
+            if param.default != '' and param.default is not None:
+                cppDefaultsArg = "%s %s=%s" % (param.type.name, param.name,
+                                               param.default)
+            else:
+                cppDefaultsArg = cppArg
+
             pyArg = param.name
-            if param.default != '':
-                defineTypedef = self.findItem(param.default)
-                if defineTypedef is None:
-                    pyArg += '=' + defValueMap.get(param.default,
-                                   'wrapper_lib.LD("%s")' % param.default)
+            if not hasattr(param, 'pyDefault'):
+                param.pyDefault = param.default.strip('*&')
+            param.pyDefault = param.pyDefault.replace('::', '.')
+            if param.pyDefault != '':
+                # Check if the value is a define (or maybe a global variable)
+                typedef = self.findItem(param.pyDefault)
+                if typedef is None:
+                    pyArg += '=' + defValueMap.get(param.pyDefault,
+                                   'wrapper_lib.LD("%s")' % param.pyDefault)
                 else:
-                    pyArg += '=wrapper_lib.LD("%s")' % (
-                                defineTypedef.pyName or defineTypedef.name)
+                    pyArg += '=wrapper_lib.LD("%s")' % typedef.unscopedPyName
 
             pyCallArg = param.type.py2cParam(param.name)
             vtdArg = param.name
@@ -1571,6 +1778,7 @@ class CffiModuleGenerator(object):
             func.cCallArgs.append(cCallArg)
             func.cbCallArgs.append(cbCallArg)
             func.cppArgs.append(cppArg)
+            func.cppDefaultsArgs.append(cppDefaultsArg)
             func.cppCallArgs.append(cppCallArg)
             #func.pyArgs.append(pyArg)
             func.pyCallArgs.append(pyCallArg)
@@ -1587,12 +1795,20 @@ class CffiModuleGenerator(object):
             # We're generating a wrapper function that needs a `self` pointer
             # in its args string if this function has custom C++ code or is
             # protected and not static
-            func.wrapperArgs = ([parent.cppClassName + " *self"] +
+            func.wrapperArgs = ([parent.unscopedName + " *self"] +
                                 func.cppArgs)
             func.wrapperCallArgs = ['self'] + func.cCallArgs
         else:
             func.wrapperArgs = func.cppArgs
             func.wrapperCallArgs = func.cCallArgs
+
+        if isinstance(func.type, WrappedTypeInfo) and not (func.type.isRef or
+            func.type.isPtr):
+            # When returning a wrapped type by value, pass in a pointer
+            func.cbCallArgs.append('&py_return')
+            func.cCbArgs.append('%s*' % func.type.typedef.cppClassName)
+            func.cdefCbArgs.append('void*')
+            func.vtdArgs.append('return_ptr')
 
         func.vtdCallArgs.append('')
 
@@ -1605,6 +1821,7 @@ class CffiModuleGenerator(object):
         func.pyArgs = '(' + ', '.join(func.pyArgs) + ')'
         func.pyCallArgs = '(' + ', '.join(func.pyCallArgs) + ')'
         func.cppArgs = '(' + ', '.join(func.cppArgs) + ')'
+        func.cppDefaultsArgs = '(' + ', '.join(func.cppDefaultsArgs) + ')'
         func.cppCallArgs = '(' + ', '.join(func.cppCallArgs) + ')'
         func.vtdArgs = '(' + ', '.join(func.vtdArgs) + ')'
         func.vtdCallArgs = '(' + ', '.join(func.vtdCallArgs) + ')'
@@ -1662,7 +1879,7 @@ class CffiModuleGenerator(object):
         """
         wrapperName = func.cName + CPPCODE_WRAPPER_SUFIX
         wrapperBody = nci("""\
-        {0.type.name} {1}{0.wrapperArgs}
+        static inline {0.type.name} {1}{0.wrapperArgs}
         {{""".format(func, wrapperName))
         wrapperBody += nci(func.cppCode[0], 4) + '}'
 

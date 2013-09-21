@@ -90,6 +90,12 @@ class BaseDef(object):
                     return item
                 else:
                     return item.find(tail)                
+            if isinstance(item, EnumDef):
+                try:
+                    return item.find(head)
+                except ExtractorError:
+                    pass
+                
         else: # got though all items with no match
             raise ExtractorError("Unable to find item named '%s' within %s named '%s'" %
                                  (head, self.__class__.__name__, self.name))
@@ -630,7 +636,9 @@ class ClassDef(BaseDef):
         self.innerclasses = []
         self.isInner = False
 
+        self.pyCode_cffi = None     # Extra code to include inthe class body
         self.privateCopyCtor = False
+        self.privateAssignOp = False
         
         # Stuff that needs to be generated after the class instead of within
         # it. Some back-end generators need to put stuff inside the class, and
@@ -1044,6 +1052,7 @@ class ClassDef(BaseDef):
 private:
     {CLASS}& operator=(const {CLASS}&);""".format(CLASS=self.name))
         self.addItem(wig)
+        self.privateAssignOp = True
 
     def addDtor(self, prot='protected'):
         # add declaration of a destructor to this class
@@ -1198,12 +1207,14 @@ class CppMethodDef_cffi(CppMethodDef):
     of generated automatically. This allows, among other things, custom
     conversion of arbitrary Python types into arbitrary C++ types.
     """
-    def __init__(self, type, name, argsString, pyArgsString, body='',
-                 pyBody='', *args, **kwargs):
+    def __init__(self, type, name, argsString, pyArgsString, pyArgs=[], body='',
+                 pyBody='', callArgs='()', *args, **kwargs):
         super(CppMethodDef_cffi, self).__init__(type, name, argsString,
                                                 body, *args, **kwargs)
         self.pyBody = pyBody
+        self.pyArgs = pyArgs
         self.pyArgsString = pyArgsString
+        self.callArgs = callArgs
 
 
 #---------------------------------------------------------------------------

@@ -216,6 +216,7 @@ public:
     char overloaded(char c) { return c; }
 };
 
+struct Vector;
 class ArrayClass
 {
 public:
@@ -224,6 +225,7 @@ public:
     int m_i;
 
     static int sum(ArrayClass *objs, int len);
+    static int sum_mapped_type(Vector *objs, int len);
     virtual int sum_virt(ArrayClass *objs, int len);
     int call_sum_virt(ArrayClass *objs, int len);
 };
@@ -237,6 +239,19 @@ public:
 
     virtual string concat(string *s, int len);
     string call_concat(string *s, int len);
+};
+
+class WrappedTypeClass
+{
+public:
+    virtual CtorsClass & get_ref();
+    CtorsClass & call_get_ref();
+
+    virtual CtorsClass * get_ptr();
+    CtorsClass * call_get_ptr();
+
+    virtual CtorsClass get_value();
+    CtorsClass call_get_value();
 };
 
 struct Vector

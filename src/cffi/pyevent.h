@@ -1,50 +1,32 @@
-#include <wx/wx.h>
-#include <wx/sharedptr.h>
+#ifndef INCGRD_PYEVENT_H
+#define INCGRD_PYEVENT_H
 
-extern "C" { void (*wxPyEventDict_deleted)(void*); }
+struct EmptyBase { };
+typedef cffiRefCountedPyObjBase<EmptyBase> wxPyEventDictRef;
 
-class wxPyEventDict;
-typedef wxSharedPtr<wxPyEventDict> wxPyEventDictPtr;
-
-class wxPyEventDict
-{
-public:
-    void *m_dict;
-
-    wxPyEventDict(void *ptr)
-     : m_dict(ptr) { }
-
-    ~wxPyEventDict()
-    {
-        wxPyEventDict_deleted(m_dict);
-    }
-};
-
-
-class wxPyEvent : wxEvent
+class wxPyEvent : public wxEvent
 {
     DECLARE_DYNAMIC_CLASS(wxPyEvent)
 
 public:
-    wxPyEventDictPtr m_ptr;
-    wxPyEvent(int id=0, wxEventType eventType = wxEVT_NULL, wxPyEventDict *ptr=NULL)
-        : wxEvent(id, eventType), m_ptr(new wxPyEventDict(ptr)) {}
+    wxPyEvent(int id=0, wxEventType eventType = wxEVT_NULL, void *handle=NULL)
+        : wxEvent(id, eventType), m_dict_ref(handle) {}
 
     virtual wxEvent* Clone() const { return new wxPyEvent(*this); }
+
+    wxPyEventDictRef m_dict_ref;
 };
 
-IMPLEMENT_DYNAMIC_CLASS(wxPyEvent, wxEvent);
-
-class wxPyCommandEvent : wxCommandEvent
+class wxPyCommandEvent : public wxCommandEvent
 {
     DECLARE_DYNAMIC_CLASS(wxPyCommandEvent)
 
 public:
-    wxSharedPtr<wxPyEventDict> m_ptr;
-    wxPyCommandEvent(int id=0, wxEventType eventType = wxEVT_NULL, wxPyEventDict *ptr=NULL)
-        : wxCommandEvent(id, eventType), m_ptr(new wxPyEventDict(ptr)) {}
+    wxPyCommandEvent(int id=0, wxEventType eventType = wxEVT_NULL, void *handle=NULL)
+        : wxCommandEvent(id, eventType), m_dict_ref(handle) {}
 
-    virtual wxCommandEvent* Clone() const  { return new wxPyCommandEvent(*this); }
+    virtual wxEvent* Clone() const  { return new wxPyCommandEvent(*this); }
+
+    wxPyEventDictRef m_dict_ref;
 };
-
-IMPLEMENT_DYNAMIC_CLASS(wxPyCommandEvent, wxCommandEvent);
+#endif

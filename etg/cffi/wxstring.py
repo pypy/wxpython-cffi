@@ -12,7 +12,7 @@ def run():
 
     module.addItem(MappedTypeDef_cffi(
         name='wxString', cType='const wchar_t *',
-        py2c="return (ffi.new('wchar_t[]', py_obj), None)",
+        py2c="return (ffi.new('wchar_t[]', unicode(py_obj)), None)",
         c2py="""
         ret = ffi.string(cdata)
         clib.free(cdata)

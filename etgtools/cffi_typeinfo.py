@@ -9,6 +9,8 @@ BASIC_CTYPES = {
     'long': 'int',
     'long long': 'int',
     'unsigned': 'int',
+    'size_t' : 'int',
+    'ssize_t' : 'int',
     'float': 'float',
     'double': 'float',
     'char': 'str',
@@ -121,6 +123,12 @@ class WrappedTypeInfo(TypeInfo):
         self.cReturnType = self.typedef.unscopedName + ' *'
         self.cdefReturnType = 'void *'
 
+        if not (self.isPtr or self.isRef):
+            # Functions that return wrapped types by value will return via a
+            # pointer parameter
+            self.cReturnType = 'void'
+            self.cdefReturnType = 'void'
+
         if self.isConst:
             self.cType = 'const ' + self.cType
 
@@ -219,7 +227,9 @@ class WrappedTypeInfo(TypeInfo):
         # heap, with Python taking ownership of the new object.
         if self.isPtr:
             return varName
-        elif self.isRef and not self.isConst or self.noCopy:
+        elif self.isRef and (not self.isConst or self.noCopy or
+                             not self.typedef.abstract or
+                             not self.typedef.pureVirtualAbstract):
             return '&' + varName
         else:
             return "new %s(%s)" % (self.typedef.cppClassName, varName)
@@ -475,11 +485,11 @@ class BasicTypeInfo(TypeInfo):
         super(BasicTypeInfo, self).__init__(typeName, typedef, **kwargs)
         if self.array:
             raise TypeError('use of the Array annotation is unsupported on '
-                            "'%'parameters" % typeName)
+                            "'%s' parameters" % typeName)
 
         if self.pyInt and 'char' not in self.name:
             raise TypeError('use of the PyInt annotation is unsupported on '
-                            "'%'parameters" % typeName)
+                            "'%s' parameters" % typeName)
 
         if self.isPtr:
             self.name += '*'
@@ -500,6 +510,7 @@ class BasicTypeInfo(TypeInfo):
         if self.name == 'bool' or isinstance(self.typedef, extractors.EnumDef):
             self.cType = 'int'
             self.cdefType = 'int'
+            self.cdefReturnType = 'int'
             # Restore the original C++ scope operator that was removed when
             # looking up the typedef
             self.name = self.name.replace('.', '::')
@@ -560,9 +571,12 @@ class BasicTypeInfo(TypeInfo):
         return varName
 
     def c2cppParam(self, varName, refsAsPtrs=False):
-        if self.name == 'bool' or isinstance(self.typedef, extractors.EnumDef):
+        if self.name == 'bool':
             ptr = '*' if self.isPtr or self.isRef else ''
-            varName = "(%s%s)%s" % (self.name, ptr, varName)
+            varName = "(bool %s)%s" % (ptr, varName)
+        if isinstance(self.typedef, extractors.EnumDef):
+            ptr = '*' if self.isPtr or self.isRef else ''
+            varName = "(%s %s)%s" % (self.typedef.unscopedName, ptr, varName)
         if self.isRef:
             assert self.out or self.inOut
             return '*' + varName

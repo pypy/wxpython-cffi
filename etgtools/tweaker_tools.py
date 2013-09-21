@@ -363,75 +363,140 @@ def addWindowVirtuals(klass):
     Either turn the virtual flag back on or add a delcaration for the subset of
     the C++ virtuals in wxWindow classes that we will be supporting.
     """
-    publicWindowVirtuals = [      
-        ('GetClientAreaOrigin',      'wxPoint GetClientAreaOrigin() const'),
-        ('Validate',                 'bool Validate()'),
-        ('TransferDataToWindow',     'bool TransferDataToWindow()'),
-        ('TransferDataFromWindow',   'bool TransferDataFromWindow()'),
-        ('InitDialog',               'void InitDialog()'),
-        ('AcceptsFocus',             'bool AcceptsFocus() const'),
-        ('AcceptsFocusRecursively',  'bool AcceptsFocusRecursively() const'),
-        ('AcceptsFocusFromKeyboard', 'bool AcceptsFocusFromKeyboard() const'),
-        ('AddChild',                 'void AddChild( wxWindowBase *child )'),
-        ('RemoveChild',              'void RemoveChild( wxWindowBase *child )'),
-        ('InheritAttributes',        'void InheritAttributes()'),
-        ('ShouldInheritColours',     'bool ShouldInheritColours() const'),
-        ('OnInternalIdle',           'void OnInternalIdle()'),
-        ('GetMainWindowOfCompositeControl', 
-                                     'wxWindow *GetMainWindowOfCompositeControl()'),
-        ('InformFirstDirection',     'bool InformFirstDirection(int direction, int size, int availableOtherDir)'),
-        ('SetCanFocus',              'void SetCanFocus(bool canFocus)'),
+    type = 'type'
+    name = 'name'
+    argsString = 'argsString'
+    items = 'items'
+    isConst = 'isConst'
+    publicWindowVirtuals = [
+        #('GetClientAreaOrigin',      'wxPoint GetClientAreaOrigin() const'),
+        #('Validate',                 'bool Validate()'),
+        #('TransferDataToWindow',     'bool TransferDataToWindow()'),
+        #('TransferDataFromWindow',   'bool TransferDataFromWindow()'),
+        #('InitDialog',               'void InitDialog()'),
+        #('AcceptsFocus',             'bool AcceptsFocus() const'),
+        #('AcceptsFocusRecursively',  'bool AcceptsFocusRecursively() const'),
+        #('AcceptsFocusFromKeyboard', 'bool AcceptsFocusFromKeyboard() const'),
+        #('AddChild',                 'void AddChild( wxWindowBase *child )'),
+        #('RemoveChild',              'void RemoveChild( wxWindowBase *child )'),
+        #('InheritAttributes',        'void InheritAttributes()'),
+        #('ShouldInheritColours',     'bool ShouldInheritColours() const'),
+        #('OnInternalIdle',           'void OnInternalIdle()'),
+        #('GetMainWindowOfCompositeControl', 
+        #                             'wxWindow *GetMainWindowOfCompositeControl()'),
+        #('InformFirstDirection',     'bool InformFirstDirection(int direction, int size, int availableOtherDir)'),
+        #('SetCanFocus',              'void SetCanFocus(bool canFocus)'),
         
         ## What about these?
         #bool HasMultiplePages() const 
         #void UpdateWindowUI(long flags = wxUPDATE_UI_NONE);
         #void DoUpdateWindowUI(wxUpdateUIEvent& event) ;
+
+        {type: 'wxPoint', name: 'GetClientAreaOrigin', argsString: '()', isConst: True},
+        {type: 'bool', name: 'Validate', argsString: '()'},
+        {type: 'bool', name: 'TransferDataToWindow', argsString: '()'},
+        {type: 'bool', name: 'TransferDataFromWindow', argsString: '()'},
+        {type: 'void', name: 'InitDialog', argsString: '()'},
+        {type: 'bool', name: 'AcceptsFocus', argsString: '()', isConst: True},
+        {type: 'bool', name: 'AcceptsFocusRecursively', argsString: '()', isConst: True},
+        {type: 'bool', name: 'AcceptsFocusFromKeyboard', argsString: '()', isConst: True},
+        {type: 'void', name: 'AddChild', argsString: '( wxWindowBase *child )',
+         items: [extractors.ParamDef(type='wxWindowBase *', name='child')]},
+        {type: 'void', name: 'RemoveChild', argsString: '( wxWindowBase *child )',
+         items: [extractors.ParamDef(type='wxWindowBase *', name='child')]},
+        {type: 'void', name: 'InheritAttributes', argsString: '()'},
+        {type: 'bool', name: 'ShouldInheritColours', argsString: '()', isConst: True},
+        {type: 'void', name: 'OnInternalIdle', argsString: '()'},
+        {type: 'wxWindow*', name: 'GetMainWindowOfCompositeControl', argsString: '()'},
+        {type: 'bool', name: 'InformFirstDirection', argsString: '(int direction, int size, int availableOtherDir)',
+         items: [extractors.ParamDef(type='int', name='direction'),
+                extractors.ParamDef(type='int', name='size'),
+                extractors.ParamDef(type='int', name='availableOtherDir')]},
+        {type: 'void', name: 'SetCanFocus', argsString: '(bool canFocus)',
+         items: [extractors.ParamDef(type='bool', name='canFocus')]},
     ]
     
     protectedWindowVirtuals = [    
-        ('ProcessEvent',              'bool ProcessEvent(wxEvent & event)'),
-        ('DoEnable',                  'void DoEnable(bool enable)'),
-        ('DoGetPosition',             'void DoGetPosition(int *x, int *y) const'),
-        ('DoGetSize',                 'void DoGetSize(int *width, int *height) const'),
-        ('DoGetClientSize',           'void DoGetClientSize(int *width, int *height) const'),
-        ('DoGetBestSize',             'wxSize DoGetBestSize() const'),
-        ('DoGetBestClientSize',       'wxSize DoGetBestClientSize() const'),
-        ('DoSetSize',                 'void DoSetSize(int x, int y, int width, int height, int sizeFlags)'),
-        ('DoSetClientSize',           'void DoSetClientSize(int width, int height)'),
-        ('DoSetSizeHints',            'void DoSetSizeHints( int minW, int minH, int maxW, int maxH, int incW, int incH )'),
-        ('DoGetBorderSize',           'wxSize DoGetBorderSize() const'),
-        ('DoMoveWindow',              'void DoMoveWindow(int x, int y, int width, int height)'),
-        ('DoSetWindowVariant',        'void DoSetWindowVariant( wxWindowVariant variant)'),
-        ('GetDefaultBorder',          'wxBorder GetDefaultBorder() const'),
-        ('GetDefaultBorderForControl','wxBorder GetDefaultBorderForControl() const'),
-        ('DoFreeze',                  'void DoFreeze()'),
-        ('DoThaw',                    'void DoThaw()'),
-        ('HasTransparentBackground',  'bool HasTransparentBackground()'),
+        #('ProcessEvent',              'bool ProcessEvent(wxEvent & event)'),
+        #('DoEnable',                  'void DoEnable(bool enable)'),
+        #('DoGetPosition',             'void DoGetPosition(int *x, int *y) const'),
+        #('DoGetSize',                 'void DoGetSize(int *width, int *height) const'),
+        #('DoGetClientSize',           'void DoGetClientSize(int *width, int *height) const'),
+        #('DoGetBestSize',             'wxSize DoGetBestSize() const'),
+        #('DoGetBestClientSize',       'wxSize DoGetBestClientSize() const'),
+        #('DoSetSize',                 'void DoSetSize(int x, int y, int width, int height, int sizeFlags)'),
+        #('DoSetClientSize',           'void DoSetClientSize(int width, int height)'),
+        #('DoSetSizeHints',            'void DoSetSizeHints( int minW, int minH, int maxW, int maxH, int incW, int incH )'),
+        #('DoGetBorderSize',           'wxSize DoGetBorderSize() const'),
+        #('DoMoveWindow',              'void DoMoveWindow(int x, int y, int width, int height)'),
+        #('DoSetWindowVariant',        'void DoSetWindowVariant( wxWindowVariant variant)'),
+        #('GetDefaultBorder',          'wxBorder GetDefaultBorder() const'),
+        #('GetDefaultBorderForControl','wxBorder GetDefaultBorderForControl() const'),
+        #('DoFreeze',                  'void DoFreeze()'),
+        #('DoThaw',                    'void DoThaw()'),
+        #('HasTransparentBackground',  'bool HasTransparentBackground()'),
 
         ## What about these?
         #('DoGetScreenPosition', 'void DoGetScreenPosition(int *x, int *y) const'),
         #('DoSetVirtualSize',    'void DoSetVirtualSize( int x, int y )'),
         #('DoGetVirtualSize',    'wxSize DoGetVirtualSize() const'),
+        {type: 'bool', name: 'ProcessEvent', argsString: '(wxEvent & event)',
+         items: [extractors.ParamDef(type='wxEvent &', name='event')]},
+        {type: 'void', name: 'DoEnable', argsString: '(bool enable)',
+         items: [extractors.ParamDef(type='bool', name='enable')]},
+        {type: 'void', name: 'DoGetPosition', argsString: '(int *x, int *y)', isConst: True,
+         items: [extractors.ParamDef(type='int *', name='x'),
+                extractors.ParamDef(type='int *', name='y')]},
+        {type: 'void', name: 'DoGetSize', argsString: '(int *width, int *height)', isConst: True,
+         items: [extractors.ParamDef(type='int *', name='width'),
+                extractors.ParamDef(type='int *', name='height')]},
+        {type: 'void', name: 'DoGetClientSize', argsString: '(int *width, int *height)', isConst: True,
+         items: [extractors.ParamDef(type='int *', name='width'),
+                extractors.ParamDef(type='int *', name='height')]},
+        {type: 'wxSize', name: 'DoGetBestSize', argsString: '()', isConst: True},
+        {type: 'wxSize', name: 'DoGetBestClientSize', argsString: '()', isConst: True},
+        {type: 'void', name: 'DoSetSize', argsString: '(int x, int y, int width, int height, int sizeFlags)',
+         items: [extractors.ParamDef(type='int', name='x'),
+                extractors.ParamDef(type='int', name='y'),
+                extractors.ParamDef(type='int', name='width'),
+                extractors.ParamDef(type='int', name='height'),
+                extractors.ParamDef(type='int', name='sizeFlags')]},
+        {type: 'void', name: 'DoSetClientSize', argsString: '(int width, int height)',
+         items: [extractors.ParamDef(type='int', name='width'),
+                extractors.ParamDef(type='int', name='height')]},
+        {type: 'void', name: 'DoSetSizeHints', argsString: '( int minW, int minH, int maxW, int maxH, int incW, int incH )',
+         items: [extractors.ParamDef(type='int', name='minW'),
+                extractors.ParamDef(type='int', name='minH'),
+                extractors.ParamDef(type='int', name='maxW'),
+                extractors.ParamDef(type='int', name='maxH'),
+                extractors.ParamDef(type='int', name='incW'),
+                extractors.ParamDef(type='int', name='incH')]},
+        {type: 'wxSize', name: 'DoGetBorderSize', argsString: '()', isConst: True},
+        {type: 'void', name: 'DoMoveWindow', argsString: '(int x, int y, int width, int height)',
+         items: [extractors.ParamDef(type='int', name='x'),
+                extractors.ParamDef(type='int', name='y'),
+                extractors.ParamDef(type='int', name='width'),
+                extractors.ParamDef(type='int', name='height')]},
+        {type: 'void', name: 'DoSetWindowVariant', argsString: '( wxWindowVariant variant)',
+         items: [extractors.ParamDef(type='wxWindowVariant', name='variant')]},
+        {type: 'wxBorder', name: 'GetDefaultBorder', argsString: '()', isConst: True},
+        {type: 'wxBorder', name: 'GetDefaultBorderForControl', argsString: '()', isConst: True},
+        {type: 'void', name: 'DoFreeze', argsString: '()'},
+        {type: 'void', name: 'DoThaw', argsString: '()'},
+        {type: 'bool', name: 'HasTransparentBackground', argsString: '()'},
     ]
     
     def _processItems(klass, prot, virtuals):
-        txt = ''
-        for name, decl in virtuals:
-            m = klass.findItem(name)
+        for meth in virtuals:
+            m = klass.findItem(meth['name'])
             if m:
                 m.ignore(False)
                 m.isVirtual = True
             else:
-                txt += 'virtual %s;\n' % decl
-        if txt:
-            txt = prot + txt
-        return txt
+                klass.addMethod(isVirtual=True, protection=prot, **meth)
     
-    txt = _processItems(klass, 'public:\n', publicWindowVirtuals)
-    klass.addItem(extractors.WigCode(txt))
-    txt = _processItems(klass, 'protected:\n', protectedWindowVirtuals)
-    klass.addItem(extractors.WigCode(txt))
-    klass.addPublic()
+    _processItems(klass, 'public', publicWindowVirtuals)
+    _processItems(klass, 'protected', protectedWindowVirtuals)
                   
                   
 def addSipConvertToSubClassCode(klass):
@@ -839,17 +904,16 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
         TypeDef = ""
         
     moduleName = module.module        
+    ItemClass_pyName = removeWxPrefix(ItemClass)
     ListClass_pyName = removeWxPrefix(ListClass)
     
     # *** TODO: This can probably be done in a way that is not SIP-specfic.
     # Try creating extractor objects from scratch and attach cppMethods to
     # them as needed, etc..
-        
-    klassCode = '''\
-class {ListClass}_iterator /Abstract/ 
-{{
-    // the C++ implementation of this class
-    %TypeHeaderCode
+
+    c = extractors.ClassDef(name='{ListClass}_iterator'.format(**locals()), abstract=True)
+    c.addMethod(ItemClass + '*', '__next__', '()')
+    c.addHeaderCode("""\
         {TypeDef}
         class {ListClass}_iterator {{
         public:
@@ -869,77 +933,75 @@ class {ListClass}_iterator /Abstract/
             }}
         private:
             {ListClass}::compatibility_iterator m_node;
-        }};
-    %End
-public:
-    {ItemClass}* __next__();
-    %MethodCode
-        sipRes = sipCpp->__next__();
-        if (PyErr_Occurred())
-            return NULL;
-    %End
-}};       
+        }};""".format(**locals()))
+    module.addItem(c)
 
-class {ListClass} 
-{{
-    %TypeHeaderCode
-        {TypeDef}
-    %End        
-public:
-    SIP_SSIZE_T __len__();
-    %MethodCode
-        sipRes = sipCpp->size();
-    %End
-
-    {ItemClass}* __getitem__(size_t index);
-    %MethodCode
-        if (index < sipCpp->size()) {{
-            {ListClass}::compatibility_iterator node = sipCpp->Item(index);
+    c = extractors.ClassDef(name=ListClass)
+    c.addHeaderCode(TypeDef)
+    c.addMethod('Py_ssize_t', 'size', '()', pyName='__len__')
+    c.addMethod(
+        ItemClass + '*', '__getitem__', '(size_t index)',
+        items=[extractors.ParamDef(type='size_t', name='index')],
+        cppCode=("""\
+        if (index < self->size()) {{
+            {ListClass}::compatibility_iterator node = self->Item(index);
             if (node) 
-                sipRes = ({ItemClass}*)node->GetData();
+                return ({ItemClass}*)node->GetData();
+            else
+                return NULL;
         }}
         else {{
             wxPyErr_SetString(PyExc_IndexError, "sequence index out of range");
-            sipError = sipErrorFail;
-        }}
-    %End
-
-    int __contains__(const {ItemClass}* obj);
-    %MethodCode
+            return NULL;
+        }}""".format(**locals()), 'function')),
+      
+    c.addMethod(
+        'int', '__contains__', '(const %s* obj)' % ItemClass,
+        items=[extractors.ParamDef(type='const %s *' % ItemClass, name='obj')],
+        cppCode=("""\
         {ListClass}::compatibility_iterator node;
-        node = sipCpp->Find(({RealItemClass}*)obj);
-        sipRes = node != NULL;
-    %End
-
-    {ListClass}_iterator* __iter__() /Factory/;
-    %MethodCode
-        sipRes =  new {ListClass}_iterator(sipCpp->GetFirst());
-    %End
-
-    // TODO:  add support for index(value, [start, [stop]])
-    int index({ItemClass}* obj);
-    %MethodCode
-        int idx = sipCpp->IndexOf(({RealItemClass}*)obj);
+        node = self->Find(({RealItemClass}*)obj);
+        return node != NULL;""".format(**locals()), 'function'))
+    c.addMethod(
+        ListClass + '_iterator*', '__iter__', '()', factory=True,
+        cppCode=('return new %s_iterator(self->GetFirst());' % ListClass,
+                 'function'))
+    c.addMethod(
+        'int', '__getitem__', '(%s * obj)' % ItemClass,
+        items=[extractors.ParamDef(type='%s *' % ItemClass, name='obj')],
+        cppCode=("""\
+        int idx = self->IndexOf(({RealItemClass}*)obj);
         if (idx == wxNOT_FOUND) {{
-            sipError = sipErrorFail;
             wxPyErr_SetString(PyExc_ValueError,
                               "sequence.index(x): x not in sequence");
         }}
-        sipRes = idx;
-    %End
-    
-    @ConvertToTypeCode@
-}};
+        return idx;""".format(**locals()), 'function'))
+    c.addItem(extractors.CppMethodDef_cffi(
+        'void *', '_new',
+        '(size_t count, void **elements)', '(elements)',
+        pyArgs=[extractors.ParamDef(name='elements', type=ItemClass)],
+        isStatic=True,
+        body='return new %s(count, (%s **)elements);' % (ListClass, ItemClass),
+        pyBody="""\
+        wrapper_lib.check_args_types(
+            ({0}._pyobject_mapping_, elements, "elements"))
 
-%Extract(id=pycode{moduleName})
-def _{ListClass_pyName}___repr__(self):
-    return "{ListClass_pyName}: " + repr(list(self))
-{ListClass_pyName}.__repr__ = _{ListClass_pyName}___repr__
-del _{ListClass_pyName}___repr__
-%End
-'''
+        keepalive = []
+        array = ffi.new('void *[]', len(elements))
+        for item in elements:
+            if not isinstance(item, {1}):
+                item = {0}._pyobject_mapping_.convert(item)
+                keepalive.append(item)
+            array[i] = wrapper_lib.get_ptr(item)
 
-    convertToTypeCode = '''\
+        call(len(elemnts, array))
+        """.format(ListClass_pyName, ItemClass_pyName)))
+    # TODO:  add support for index(value, [start, [stop]])
+    c.addPyMethod(
+        '__repr__', '(self)',
+        'return "{ListClass_pyName}: " + repr(list(self))'.format(**locals()))
+
+    c.convertToTypeCode = '''\
 %ConvertToTypeCode
     // Code to test a PyObject for compatibility
     if (!sipIsErr) {{
@@ -998,11 +1060,19 @@ del _{ListClass_pyName}___repr__
     return SIP_TEMPORARY;
 %End
 '''
-    if includeConvertToType:
-        klassCode = klassCode.replace('@ConvertToTypeCode@', convertToTypeCode)
+    c.instancecheck = """\
+    if (not isinstance(py_obj, collections.Sequence) or
+        isinstance(py_obj, (str, unicode))):
+        return False
+
+    if hasattr({0}, '_pyobject_mapping_'):
+        type = ({0}, {0}._pyobject_mapping_)
     else:
-        klassCode = klassCode.replace('@ConvertToTypeCode@', '')
-    return extractors.WigCode(klassCode.format(**locals()))
+        type = {0}
+    return all(isinstance(item, type) for i in py_obj)
+    """.format(ItemClass_pyName)
+    c.convertFromPyObject_cffi = "return %s._new(py_obj)" % ItemClass_pyName
+    module.addItem(c)
 
 
 
@@ -1013,58 +1083,52 @@ def wxArrayWrapperTemplate(ArrayClass, ItemClass, module):
     # *** TODO: This can probably be done in a way that is not SIP-specfic.
     # Try creating extractor objects from scratch and attach cppMethods to
     # them as needed, etc..
-        
-    return extractors.WigCode('''\
-class {ArrayClass} 
-{{
-public:
-    SIP_SSIZE_T __len__();
-    %MethodCode
-        sipRes = sipCpp->GetCount();
-    %End
 
-    {ItemClass}& __getitem__(size_t index);
-    %MethodCode
-        if (index < sipCpp->GetCount()) {{
-            sipRes = &sipCpp->Item(index);
-        }}
-        else {{
+    c = extractors.ClassDef(name=ArrayClass)
+    c.addMethod(
+        'SIP_SSIZE_T', '__len__', '()',
+        cppCode=('return self->GetCount();', 'function'))
+    c.addMethod(
+        ItemClass + '*', '__getitem__', '(size_t index)',
+        items=[extractors.ParamDef(type='size_t', name='index')],
+        cppCode=("""\
+        if(index < self->GetCount())
+            return &self->Item(index);
+        else
+        {
             wxPyErr_SetString(PyExc_IndexError, "sequence index out of range");
-            sipError = sipErrorFail;
-        }}
-    %End
+            return NULL;
+        }""", 'function'))
+    c.addMethod(
+        'int', '__contains__', '(const %s& obj)' % ItemClass,
+        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
+        cppCode=("""\
+        return (self->Index(*obj, false) != wxNOT_FOUND);
+        """, 'function'))
+    c.addMethod(
+        'void', 'append', '(const %s& obj)' % ItemClass,
+        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
+        cppCode=("self->Add(*obj);", 'function'))
 
-    int __contains__(const {ItemClass}& obj);
-    %MethodCode
-        int idx = sipCpp->Index(*obj, false);
-        sipRes = idx != wxNOT_FOUND;
-    %End
-
-    void append(const {ItemClass}& obj);
-    %MethodCode
-        sipCpp->Add(*obj);
-    %End
-
-    // TODO:  add support for index(value, [start, [stop]])
-    int index(const {ItemClass}& obj);
-    %MethodCode
-        int idx = sipCpp->Index(*obj, false);
-        if (idx == wxNOT_FOUND) {{
-            sipError = sipErrorFail;
+    # TODO:  add support for index(value, [start, [stop]])
+    c.addMethod(
+        'int', 'index', '(const %s& obj)' % ItemClass,
+        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
+        cppCode=("""\
+        int idx = self->Index(*obj, false);
+        if(idx == wxNOT_FOUND)
+        {
             wxPyErr_SetString(PyExc_ValueError,
                               "sequence.index(x): x not in sequence");
-            }}
-        sipRes = idx;
-    %End
-}};
+            return -1;
+        }
+        return idx;
+        """, 'function'))
+    c.addPyMethod(
+        '__repr__', '(self)',
+        body='return "%s: " + repr(list(self))' % ArrayClass_pyName)
 
-%Extract(id=pycode{moduleName})
-def _{ArrayClass_pyName}___repr__(self):
-    return "{ArrayClass_pyName}: " + repr(list(self))
-{ArrayClass_pyName}.__repr__ = _{ArrayClass_pyName}___repr__
-del _{ArrayClass_pyName}___repr__
-%End
-'''.format(**locals()))
+    module.addItem(c)
 
 
 

@@ -37,6 +37,7 @@ class TestBindGen(object):
         module.addHeaderCode('#include <test_bindgen.h>')
 
         module.addPyCode('from _core import *', 0)
+        module.addPyCode('import _core', 0)
 
         module.addItem(DefineDef(
             name='prefixedSOME_INT', pyName='SOME_INT'))
@@ -365,6 +366,11 @@ class TestBindGen(object):
             type='int', argsString='(ArrayClass *objs, int len)',
             name='call_sum_virt',
             items=[ParamDef(type='ArrayClass *', name='objs', array=True),
+                   ParamDef(type='int', name='len', arraySize=True)]))
+        c.addItem(MethodDef(
+            type='int', argsString='(Vector *objs, int len)',
+            name='sum_mapped_type', isStatic=True,
+            items=[ParamDef(type='Vector *', name='objs', array=True),
                    ParamDef(type='int', name='len', arraySize=True)]))
         c.addItem(MemberVarDef(type='int', name='m_i'))
         module.addItem(c)
@@ -794,6 +800,15 @@ class TestBindGen(object):
             type='string', name='m_name'))
         module.addItem(c)
 
+        c = ClassDef(name='WrappedTypeClass')
+        c.addMethod('CtorsClass&', 'get_ref', '()', isVirtual=True)
+        c.addMethod('CtorsClass&', 'call_get_ref', '()')
+        c.addMethod('CtorsClass*', 'get_ptr', '()', isVirtual=True)
+        c.addMethod('CtorsClass*', 'call_get_ptr', '()')
+        c.addMethod('CtorsClass', 'get_value', '()', isVirtual=True)
+        c.addMethod('CtorsClass', 'call_get_value', '()')
+        module.addItem(c)
+
         f = FunctionDef(
             type='void', argsString='(char *name, char *str)',
             name='raise_exception', items=[
@@ -888,7 +903,8 @@ class TestBindGen(object):
             # Use distutis via cffi to build the cpp code
             cls.gens[name].writeFiles(
                 py_file, cpp_file, h_file, user_py_file,
-                'sources=["%s"], include_dirs=["%s"], tmpdir="%s"' %
+                'sources=["%s"], include_dirs=["%s"], tmpdir="%s", '
+                'extra_compile_args=["-O0", "-g"],' %
                 ('", "'.join(sources), '", "'.join(include_dirs), tmpdir))
 
         return user_py_path.pyimport()
@@ -1142,6 +1158,9 @@ class TestBindGen(object):
         objs = [AC(1), AC(2), AC(3)]
         assert AC.sum(objs) == 6
 
+        objs = [(1, 2), (3, 4)]
+        assert AC.sum_mapped_type(objs) == 10
+
     def test_mappedtype(self):
         assert self.mod.std_string_len("Test") == 4
         assert self.mod.std_string_len(["Test", "Two"]) == 7
@@ -1159,6 +1178,22 @@ class TestBindGen(object):
 
         obj = MappedTypeSubclass()
         assert obj.call_get_name() == 'new name'
+
+    def test_virtual_wrappedtype(self):
+        class WrappedTypeSubclass(self.mod.WrappedTypeClass):
+            def get_ref(self_):
+                return self.mod.CtorsClass(-10)
+
+            def get_ptr(self_):
+                return self.mod.CtorsClass(-11)
+
+            def get_value(self_):
+                return self.mod.CtorsClass(-12)
+
+        obj = WrappedTypeSubclass()
+        assert obj.call_get_ref().get() == -10
+        assert obj.call_get_ptr().get() == -11
+        assert obj.call_get_value().get() == -12
 
     def test_virtual_array(self):
         class ArraySubclass(self.mod.ArrayClass):

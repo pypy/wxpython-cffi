@@ -12,6 +12,17 @@ DOCSTRING = ""
 def run():
     module = etgtools.ModuleDef(PACKAGE, MODULE, NAME, DOCSTRING)
 
+    struct = """\
+    typedef struct wxPyArrayHelper
+    {
+        size_t length;
+        void* array;
+    } wxPyArrayHelper;
+    """
+
+    module.addHeaderCode(struct)
+    module.addCdef_cffi(struct)
+
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxArrayString', cType='wchar_t **',
         py2c="""\
@@ -64,6 +75,111 @@ def run():
         """
     ))
 
+    module.addItem(etgtools.MappedTypeDef_cffi(
+        name='wxArrayInt', cType='wxPyArrayHelper',
+        py2c="""\
+        array = ffi.new('int []', len(py_obj) + 1)
+        for i, obj in enumerate(py_obj):
+            cdata[i] = int(obj)
+
+        cdata = ffi.new('wxPyArrayHelper')
+        cdata.length = len(py_obj)
+        cdata.array = array
+
+        return (cdata, array)
+        """,
+        c2cpp="""\
+        int *carray = (int*)cdata.array;
+
+        wxArrayInt *array = new wxArrayInt;
+        for(int i = 0; i < cdata.length; i++)
+            array->Add(carray[i]);
+        return array;
+        """,
+
+        cpp2c="""\
+        int *array = (int*)malloc(sizeof(int) * cpp_obj->size());
+
+        for(int i = 0; i < cpp_obj->size(); i++)
+            array[i] = cpp_obj->Item(i);
+
+        wxPyArrayHelper ret;
+        ret.array = array;
+        ret.length = cpp_obj->size();
+
+        return ret;
+        """,
+        c2py="""\
+        ret = []
+        array = ffi.cast('int*', cdata.array)
+        for i in range(cdata):
+            ret.append(array[i])
+
+        clib.free(cdata.array)
+        clib.free(cdata)
+        return ret
+        """,
+
+        instancecheck="""\
+        if (not isinstance(py_obj, collections.Sequence) or
+            isinstance(py_obj, (str, unicode))):
+            return False
+        return all(isinstance(i, numbers.Number) for i in py_obj)
+        """
+    ))
+
+    module.addItem(etgtools.MappedTypeDef_cffi(
+        name='wxArrayDouble', cType='wxPyArrayHelper',
+        py2c="""\
+        array = ffi.new('double []', len(py_obj) + 1)
+        for i, obj in enumerate(py_obj):
+            cdata[i] = float(obj)
+
+        cdata = ffi.new('wxPyArrayHelper')
+        cdata.length = len(py_obj)
+        cdata.array = array
+
+        return (cdata, array)
+        """,
+        c2cpp="""\
+        double *carray = (double*)cdata.array;
+
+        wxArrayDouble *array = new wxArrayDouble;
+        for(int i = 0; i < cdata.length; i++)
+            array->Add(carray[i]);
+        return array;
+        """,
+
+        cpp2c="""\
+        double *array = (double*)malloc(sizeof(double) * cpp_obj->size());
+
+        for(int i = 0; i < cpp_obj->size(); i++)
+            array[i] = cpp_obj->Item(i);
+
+        wxPyArrayHelper ret;
+        ret.array = array;
+        ret.length = cpp_obj->size();
+
+        return ret;
+        """,
+        c2py="""\
+        ret = []
+        array = ffi.cast('double*', cdata.array)
+        for i in range(cdata):
+            ret.append(array[i])
+
+        clib.free(cdata.array)
+        clib.free(cdata)
+        return ret
+        """,
+
+        instancecheck="""\
+        if (not isinstance(py_obj, collections.Sequence) or
+            isinstance(py_obj, (str, unicode))):
+            return False
+        return all(isinstance(i, numbers.Number) for i in py_obj)
+        """
+    ))
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
     tools.runGenerators(module)
