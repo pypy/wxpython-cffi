@@ -6,7 +6,7 @@ The fork is not finished yet, so YMMV.
 To get started:
 
 1.  Clone the repository, also download sources for wxWidgets. You may need to
-    tell build.py where this is, do ``export WXWIN=../wxWidgets-2.9.5``
+    tell build.py where this is, do ``export WXWIN=$(pwd)/../wxWidgets-2.9.5``
     Also, install doxygen. CD into the toplevel wxPython directory, where the 
     build.py script lives.
 2.  Since the etg scripts need the wxWidget documentation, make sure
