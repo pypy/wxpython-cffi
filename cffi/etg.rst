@@ -2,7 +2,6 @@
 Converting ETG scripts
 =======================
 
-Below is some information 
 
 Building the bindings
 ---------------------
