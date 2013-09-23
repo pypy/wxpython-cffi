@@ -1,7 +1,7 @@
 wxPython_cffi is a fork of wxPython Phoenix to use cffi_ instead of the Python
 C api. The motivation for this fork is to create a version of wxPython that is
 more friendly to PyPy_, an alternative implementation of a python interpreter.
-The fork is not finished yet, so YMMV.
+The fork is not finished yet, so YMMV. 
 
 To get started:
 
@@ -13,17 +13,20 @@ To get started:
     ``./build.py dox`` completes cleanly. See the following documentation or
     wxPython mailing lists if this does not work for you.
 3.  Run the etg scripts: ``./build.py etg --generator=cffi --nodoc``
-    (``--nodoc`` may not be necessary for you, but I never got the sphinx generator
-    to work, even on a clean upstream copy)
+    (``--nodoc`` may not be necessary for you, but I never got the sphinx
+    generator to work, even on a clean upstream copy.)
 4.  Make sure you have the wxWidgets code built in build/wxbld by running 
     ``./builld.py build``.
 5.  Run the generator: ``./build.py cffi_gen``
 
-The bindings are outputted to cffi/wx, so you need to use
-``PYTHONPATH=./cffi python`` (assuming cwd is root of your checkout) to try
-running them. Since a particular subset (event handling) of the core module is
-needed actually import the toplevel wx module, you'll need to import
-``wx._core`` for now. That should change very soon though.
+The bindings are outputted to ``cffi/wx``, so you need to add the ``cffi``
+directory to you ``PYTHONPATH`` before you can import the bindings. Only the
+main module works at the moment and it is missing a lot of functionality.
+
+If you are interested in helping out, the place to start is with converting ETG
+scripts.  Some background information about the ETG script and the general
+structure of the project can be found on the wxPython Phoenix wiki, linked
+below. You can find more information about this in the ``cffi/etg.rst`` file.
 
 After updating sources from version control, you may need to run ``./build.py
 touch`` before running the etg scripts.
