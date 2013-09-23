@@ -15,7 +15,9 @@ To get started:
 3.  Run the etg scripts: ``./build.py etg --generator=cffi --nodoc``
     (``--nodoc`` may not be necessary for you, but I never got the sphinx generator
     to work, even on a clean upstream copy)
-4.  Run the generator: ``./build.py cffi_gen``
+4.  Make sure you have the wxWidgets code built in build/wxbld by running 
+    ``./builld.py build``.
+5.  Run the generator: ``./build.py cffi_gen``
 
 The bindings are outputted to cffi/wx, so you need to use
 ``PYTHONPATH=./cffi python`` (assuming cwd is root of your checkout) to try
@@ -23,8 +25,8 @@ running them. Since a particular subset (event handling) of the core module is
 needed actually import the toplevel wx module, you'll need to import
 ``wx._core`` for now. That should change very soon though.
 
-After updating, you may need to run ``./build.py touch`` before running the etg
-scripts.
+After updating sources from version control, you may need to run ``./build.py
+touch`` before running the etg scripts.
 
 .. _cffi:  http://cffi.readthedocs.org
 .. _pypy:  http://www.pypy.org
