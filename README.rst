@@ -23,6 +23,9 @@ running them. Since a particular subset (event handling) of the core module is
 needed actually import the toplevel wx module, you'll need to import
 ``wx._core`` for now. That should change very soon though.
 
+After updating, you may need to run ``./build.py touch`` before running the etg
+scripts.
+
 .. _cffi:  http://cffi.readthedocs.org
 .. _pypy:  http://www.pypy.org
 
