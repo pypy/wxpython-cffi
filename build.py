@@ -922,11 +922,14 @@ def cmd_cffi_gen(options, args):
             else:
                 WX_CONFIG = 'wx-config' # hope it is on the PATH
 
-    libs = runcmd(WX_CONFIG + ' --libs', True, False)
-    cxxflags = runcmd(WX_CONFIG + ' --cxxflags', True, False)
+        libs = runcmd(WX_CONFIG + ' --libs', True, False)
+        cxxflags = runcmd(WX_CONFIG + ' --cxxflags', True, False)
 
-    libs = shlex.split(libs)
-    cxxflags = shlex.split(cxxflags)
+        libs = shlex.split(libs)
+        cxxflags = shlex.split(cxxflags)
+    else:
+        libs = []
+        cxxflags = []
     cxxflags.append('-I' + opj(CFFI_DIR, 'include'))
     cxxflags.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
     cxxflags.append('-I' + opj(cfg.ROOT_DIR, 'src'))

@@ -7,8 +7,8 @@ To get started:
 
 1.  Clone the repository, also download sources for wxWidgets. You may need to
     tell build.py where this is, do ``export WXWIN=$(pwd)/../wxWidgets-2.9.5``
-    Also, install doxygen. CD into the toplevel wxPython directory, where the 
-    build.py script lives.
+    CD into the toplevel wxPython directory, where the build.py script lives.
+    On windows, you will need to have cygwin 32bit installed in c:\cygwin.
 2.  Since the etg scripts need the wxWidget documentation, make sure
     ``./build.py dox`` completes cleanly. See the following documentation or
     wxPython mailing lists if this does not work for you.
@@ -16,7 +16,8 @@ To get started:
     (``--nodoc`` may not be necessary for you, but I never got the sphinx
     generator to work, even on a clean upstream copy.)
 4.  Make sure you have the wxWidgets code built in build/wxbld by running 
-    ``./builld.py build``.
+    ``./builld.py build_wx``. If using a MSVC compiler, vcvars.bat must be run
+    to add cl.exe to the path before building.
 5.  Run the generator: ``./build.py cffi_gen``
 
 The bindings are outputted to ``cffi/wx``, so you need to add the ``cffi``
