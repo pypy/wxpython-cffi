@@ -534,3 +534,15 @@ void* VoidPtrClass::call_copy_data(void *data, int size)
 {
     return copy_data(data, size);
 }
+
+OpaqueType* make_opaque_object(int i)
+{
+    OpaqueType *obj = new OpaqueType;
+    obj->i = i;
+    return obj;
+}
+
+int take_opaque_object(OpaqueType *obj)
+{
+    return obj->i;
+}

@@ -456,3 +456,11 @@ public:
     virtual void* copy_data(void *data, int size);
     void* call_copy_data(void *data, int size);
 };
+
+struct OpaqueType
+{
+    int i;
+};
+
+OpaqueType* make_opaque_object(int i);
+int take_opaque_object(OpaqueType*);

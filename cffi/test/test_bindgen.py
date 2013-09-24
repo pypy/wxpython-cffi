@@ -853,6 +853,13 @@ class TestBindGen(object):
                    ParamDef(type='int', name='size')])
         module.addItem(c)
 
+        module.addItem(FunctionDef(
+            type='OpaqueType*', name='make_opaque_object', argsString='(int i)',
+            items=[ParamDef(type='int', name='i')]))
+        module.addItem(FunctionDef(
+            type='int', name='take_opaque_object', argsString='(OpaqueType *obj)',
+            items=[ParamDef(type='OpaqueType *', name='obj')]))
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -1703,3 +1710,7 @@ class TestBindGen(object):
         obj = VoidPtrSubclass()
         tmp = obj.call_copy_data(cdata, len(cdata))
         assert ffi.string(ffi.cast('char*', tmp)) == 'est'
+
+    def test_opaque_type(self):
+        obj = self.mod.make_opaque_object(10)
+        assert self.mod.take_opaque_object(obj) == 10

@@ -5,6 +5,7 @@ import glob
 import types
 import cPickle as pickle
 import cStringIO
+import warnings
 
 import etgtools.extractors as extractors
 import etgtools.generators as generators
@@ -13,7 +14,8 @@ from etgtools.tweaker_tools import magicMethods
 
 from etgtools.cffi_typeinfo import (
     ARRAY_SIZE_PARAM, OUT_PARAM_SUFFIX, TypeInfo, WrappedTypeInfo,
-    MappedTypeInfo, CharPtrTypeInfo, BasicTypeInfo, VoidPtrTypeInfo)
+    MappedTypeInfo, CharPtrTypeInfo, BasicTypeInfo, VoidPtrTypeInfo,
+    UnknownTypeException)
 
 from buildtools.config import Config
 cfg = Config(noWxConfig=True)
@@ -1644,17 +1646,30 @@ class CffiModuleGenerator(object):
     #------------------------------------------------------------------------#
 
     def getTypeInfo(self, item):
-        if isinstance(item.type, (str, types.NoneType)):
-            item.type = TypeInfo.new(
-                item.type, self.findItem,
-                pyInt=getattr(item, 'pyInt', False),
-                array=getattr(item, 'array', False),
-                arraySize=getattr(item, 'arraySize', False),
-                out=getattr(item, 'out', False),
-                inOut=getattr(item, 'inOut', False),
-                noCopy=getattr(item, 'noCopy', False),
-                transfer=getattr(item, 'transfer', False),
-                factory=getattr(item, 'factory', False))
+        try:
+            if isinstance(item.type, (str, types.NoneType)):
+                item.type = TypeInfo.new(
+                    item.type, self.findItem,
+                    pyInt=getattr(item, 'pyInt', False),
+                    array=getattr(item, 'array', False),
+                    arraySize=getattr(item, 'arraySize', False),
+                    out=getattr(item, 'out', False),
+                    inOut=getattr(item, 'inOut', False),
+                    noCopy=getattr(item, 'noCopy', False),
+                    transfer=getattr(item, 'transfer', False),
+                    factory=getattr(item, 'factory', False))
+        except UnknownTypeException as e:
+            warnings.warn("Encountered unknown type '%s'. Creating opaque type"
+                          % e.typeName)
+            self.createOpaqueType(e.typeName)
+            self.getTypeInfo(item)
+
+    def createOpaqueType(self, typeName):
+        c = extractors.ClassDef(name=typeName)
+        self.module.items.append(c)
+        self.classes.append(c)
+        self.initClass(c)
+        self.initClassItems(c)
 
     def createArgsStrings(self, func, isOverload, parent=None):
         """

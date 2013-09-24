@@ -83,7 +83,7 @@ class TypeInfo(object):
             type = BasicTypeInfo
             typeName = name
         else:
-            raise UnknownTypeException(typeName)
+            raise UnknownTypeException(name)
 
         key = (typeName, frozenset(kwargs.items()))
         if key not in cls._cache:
