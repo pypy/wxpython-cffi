@@ -133,7 +133,7 @@ def run():
     # Fixup similar conflicts in the Set method overloads
     c.find('Set').findOverload('struct tm').ignore()
     c.find('Set').renameOverload('Tm',         'SetTm')
-    c.find('Set').renameOverload('time_t',     'SetTimeT')
+    #c.find('Set').renameOverload('time_t',     'SetTimeT')
     c.find('Set').renameOverload('double jdn', 'SetJDN')
     c.find('Set').renameOverload('hour',       'SetHMS')
     

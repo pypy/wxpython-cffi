@@ -113,12 +113,16 @@ void wxPyApp::_BootstrapApp(int argc, wchar_t **argv)
         if (! result) 
         {
             wxPyThreadBlocker blocker;
+#ifdef __WXGTK__
             PyErr_SetString(PyExc_SystemError,
                               "wxEntryStart failed, unable to initialize wxWidgets!"
-#ifdef __WXGTK__
                               "  (Is DISPLAY set properly?)"
-#endif
                 );
+#else                              
+            PyErr_SetString(PyExc_SystemError,
+                              "wxEntryStart failed, unable to initialize wxWidgets!"
+                );
+#endif
             goto error;
         }
         haveInitialized = true;

@@ -13,3 +13,4 @@ cffi/def_gen/*
 cffi/wx/*
 sip/cpp/*
 sip/gen/*
+build/wxbld/*

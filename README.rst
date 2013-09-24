@@ -6,16 +6,19 @@ The fork is not finished yet, so YMMV.
 To get started:
 
 1.  Clone the repository, also download sources for wxWidgets. You may need to
-    tell build.py where this is, do ``export WXWIN=../wxWidgets-2.9.5``
-    Also, install doxygen. CD into the toplevel wxPython directory, where the 
-    build.py script lives.
+    tell build.py where this is, do ``export WXWIN=$(pwd)/../wxWidgets-2.9.5``
+    CD into the toplevel wxPython directory, where the build.py script lives.
+    On windows, you will need to have cygwin 32bit installed in c:\cygwin.
 2.  Since the etg scripts need the wxWidget documentation, make sure
     ``./build.py dox`` completes cleanly. See the following documentation or
     wxPython mailing lists if this does not work for you.
 3.  Run the etg scripts: ``./build.py etg --generator=cffi --nodoc``
     (``--nodoc`` may not be necessary for you, but I never got the sphinx
     generator to work, even on a clean upstream copy.)
-4.  Run the generator: ``./build.py cffi_gen``
+4.  Make sure you have the wxWidgets code built in build/wxbld by running 
+    ``./builld.py build_wx``. If using a MSVC compiler, vcvars.bat must be run
+    to add cl.exe to the path before building.
+5.  Run the generator: ``./build.py cffi_gen``
 
 The bindings are outputted to ``cffi/wx``, so you need to add the ``cffi``
 directory to you ``PYTHONPATH`` before you can import the bindings. Only the
@@ -25,6 +28,9 @@ If you are interested in helping out, the place to start is with converting ETG
 scripts.  Some background information about the ETG script and the general
 structure of the project can be found on the wxPython Phoenix wiki, linked
 below. You can find more information about this in the ``cffi/etg.rst`` file.
+
+After updating sources from version control, you may need to run ``./build.py
+touch`` before running the etg scripts.
 
 .. _cffi:  http://cffi.readthedocs.org
 .. _pypy:  http://www.pypy.org
