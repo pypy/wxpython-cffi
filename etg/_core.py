@@ -51,7 +51,7 @@ INCLUDES = [  # base and core stuff
               #'stopwatch',
               
               'windowid',
-              #'platinfo',
+              'platinfo',
               'vidmode',
               #'display',
               'intl',

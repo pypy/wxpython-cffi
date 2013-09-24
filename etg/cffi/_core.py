@@ -9,10 +9,11 @@ def run(module):
 
     module.addItem(FunctionDef(
         type='void', argsString='()', name='_wxPyCleanup'))
-    module.addItem(GlobalVarDef(type='const char *', name='wxPort', pyName='Port'))
-    module.addItem(GlobalVarDef(type='const char *', name='wxPlatform',
+    module.addItem(GlobalVarDef(type='const char *', name='wxPyPort',
+                                pyName='Port'))
+    module.addItem(GlobalVarDef(type='const char *', name='wxPyPlatform',
                                 pyName='Platform'))
-    module.addItem(GlobalVarDef(type='const char *', name='wxPlatformInfo',
+    module.addItem(GlobalVarDef(type='const char *', name='wxPyPlatformInfo',
                                 pyName='PlatformInfo'))
 
     module.includeCppCode('src/cffi/core_ex.cpp')

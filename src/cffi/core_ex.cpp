@@ -99,20 +99,20 @@ void _wxPyCleanup()
 }
 
 #ifdef __WXGTK__
-#define wxPort "__WXGTK__"
-#define wxPortName "wxGTK"
+#define wxPyPort "__WXGTK__"
+#define wxPyPortName "wxGTK"
 #endif
 #ifdef __WXMSW__
-#define wxPort "__WXMSW__"
-#define wxPortName "wxMSW"
+#define wxPyPort "__WXMSW__"
+#define wxPyPortName "wxMSW"
 #endif
 #ifdef __WXMAC__
-#define wxPort "__WXMAC__"
-#define wxPortName "wxMac"
+#define wxPyPort "__WXMAC__"
+#define wxPyPortName "wxMac"
 #endif
-#define wxPlatform wxPort
+#define wxPyPlatform wxPyPort
 
-const char *wxPlatformInfo =
+const char *wxPyPlatformInfo =
 #if wxUSE_UNICODE
     "unicode, "
 #if wxUSE_UNICODE_WCHAR
