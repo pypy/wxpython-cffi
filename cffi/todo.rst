@@ -48,6 +48,7 @@ conversions and perform the pointer arithmetic in Python using cffi. Since the
 vast majority of these will simply be an offset of 0, a special case can be
 made to speed things up. This could hopefully also be accelerated by PyPy's
 JIT.
+
 2. Mimic sip's behavior. Each class gets a unique identifier and a
 ``cast_$CLASSNAME`` function. The cast function takes two parameters: a pointer
 to convert and the target type. The function checks if the target type matches
@@ -94,12 +95,13 @@ Improve the generated conversion code
 
 This can mean a couple of different things:
 
- * The names of temporary variables used in the conversion process suck. Maybe
-come up with a good, consistent naming scheme for temporary variables?
- * Lean on templates a little more heavily. The handling of when to
-de-reference could be done by templates rather than by the binding generator
-itself. This makes the generator simpler, but makes generated code harder to
-read/debug and worsens compile times.
+* The names of temporary variables used in the conversion process suck. Maybe
+  come up with a good, consistent naming scheme for temporary variables?
+
+* Lean on templates a little more heavily. The handling of when to
+  de-reference could be done by templates rather than by the binding generator
+  itself. This makes the generator simpler, but makes generated code harder to
+  read/debug and worsens compile times.
 
 
 Improve import times
@@ -112,3 +114,10 @@ populating of classes attribute dictionaries can be delayed until they are
 accessed for the first time. At the moment, I have no idea how to actually
 implement this.
 
+
+Change how parent-child hierarchy is implemented
+------------------------------------------------
+
+The parent-child structure is implemented using a linked list of siblings.
+PyPy's garbage collector doesn't handle that sort of structure particularly
+well. Store siblings in a list instead.

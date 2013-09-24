@@ -8,6 +8,9 @@ from etgtools.generators import nci, Utf8EncodingStream, textfile_open, wrapText
 from buildtools.config import Config
 cfg = Config(noWxConfig=True)
 
+AUTO_PYNAME_TYPES = (extractors.ClassDef, extractors.FunctionDef,
+                     extractors.EnumValueDef, extractors.VariableDef)
+
 class CffiWrapperGenerator(generators.WrapperGeneratorBase):
     def generate(self, module):
         outfile = module.name + '.def'
@@ -21,6 +24,7 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
                 item.pyDocstring = ''
 
         self.stripIgnoredItems(module.items)
+        self.trimPrefixes(module.items)
 
         with open(outfile, 'wb') as f:
             pickle.dump(module, f, 2)
@@ -52,3 +56,15 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
                 items.remove(dummy)
             except ValueError:
                 break
+
+    def trimPrefixes(self, items):
+        for item in items:
+            if not item.pyName:
+                if (isinstance(item, AUTO_PYNAME_TYPES) and
+                    item.name.startswith('wx')):
+                    item.pyName = item.name[2:]
+                else:
+                    item.pyName = item.name
+            self.trimPrefixes(item.items)
+            self.trimPrefixes(getattr(item, 'innerclasses', []))
+            self.trimPrefixes(getattr(item, 'overloads', []))

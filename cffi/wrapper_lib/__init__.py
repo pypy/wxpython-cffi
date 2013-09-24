@@ -1,7 +1,7 @@
 from cppwrapper import (
     CppWrapper, WrapperType, VirtualMethod, VirtualDispatcher,
     register_cpp_classname, obj_from_ptr, get_ptr, forget_ptr, take_ownership,
-    give_ownership, keep_reference, MappedBase)
+    give_ownership, keep_reference, MappedBase, instancecheck, convert_to_type)
 from multimethod import (
     Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta,
     check_args_types)
