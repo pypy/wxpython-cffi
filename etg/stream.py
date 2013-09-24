@@ -25,6 +25,8 @@ ITEMS  = [ 'wxStreamBase',
     
 OTHERDEPS = [ 'src/stream_input.cpp',
               'src/stream_output.cpp',
+              'etg/sip/stream.py',
+              'etg/cffi/stream.py',
               ]
 
 #---------------------------------------------------------------------------
