@@ -114,3 +114,10 @@ populating of classes attribute dictionaries can be delayed until they are
 accessed for the first time. At the moment, I have no idea how to actually
 implement this.
 
+
+Change how parent-child hierarchy is implemented
+------------------------------------------------
+
+The parent-child structure is implemented using a linked list of siblings.
+PyPy's garbage collector doesn't handle that sort of structure particularly
+well. Store siblings in a list instead.

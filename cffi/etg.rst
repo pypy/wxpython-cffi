@@ -265,6 +265,14 @@ It provides the following functions:
   Checks for an exception set in C++ code. This should follow most calls to C++
   code, though potentially following cleanup code for the call.
 
+``wrapper_lib.instancecheck(obj, cls)``
+  Checks if ``obj`` is an wrapper for an instance of ``cls`` or is a Python
+  object that can be converted to an instance of ``cls``.
+
+``wrapper_lib.convert_to_type(obj, cls)``
+  Converts ``obj`` to an instance of ``cls`` and returns it if possible. If the
+  conversion is not possible, returns ``None``.
+
 .. TODO: Document adjust_refcount, get_refcounted_handle
 
 

@@ -321,6 +321,18 @@ def give_ownership(obj, parent=None, external_ref=False):
         # changed by Python or its (hopefully virtual) C++ Dtor is called
         cpp_owned_objects.add(obj)
 
+def instancecheck(obj, cls):
+    return isinstance(obj, cls) or (hasattr(cls, '_pyobject_mapping_') and
+                                    isinstance(obj, cls._pyobject_mapping_))
+
+def convert_to_type(obj, cls):
+    if isinstance(obj, cls):
+        return obj
+    if (hasattr(cls, '_pyobject_mapping_') and
+        isinstance(obj, cls._pyobject_mapping_)):
+        return cls._pyobject_mapping_.convert(obj)
+    return None
+
 def _detach_from_parent(obj):
     if obj._parent is None:
         # No parent to detach from
