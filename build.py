@@ -25,6 +25,7 @@ else:
     from urllib.request import urlopen
 
 from distutils.dep_util import newer, newer_group
+from distutils.dir_util import copy_tree
 from buildtools.config  import Config, msg, opj, posixjoin, loadETG, etg2outfile, findCmd, \
                                phoenixDir, wxDir, copyIfNewer, copyFile, \
                                macFixDependencyInstallName, macSetLoaderNames, \
@@ -971,6 +972,14 @@ def cmd_cffi_gen(options, args):
         "SUBRELEASE_NUMBER = %(VER_SUBREL)s\n\n"
         "VERSION = (MAJOR_VERSION, MINOR_VERSION, RELEASE_NUMBER, SUBRELEASE_NUMBER, '%(VER_FLAGS)s')\n"
         % cfg.__dict__)
+
+    # Copy these directories from wx/ to cffi/wx/, but only if they don't exist
+    # in cffi/wx/ already
+    for name in ('lib', 'py', 'tools'):
+        dst = opj(cfg.ROOT_DIR, 'cffi', 'wx', name)
+        if not os.path.exists(dst):
+            src = opj(cfg.ROOT_DIR, 'wx', name)
+            copy_tree(src, dst)
     
 def cmd_touch(options, args):
     cmdTimer = CommandTimer('touch')
