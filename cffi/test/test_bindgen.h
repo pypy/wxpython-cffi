@@ -449,3 +449,10 @@ public:
 };
 
 DetectableBase * get_detectable_object(bool base);
+
+class VoidPtrClass
+{
+public:
+    virtual void* copy_data(void *data, int size);
+    void* call_copy_data(void *data, int size);
+};

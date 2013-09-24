@@ -13,7 +13,7 @@ from etgtools.tweaker_tools import magicMethods
 
 from etgtools.cffi_typeinfo import (
     ARRAY_SIZE_PARAM, OUT_PARAM_SUFFIX, TypeInfo, WrappedTypeInfo,
-    MappedTypeInfo, CharPtrTypeInfo, BasicTypeInfo)
+    MappedTypeInfo, CharPtrTypeInfo, BasicTypeInfo, VoidPtrTypeInfo)
 
 from buildtools.config import Config
 cfg = Config(noWxConfig=True)
@@ -1112,9 +1112,10 @@ class CffiModuleGenerator(object):
                 isWrappedType = isinstance(method.type, WrappedTypeInfo)
                 isBasicType = isinstance(method.type, BasicTypeInfo)
                 isCharPtrType = isinstance(method.type, CharPtrTypeInfo)
+                isVoidPtrType = isinstance(method.type, VoidPtrTypeInfo)
 
                 if isBasicType or method.type.isPtr and (isMappedType or
-                   isWrappedType) or isCharPtrType:
+                   isWrappedType) or isCharPtrType or isVoidPtrType:
                     cppfile.write(nci("return py_return;", 8))
                 elif isWrappedType and not (method.type.isPtr or
                       method.type.isRef):

@@ -14,6 +14,7 @@ BASIC_CTYPES = {
     'float': 'float',
     'double': 'float',
     'char': 'str',
+    'wchar_t': 'unicode',
     'char*': 'str',
     'char *': 'str',
     'signed char': 'int',
@@ -24,6 +25,11 @@ BASIC_CTYPES = {
 
 ARRAY_SIZE_PARAM = 'array_size_'
 OUT_PARAM_SUFFIX = '_ptr'
+
+class UnknownTypeException(Exception):
+    def __init__(self, typeName):
+        self.typeName = typeName
+        super(UnknownTypeException, self).__init__(typeName)
 
 class TypeInfo(object):
     _cache = {}
@@ -59,16 +65,25 @@ class TypeInfo(object):
             else:
                 break
 
-        if isinstance(typedef, extractors.ClassDef):
+        if name == 'void' and isPtr:
+            type = VoidPtrTypeInfo
+        elif name in ('', None, 'void'):
+            type = VoidTypeInfo
+        elif isinstance(typedef, extractors.ClassDef):
             type = WrappedTypeInfo
         elif isinstance(typedef, extractors.MappedTypeDef_cffi):
             type = MappedTypeInfo
         elif isPtr and 'char' in name:
             type = CharPtrTypeInfo
             typeName = name
-        else:
+        elif (name in BASIC_CTYPES or
+              name.replace('unsigned ', '').strip() in BASIC_CTYPES or
+              name.replace('signed ', '').strip()in BASIC_CTYPES or
+              isinstance(typedef, extractors.EnumDef)):
             type = BasicTypeInfo
             typeName = name
+        else:
+            raise UnknownTypeException(typeName)
 
         key = (typeName, frozenset(kwargs.items()))
         if key not in cls._cache:
@@ -586,3 +601,24 @@ class BasicTypeInfo(TypeInfo):
         if self.isRef:
             return '&' + varName
         return varName
+
+class VoidTypeInfo(TypeInfo):
+    def __init__(self, typeName, typedef, **kwargs):
+        self.cType = 'void'
+        self.cdefType = 'void'
+        self.cReturnType = 'void'
+        self.cdefReturnType = 'void'
+        super(VoidTypeInfo, self).__init__(typeName, typedef, **kwargs)
+
+class VoidPtrTypeInfo(TypeInfo):
+    def __init__(self, typeName, typedef, **kwargs):
+        super(VoidPtrTypeInfo, self).__init__(typeName, typedef, **kwargs)
+
+        self.cType = 'void*'
+        self.cdefType = 'void*'
+        self.overloadType = 'wrapper_lib.VoidPtrABC'
+        self.cReturnType = 'void*'
+        self.cdefReturnType = 'void*'
+
+        self.cCbType = 'const void*'
+        self.cdefCbType = 'const void*'

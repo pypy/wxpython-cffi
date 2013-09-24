@@ -522,3 +522,15 @@ DetectableBase * get_detectable_object(bool base)
     else
         return new DetectableSubclass;
 }
+
+void* VoidPtrClass::copy_data(void *data, int size)
+{
+    void *ret = malloc(size);
+    memcpy(ret, data, size);
+    return ret;
+}
+
+void* VoidPtrClass::call_copy_data(void *data, int size)
+{
+    return copy_data(data, size);
+}

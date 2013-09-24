@@ -842,6 +842,17 @@ class TestBindGen(object):
             return call(func_ptr)
             """))
 
+        c = ClassDef(name='VoidPtrClass')
+        c.addMethod(
+            'void*', 'copy_data', '(void *data, int size)', isVirtual=True,
+            items=[ParamDef(type='void *', name='data'),
+                   ParamDef(type='int', name='size')])
+        c.addMethod(
+            'void*', 'call_copy_data', '(void *data, int size)',
+            items=[ParamDef(type='void *', name='data'),
+                   ParamDef(type='int', name='size')])
+        module.addItem(c)
+
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)
 
@@ -1675,3 +1686,20 @@ class TestBindGen(object):
         def get():
             return 42
         assert self.mod.custom_pycode_cppmethod(get) == 42
+
+    def test_voidptr(self):
+        class VoidPtrSubclass(self.mod.VoidPtrClass):
+            def copy_data(self, data, size):
+                return ffi.cast('char*', data) + 1
+
+        ffi = self.mod.ffi
+
+        cdata = ffi.new('char[]', 'test')
+        obj = self.mod.VoidPtrClass()
+
+        tmp = obj.copy_data(cdata, len(cdata))
+        assert ffi.string(ffi.cast('char*', tmp)) == 'test'
+
+        obj = VoidPtrSubclass()
+        tmp = obj.call_copy_data(cdata, len(cdata))
+        assert ffi.string(ffi.cast('char*', tmp)) == 'est'

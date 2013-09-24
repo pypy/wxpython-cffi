@@ -12,6 +12,7 @@ from exceptions import register_exception, check_exception
 from refcounting import adjust_refcount, get_refcounted_handle
 from abstract import (
     abstract_class, concrete_subclass, purevirtual_abstract_class)
+from voidptr import VoidPtrABC
 
 def eval_class_attrs(cls):
     for attr in cls.__dict__.itervalues():
