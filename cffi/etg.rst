@@ -146,6 +146,13 @@ By combining a custom Python body and a custom C++ body, you should be able to
 achieve the same effect as any ``CppMethodDef`` or ``CppMethodDef_sip``
 declaration.
 
+Note that code that only uses the exception part of the Python C-API doesn't
+need to be replaced. Since some way of setting exceptions from C++ is needed
+(wxWidget assertion failures result in Python exceptions), to simplify things
+and decrease the amount of that needed to replaced, the Python exception API is
+(partially) copied. If you encounter some part of it that isn't implemented, it
+should be added to ``src/cffi/wxpy_api.h``.
+
 Replacing virtual catcher code is a done somewhat similarly. Virtual catcher
 code handles calling a Python re-implementation of a C++ virtual method. For
 the cffi backend, it is pure Python code that is called in place of the actual
@@ -166,25 +173,31 @@ but they're documented here for the sake of having them documented.
 Mapped types are C++ types that are silently converted to/from Python types.
 They are defined by five attributes:
 
-* ``cType``: A type that acts as an intermediary between Python and C++. Must
+``cType``
+  A type that acts as an intermediary between Python and C++. Must
   be a type that cffi can understand. If you need a custom struct you can add it
   by using the ``cdef_cffi`` attribute of the module.
 
-* ``instancecheck``: Code that checks if a Python object meets the criteria to
+``instancecheck``
+  Code that checks if a Python object meets the criteria to
   be converted into the given C++ types. This should return True or False.
 
-* ``py2c``: Code that converts a Python object into the intermediary C type.
+``py2c``
+  Code that converts a Python object into the intermediary C type.
   This should return a 2-tuple. The first element of the return value is the
   value passed to the C function. The second element is a keep-alive variable so
   that data allocated with ``ffi.new`` in this method stays in scope.
 
-* ``c2cpp``: Code that converts the intermediary C data into the final C++
+``c2cpp``
+  Code that converts the intermediary C data into the final C++
   object. Should return the C++ object allocated on the heap. If ``py2c``
   allocated any memory using ``malloc`` it should be freed here.
 
-* ``cpp2c``: Code that converts a C++ object into intermediary C data.
+``cpp2c``
+  Code that converts a C++ object into intermediary C data.
 
-* ``c2py``: Code that converts the intermediary C data into a Python object.
+``c2py``
+  Code that converts the intermediary C data into a Python object.
   Any memory allocated in ``cpp2c`` should be freed here.
 
 
@@ -200,6 +213,59 @@ backend this code is split up into two attributes: ``convertFromPyObject_cffi``
 and ``instancecheck``. The former should perform the conversion and return the
 new, wrapped instance. The latter should return True if the object can be
 converted to the given C++ type, and False if not.
+
+
+Functions available in handwritten Python code
+----------------------------------------------
+
+Inside the handwritten Python code you may use the ``ffi`` and ``clib``
+variables to access the FFI instance and C library functions. ``clib.malloc``
+and ``clib.free`` are already available, but if you need extra C standard
+library functions, you can append their signatures to ``module.cdefs_cffi``,
+which is a list of strings.
+
+
+The ``wrapper_lib`` module is available inside hand written Python code blocks.
+It provides the following functions:
+
+``wrapper_lib.get_ptr(obj)``
+  Returns the address of a wrapped object.
+
+``wrapper_lib.obj_from_ptr(ptr, cls=CppWrapper, is_new=False)``
+  Returns a wrapper object for the given pointer. If a wrapper object already
+  exists for the pointer, that object is returned. If an wrapper does not
+  already exist, the type passed as the ``cls`` argument is the used t
+
+``wrapper_lib.take_ownership(obj)``
+  Makes the passed wrapper object owned by Python.
+
+``wrapper_lib.give_ownership(obj, parent=None, external_ref=False)``
+  Makes the given wrapper object owned by C++, meaning its Dtor won't be called
+  when the Python object is deleted. If ``parent`` is not ``None``, ``obj``
+  will not be deleted until ``parent`` is deleted. If ``external_ref`` is True,
+  ``obj`` will not be deleted until either its ownership is changed again or
+  its Dtor is called (assuming the type being wrapped has a virtual Dtor.)
+
+``wrapper_lib.keep_reference(obj, key=None, owner=None)``
+  Creates an extra reference to ``obj``. If ``owner`` is not ``None``, then the
+  reference is stored on ``owner``, keeping ``obj`` alive until either
+  ``owner`` is deleted or a new object for the given key for ``owner``. Any
+  value may be used for ``key``, but negative integer values are reserved by
+  the implementation.  If ``owner`` is ``None`` the reference is leaked and
+  ``obj`` will never be deleted.
+
+``wrapper_lib.LD(expression)``
+  LD stands for "lazy default." This can be used in the default values for
+  function parameters to delay the evaluation of an expression until the whole
+  module has been initialized. This must be used for any default value that
+  references a wrapped variable or type. For example:
+  ``def some_func(param=wrapper_lib.LD('Size(10, 10)'):``
+
+``wrapper_lib.check_exception()``
+  Checks for an exception set in C++ code. This should follow most calls to C++
+  code, though potentially following cleanup code for the call.
+
+.. TODO: Document adjust_refcount, get_refcounted_handle
 
 
 Miscellaneous
