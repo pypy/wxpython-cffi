@@ -928,8 +928,17 @@ def cmd_cffi_gen(options, args):
         libs = shlex.split(libs)
         cxxflags = shlex.split(cxxflags)
     else:
+        msw = getMSWSettings(options)
         libs = []
-        cxxflags = []
+        cxxflags = ['-I' + wxDir() + '/include',
+                    '-I' + wxDir() + '/include/msvc',
+                    '-DwxMSVC_VERSION_AUTO', 
+                    '-DWXUSINGDLL', 
+                    '-DwxSUFFIX=' + msw.dll_type, 
+                    '-D_CRT_SECURE_NO_WARNINGS',
+                    '-wd 4800', #disable performance warning forcing int to bool
+                    '-EHsc', # c++ exception handling
+                    ]
     cxxflags.append('-I' + opj(CFFI_DIR, 'include'))
     cxxflags.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
     cxxflags.append('-I' + opj(cfg.ROOT_DIR, 'src'))
