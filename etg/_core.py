@@ -178,7 +178,7 @@ INCLUDES = [  # base and core stuff
               # toplevel and dialogs
               'nonownedwnd',
               'toplevel',
-              #'dialog',
+              'dialog',
               #'dirdlg',
               #'dirctrl',
               #'filedlg',
