@@ -22,6 +22,8 @@ ITEMS  = [ 'wxTextAttr',
            'wxTextCtrl', 
            'wxTextUrlEvent',
            ]
+
+OTHERDEPS = [ 'etg/cffi/textctrl.py' ]
     
 #---------------------------------------------------------------------------
 
@@ -106,6 +108,7 @@ def parseAndTweakModule():
 #-----------------------------------------------------------------
 def run():
     module = parseAndTweakModule()    
+    tools.runGeneratorSpecificScript(module)
     tools.doCommonTweaks(module)
     tools.runGenerators(module)
     
