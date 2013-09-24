@@ -929,7 +929,7 @@ def cmd_cffi_gen(options, args):
         cxxflags = shlex.split(cxxflags)
     else:
         msw = getMSWSettings(options)
-        libs = []
+        libs = ['-LIBPATH:' + msw.dllDir]
         cxxflags = ['-I' + wxDir() + '/include',
                     '-I' + wxDir() + '/include/msvc',
                     '-DwxMSVC_VERSION_AUTO', 
