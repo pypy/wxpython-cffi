@@ -937,6 +937,7 @@ def cmd_cffi_gen(options, args):
                     '-DwxSUFFIX=' + msw.dll_type, 
                     '-D_CRT_SECURE_NO_WARNINGS',
                     '-wd 4800', #disable performance warning forcing int to bool
+                    '-wd 4113', #'void (__cdecl **)() != 'void (__cdecl **)(void)
                     '-EHsc', # c++ exception handling
                     ]
     cxxflags.append('-I' + opj(CFFI_DIR, 'include'))
