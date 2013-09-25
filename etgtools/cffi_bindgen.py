@@ -249,7 +249,7 @@ class CffiModuleGenerator(object):
         void* malloc(size_t);
         void free(void*);
 
-        void %s();""" % initFunc)
+        void %s(void);""" % initFunc)
         for line in self.module.cdefs_cffi:
             pyfile.write(nci(line))
         for klass in self.classes:
@@ -743,7 +743,7 @@ class CffiModuleGenerator(object):
 
     def printClassCDefs(self, klass, pyfile):
         if not klass.abstract and len(klass.virtualMethods) > 0:
-            vtableDef = 'void(*%s_vtable[%d])();' % (klass.cName,
+            vtableDef = 'void(*%s_vtable[%d])(void);' % (klass.cName,
                                                      len(klass.virtualMethods))
             pyfile.write(nci("""\
             {1}
@@ -1161,7 +1161,7 @@ class CffiModuleGenerator(object):
                 {0.retStmt}{3}{0.name}{0.cppCallArgs};
             }}""".format(method, parent, callName, callClass)))
 
-            # We need to cast self to the subclass type to call the wrapper 
+            # We need to cast self to the subclass type to call the wrapper
             # method. It should be cast back implicitly when the protected
             # method iteself is invoked.
             call = "((%s*)self)->" % parent.cppClassName
@@ -1703,9 +1703,16 @@ class CffiModuleGenerator(object):
             'wxArrayString()' : '[]',
             'wxArrayInt()' : '[]',
         }
-
-        func.cArgs = []
-        func.cdefArgs = []
+        class void_list(list):
+            def __init__(self):
+                list.__init__(self)
+                self.append('void')
+            def append(self, *args):
+                if len(self) == 1 and self.__getitem__(0) == 'void':
+                    self.pop(0)
+                list.append(self, *args)
+        func.cArgs = void_list()
+        func.cdefArgs = void_list()
         func.cCbArgs = []
         func.cdefCbArgs = []
         func.cCallArgs = []
