@@ -928,11 +928,14 @@ def cmd_cffi_gen(options, args):
         if '-D__WXGTK__' in cxxflags:
             cxxflags += ' ' + runcmd('pkg-config --cflags gtk+-2.0', True, False)
             libs += ' ' + runcmd('pkg-config --libs gtk+-2.0', True, False)
-        libs = shlex.split(libs)
+        libs = str(shlex.split(libs))
+        libs = libs[:-1] + ',  wrapper_lib._ffi.ffi.verifier.modulefilename]'
         cxxflags = shlex.split(cxxflags)
     else:
         msw = getMSWSettings(options)
         libs = ['-LIBPATH:' + msw.dllDir]
+        libs = str(libs)
+        libs = libs[:-1] + ',  wrapper_lib._ffi.ffi.verifier.modulefilename.replace"dll","lib")]'
         cxxflags = ['-I' + wxDir() + '/include',
                     '-I' + wxDir() + '/include/msvc',
                     '-DwxMSVC_VERSION_AUTO',
