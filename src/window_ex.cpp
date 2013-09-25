@@ -1,4 +1,3 @@
-
 #ifdef __WXMSW__
 #include <wx/msw/private.h>
 #endif
@@ -10,6 +9,14 @@
 #define GetXWindow(wxwin) (wxwin)->m_wxwindow ? \
                           GDK_WINDOW_XWINDOW((wxwin)->m_wxwindow->window) : \
                           GDK_WINDOW_XWINDOW((wxwin)->m_widget->window)
+
+// X stupidly defines these in X.h, they conflict with wxIndividualLayoutConstraint
+#ifdef Above
+    #undef Above
+#endif
+#ifdef Below
+    #undef Below
+#endif
 #endif
 
 
