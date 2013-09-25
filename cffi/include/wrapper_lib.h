@@ -6,9 +6,9 @@ extern "C" void (*wrapper_lib_adjust_refcount)(void *, int);
 #define CFFI_SET_EXCEPTION(name, string)\
     do\
     {\
-        cffiexception_name = (char*)malloc(strlen(name));\
+        cffiexception_name = (char*)malloc(strlen(name)+1);\
         strcpy(cffiexception_name, name);\
-        cffiexception_string = (char*)malloc(strlen(string));\
+        cffiexception_string = (char*)malloc(strlen(string)+1);\
         strcpy(cffiexception_string, string);\
     } while(0);
 

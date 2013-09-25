@@ -925,7 +925,9 @@ def cmd_cffi_gen(options, args):
 
         libs = runcmd(WX_CONFIG + ' --libs', True, False)
         cxxflags = runcmd(WX_CONFIG + ' --cxxflags', True, False)
-
+        if '-D__WXGTK__' in cxxflags:
+            cxxflags += ' ' + runcmd('pkg-config --cflags gtk+-2.0', True, False)
+            libs += ' ' + runcmd('pkg-config --libs gtk+-2.0', True, False)
         libs = shlex.split(libs)
         cxxflags = shlex.split(cxxflags)
     else:
