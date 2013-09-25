@@ -916,14 +916,21 @@ class TestBindGen(object):
         include_dirs = [test_dir, INCLUDES_DIR]
         tmpdir = str(cls.tmpdir)
 
+        link_args = []
+        if sys.platform != 'darwin':
+            for mod in cls.gens[name].imports:
+                link_args.append(mod.name + '.ffi.verifier.modulefilename')
+        link_args = '[' + ', '.join(link_args) + ']'
+
         with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file,\
              user_py_path.open('w') as user_py_file, h_path.open('w') as h_file:
             # Use distutis via cffi to build the cpp code
             cls.gens[name].writeFiles(
                 py_file, cpp_file, h_file, user_py_file,
                 'sources=["%s"], include_dirs=["%s"], tmpdir="%s", '
-                'extra_compile_args=["-O0", "-g"],' %
-                ('", "'.join(sources), '", "'.join(include_dirs), tmpdir))
+                'extra_compile_args=["-O0", "-g"], extra_link_args=%s,' %
+                ('", "'.join(sources), '", "'.join(include_dirs), tmpdir,
+                 link_args))
 
         return user_py_path.pyimport()
 

@@ -23,6 +23,10 @@ ITEMS  = [ "wxDateTime",
            #"wxDateTimeHolidayAuthority",
            #"wxDateTimeWorkDays",
            ]    
+
+OTHERDEPS = [ 'etg/sip/wxdatetime.py',
+              'etg/cffi/wxdatetime.py',
+            ]
     
 #---------------------------------------------------------------------------
 

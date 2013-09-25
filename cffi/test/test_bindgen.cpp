@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <cstring>
+#include <cstdlib>
 #include "test_bindgen.h"
 
 const char *global_str = "string";
