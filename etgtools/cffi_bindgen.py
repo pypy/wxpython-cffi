@@ -1704,6 +1704,13 @@ class CffiModuleGenerator(object):
             'wxArrayInt()' : '[]',
         }
         class void_list(list):
+            '''
+            A helper class. doing this ','.join(me) will yield
+            'void'
+            instead of
+            ''
+            when me is an empty list
+            '''
             def __init__(self):
                 list.__init__(self)
                 self.append('void')
