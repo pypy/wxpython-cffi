@@ -79,12 +79,15 @@ class TypeInfo(object):
             type = MappedTypeInfo
         elif isPtr and 'char' in name:
             type = CharPtrTypeInfo
+            typedef = typedef or typeName
             typeName = name
         elif (name in BASIC_CTYPES or
               name.replace('unsigned ', '').strip() in BASIC_CTYPES or
               name.replace('signed ', '').strip()in BASIC_CTYPES or
               isinstance(typedef, extractors.EnumDef)):
             type = BasicTypeInfo
+            # For basic types, typedef can be a string
+            typedef = typedef or typeName
             typeName = name
         else:
             raise UnknownTypeException(name)
@@ -534,6 +537,9 @@ class BasicTypeInfo(TypeInfo):
             # looking up the typedef
             self.name = self.name.replace('.', '::')
 
+        if isinstance(self.typedef, str):
+            self.typedef = self.typedef.replace('&', '*')
+
         if (self.isPtr or self.isRef) and not self.inOut:
             self.out = True
 
@@ -590,12 +596,12 @@ class BasicTypeInfo(TypeInfo):
         return varName
 
     def c2cppParam(self, varName, refsAsPtrs=False):
-        if self.name == 'bool':
-            ptr = '*' if self.isPtr or self.isRef else ''
-            varName = "(bool %s)%s" % (ptr, varName)
         if isinstance(self.typedef, extractors.EnumDef):
             ptr = '*' if self.isPtr or self.isRef else ''
             varName = "(%s %s)%s" % (self.typedef.unscopedName, ptr, varName)
+        elif self.typedef != self.cType:
+            # If typedef isn't an enum, then its the original type string
+            varName = "(%s)%s" % (self.typedef, varName)
         if self.isRef:
             assert self.out or self.inOut
             return '*' + varName

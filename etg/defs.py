@@ -52,7 +52,7 @@ def run():
     td = module.find('wxUIntPtr')
     module.insertItemAfter(td, etgtools.TypedefDef(type='wchar_t', name='wxUChar'))
     module.insertItemAfter(td, etgtools.TypedefDef(type='wchar_t', name='wxChar'))
-    module.insertItemAfter(td, etgtools.TypedefDef(type='long', name='time_t'))
+    module.insertItemAfter(td, etgtools.TypedefDef(type='long long', name='time_t'))
     module.insertItemAfter(td, etgtools.TypedefDef(type='long long', name='wxFileOffset'))
     module.insertItemAfter(td, etgtools.TypedefDef(type='unsigned char', name='byte', pyInt=True))
     
