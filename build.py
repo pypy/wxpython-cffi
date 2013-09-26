@@ -935,7 +935,7 @@ def cmd_cffi_gen(options, args):
         msw = getMSWSettings(options)
         libs = ['-LIBPATH:' + msw.dllDir]
         libs = str(libs)
-        libs = libs[:-1] + ',  wrapper_lib._ffi.ffi.verifier.modulefilename.replace"dll","lib")]'
+        libs = libs[:-1] + ',  wrapper_lib._ffi.ffi.verifier.modulefilename.replace("dll","lib")]'
         cxxflags = ['-I' + wxDir() + '/include',
                     '-I' + wxDir() + '/include/msvc',
                     '-DwxMSVC_VERSION_AUTO',
