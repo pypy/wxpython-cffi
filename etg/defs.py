@@ -53,11 +53,8 @@ def run():
     td = module.find('wxUIntPtr')
     module.insertItemAfter(td, etgtools.TypedefDef(type='wchar_t', name='wxUChar'))
     module.insertItemAfter(td, etgtools.TypedefDef(type='wchar_t', name='wxChar'))
-    if platform.architecture()[0] == '64bit' or \
-       platform.machine().endswith('64'): #for 32 bit python on 64 bit machine (Windows 7)
-        module.insertItemAfter(td, etgtools.TypedefDef(type='long long', name='time_t'))
-    else:    
-        module.insertItemAfter(td, etgtools.TypedefDef(type='long', name='time_t'))
+    module.insertItemAfter(td, etgtools.TypedefDef(type='long long', name='time_t',
+                                                   platformDependent=True))
     module.insertItemAfter(td, etgtools.TypedefDef(type='long long', name='wxFileOffset'))
     module.insertItemAfter(td, etgtools.TypedefDef(type='unsigned char', name='byte', pyInt=True))
     

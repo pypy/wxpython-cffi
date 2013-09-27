@@ -1,3 +1,4 @@
+#include <ctime>
 #include <string>
 using std::string;
 
@@ -22,6 +23,9 @@ int get_coords_ref(int &x, int &y);
 
 void get_mappedtype(string *x, string **y);
 void get_mappedtype_ref(string &x, string *&y);
+
+void give_me_the_time(time_t);
+void give_me_the_time(double);
 
 enum BOOLEAN
 {

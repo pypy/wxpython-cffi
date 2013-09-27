@@ -12,7 +12,6 @@ BASIC_CTYPES = {
     'unsigned': 'int',
     'size_t' : 'int',
     'ssize_t' : 'int',
-    'time_t' : 'long',
     'float': 'float',
     'double': 'float',
     'char': 'str',
@@ -25,6 +24,7 @@ BASIC_CTYPES = {
     'void': None,
 }
 
+
 ARRAY_SIZE_PARAM = 'array_size_'
 OUT_PARAM_SUFFIX = '_ptr'
 
@@ -35,6 +35,7 @@ class UnknownTypeException(Exception):
 
 class TypeInfo(object):
     _cache = {}
+
     def __init__(self, typeName, typedef, **kwargs):
         if typeName == '' or typeName is None:
             typeName = 'void'
@@ -63,6 +64,8 @@ class TypeInfo(object):
             name = (name.replace('::', '.').replace('const ', '').strip(' *&'))
             typedef = findItem(name) if name != '' else None
             if isinstance(typedef, extractors.TypedefDef):
+                if typedef.platformDependent:
+                    break
                 name = typedef.type
             else:
                 break
@@ -81,9 +84,9 @@ class TypeInfo(object):
         elif (name in BASIC_CTYPES or
               name.replace('unsigned ', '').strip() in BASIC_CTYPES or
               name.replace('signed ', '').strip()in BASIC_CTYPES or
-              isinstance(typedef, extractors.EnumDef)):
+              isinstance(typedef, (extractors.EnumDef, extractors.TypedefDef))):
             type = BasicTypeInfo
-            typeName = name
+            kwargs['basicName'] = name
         else:
             raise UnknownTypeException(name)
 
@@ -508,20 +511,19 @@ class BasicTypeInfo(TypeInfo):
             raise TypeError('use of the PyInt annotation is unsupported on '
                             "'%s' parameters" % typeName)
 
-        if self.isPtr:
-            self.name += '*'
-        if self.isRef:
-            self.name += '&'
+        if isinstance(typedef, extractors.TypedefDef):
+            assert typedef.platformDependent
+            BASIC_CTYPES[typedef.name] = BASIC_CTYPES[typedef.type]
 
-        self.cType = self.name.strip('*& ')
-        self.cdefType = self.cType
+        self.cType = self.basicName
+        self.cdefType = self.basicName
         self.cReturnType = self.cType
-        self.cdefReturnType = self.cType
+        self.cdefReturnType = self.cdefType
 
         if self.pyInt and not 'signed' in self.name:
             self.cdefType = self.cdefType.replace('char', 'signed char')
 
-        if self.isConst:
+        if self.isConst and 'const ' not in self.cType:
             self.cType = 'const ' + self.cType
 
         if self.name == 'bool' or isinstance(self.typedef, extractors.EnumDef):
@@ -535,6 +537,8 @@ class BasicTypeInfo(TypeInfo):
         if (self.isPtr or self.isRef) and not self.inOut:
             self.out = True
 
+        # The only way we will put a '*' on basic type if its an out variable.
+        # We have no rules for handling pointers to basic types otherwise
         if self.out or self.inOut:
             self.cType += '*'
             self.cdefType += '*'
@@ -547,6 +551,7 @@ class BasicTypeInfo(TypeInfo):
         self.cdefCbType = self.cdefType
 
     def lookupConversion(self):
+        # Use cdefType here because its already converted to an int for enums
         name = self.cdefType.strip('* ')
         if name in BASIC_CTYPES:
             return BASIC_CTYPES[name]

@@ -16,7 +16,7 @@ from etgtools.generators import nci
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
     CppMethodDef, CppMethodDef_cffi, MemberVarDef, GlobalVarDef, PyPropertyDef,
-    PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef,
+    PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef, TypedefDef,
     MappedTypeDef_cffi)
 
 from etgtools.cffi_bindgen import LiteralVerifyArg
@@ -861,6 +861,12 @@ class TestBindGen(object):
         module.addItem(FunctionDef(
             type='int', name='take_opaque_object', argsString='(OpaqueType *obj)',
             items=[ParamDef(type='OpaqueType *', name='obj')]))
+
+        module.addItem(TypedefDef(type='long long', name='time_t',
+                                  platformDependent=True))
+        module.addItem(FunctionDef(
+            type='void', name='give_me_the_time', argsString='(time_t t)',
+            items=[ParamDef(type='time_t', name='t')]))
 
         module.addPyCode('global_pyclass_int = global_pyclass_inst.i')
         module.addPyCode('global_pyclass_inst = PyClass(9)', order=20)

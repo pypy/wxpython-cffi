@@ -211,6 +211,7 @@ class TypedefDef(VariableDef):
         self.noTypeName = False
         self.docAsClass = False
         self.bases = []
+        self.platformDependent = False
         self.__dict__.update(**kw)
         if element is not None:
             self.extract(element)

@@ -50,6 +50,16 @@ double overloaded_func(double i)
     return i / 2;
 }
 
+void give_me_the_time(time_t)
+{
+    ;
+}
+
+void give_me_the_time(double)
+{
+    ;
+}
+
 int SimpleClass::simple_method(double f)
 {
     return f;

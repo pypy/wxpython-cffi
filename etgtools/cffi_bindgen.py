@@ -258,12 +258,23 @@ class CffiModuleGenerator(object):
         # Write cdefs
         print >> pyfile, nci("""\
         ffi = cffi.FFI()
+        ffi.cdef('''
+        void* malloc(size_t);
+        void free(void*);""")
+
+        # These typedefs don't go in the cdefs string because we don't
+        # want them included in the verify code too.
+        for typedef in self.module.items:
+            if (not isinstance(typedef, extractors.TypedefDef) or
+                not typedef.platformDependent):
+                continue
+            print >> pyfile, "typedef %s %s;" % (typedef.type, typedef.name)
+
+        print >> pyfile, nci("""\
+        ''')
         cdefs = ('''
         char *cffiexception_name;
         char *cffiexception_string;
-
-        void* malloc(size_t);
-        void free(void*);
 
         void %s(void);""" % initFunc)
         for line in self.module.cdefs_cffi:
@@ -273,6 +284,7 @@ class CffiModuleGenerator(object):
         for mType in self.mappedTypes:
             self.printMappedTypeCDef(mType, pyfile)
         dispatchItems(self.dispatchCDefs, self.globalItems, pyfile)
+
         print >> pyfile, nci("""\
         ''')
         ffi.cdef(cdefs)
