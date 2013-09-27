@@ -1319,12 +1319,19 @@ class CffiModuleGenerator(object):
             pyfile.write(nci("@staticmethod", indent))
 
         pyfile.write(nci("def {0.pyName}{0.pyArgs}:".format(method), indent))
+
+        # Wrap dtors in a try block so errors aren't printed on exit
+        if method.isDtor:
+            pyfile.write(nci("try:", indent + 4))
+            indent += 4
+
         if not isOverload:
             self.printDocString(method, pyfile, indent)
 
             # Do type checking on non-multi method's inside the method's body
-            pyfile.write(nci("wrapper_lib.check_args_types" +
-                             method.overloadArgs, indent + 4))
+            if not method.isDtor:
+                pyfile.write(nci("wrapper_lib.check_args_types" +
+                                 method.overloadArgs, indent + 4))
 
         if not method.isPureVirtual:
             for p in method.items:
@@ -1360,6 +1367,14 @@ class CffiModuleGenerator(object):
             pyfile.write(nci(
                 "raise NotImplementedError('%s.%s() is abstract and must be "
                 "overridden')" % (parent.pyName, method.pyName), indent + 4))
+
+        if method.isDtor:
+            indent -= 4
+            # A bare except here is necessary because the global exceptions may
+            # have already been deleted by the time __del__ is called
+            pyfile.write(nci("""\
+            except:
+                pass""", indent + 4))
 
         for m in method.overloads:
             if type(m) is extractors.MethodDef:
@@ -1465,13 +1480,26 @@ class CffiModuleGenerator(object):
                          indent))
         self.printDocString(func, pyfile, indent)
 
-        if not isOverload:
+        # Wrap dtors in a try block so errors aren't printed on exit
+        if getattr(func, 'isDtor', False):
+            pyfile.write(nci("try:", indent + 4))
+            indent += 4
+
+        if not isOverload and not getattr(func, 'isDtor', False):
             # Do type checking on functions that aren't overloaed inside the
             # funciton body
             pyfile.write(nci("wrapper_lib.check_args_types" +
                              func.overloadArgs, indent + 4))
         pyfile.write(nci("call = clib.%s" % func.cName, indent + 4))
         pyfile.write(nci(func.pyBody, indent + 4))
+
+        if getattr(func, 'isDtor', False):
+            indent -= 4
+            # A bare except here is necessary because the global exceptions may
+            # have already been deleted by the time __del__ is called
+            pyfile.write(nci("""\
+            except:
+                pass""", indent + 4))
 
         for m in func.overloads:
             if type(m) is extractors.MethodDef:
