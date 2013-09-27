@@ -19,6 +19,8 @@ from etgtools.extractors import (
     PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef,
     MappedTypeDef_cffi)
 
+from etgtools.cffi_bindgen import LiteralVerifyArg
+
 from buildtools.config import Config
 cfg = Config(noWxConfig=True).ROOT_DIR
 INCLUDES_DIR = os.path.join(cfg, 'cffi', 'include')
@@ -912,25 +914,27 @@ class TestBindGen(object):
         user_py_path = cls.tmpdir.join(name.strip('_') + '.py')
 
         test_dir = os.path.dirname(__file__)
-        sources = [str(cpp_path), os.path.join(test_dir, 'test_bindgen.cpp')]
-        include_dirs = [test_dir, INCLUDES_DIR]
-        tmpdir = str(cls.tmpdir)
+
+        verify_args = {}
+        verify_args['include_dirs'] = [test_dir, INCLUDES_DIR]
+        verify_args['tmpdir'] = str(cls.tmpdir)
+        verify_args['sources'] = [str(cpp_path),
+                                  os.path.join(test_dir, 'test_bindgen.cpp')
+                                 ]
 
         link_args = []
         if sys.platform != 'darwin':
             for mod in cls.gens[name].imports:
-                link_args.append(mod.name + '.ffi.verifier.modulefilename')
-        link_args = '[' + ', '.join(link_args) + ']'
+                link_args.append(LiteralVerifyArg(mod.name +
+                                               '.ffi.verifier.modulefilename'))
+        verify_args['extra_link_args'] = link_args
+        verify_args['extra_compile_args'] = ["-O0", '-g']
 
         with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file,\
              user_py_path.open('w') as user_py_file, h_path.open('w') as h_file:
             # Use distutis via cffi to build the cpp code
             cls.gens[name].writeFiles(
-                py_file, cpp_file, h_file, user_py_file,
-                'sources=["%s"], include_dirs=["%s"], tmpdir="%s", '
-                'extra_compile_args=["-O0", "-g"], extra_link_args=%s,' %
-                ('", "'.join(sources), '", "'.join(include_dirs), tmpdir,
-                 link_args))
+                py_file, cpp_file, h_file, user_py_file, verify_args)
 
         return user_py_path.pyimport()
 

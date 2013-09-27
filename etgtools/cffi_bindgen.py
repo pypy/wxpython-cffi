@@ -17,9 +17,12 @@ from etgtools.cffi_typeinfo import (
     MappedTypeInfo, CharPtrTypeInfo, BasicTypeInfo, VoidPtrTypeInfo,
     UnknownTypeException)
 
-from buildtools.config import Config
-cfg = Config(noWxConfig=True)
-DEF_DIR = os.path.join(cfg.ROOT_DIR, 'cffi', 'def_gen')
+
+class LiteralVerifyArg(str):
+    """
+    A string type than when used as in verifyArgs won't be wrapped in quotes.
+    """
+    def __repr__(self): return self
 
 
 SUBCLASS_PREFIX = "cfficlass_"
@@ -183,8 +186,21 @@ class CffiModuleGenerator(object):
         # Re-add enums to global items. They only needed to be inited early
         self.globalItems.extend(self.enums)
 
+    def buildVerifyArgs(self, verifyArgs):
+        # Add wrapper_lib's cffi library to the link flags
+        verifyArgs.setdefault('extra_link_args', []).append(
+            LiteralVerifyArg('wrapper_lib.modulefilename'))
 
-    def writeFiles(self, pyfile, cppfile, hfile, userPyfile, verify_args=''):
+        args = []
+        for key, value in verifyArgs.iteritems():
+            if isinstance(value, str):
+                value = repr(value)
+            else:
+                value = '[%s]' % ', '.join([repr(i) for i in value])
+            args.append("%s=%s" % (key, value))
+        return ', '.join(args)
+
+    def writeFiles(self, pyfile, cppfile, hfile, userPyfile, verifyArgs={}):
         # Write the C++ preamble
         hfile.write(nci("""\
         #ifndef INCLUDE_GUARD_{0}s_H
@@ -263,7 +279,7 @@ class CffiModuleGenerator(object):
         clib = ffi.verify(cdefs, %s)
         del cdefs
 
-        clib.%s()""" % (verify_args, initFunc))
+        clib.%s()""" % (self.buildVerifyArgs(verifyArgs), initFunc))
 
         # Print classes' C++ bodies, before any method bodies are printed
         for klass in self.classes:
@@ -1926,19 +1942,3 @@ class CffiModuleGenerator(object):
                 return item
 
         return None
-
-
-if __name__ == '__main__':
-    generators = {}
-    path_pattern = os.path.join(DEF_DIR, '%s.def')
-    def_glob =  path_pattern % '_*'
-    for mod_path in glob.iglob(def_glob):
-        mod_name = os.path.splitext(os.path.basename(mod_path))[0]
-        gen = CffiModuleGenerator(mod_name, path_pattern)
-        generators[gen.name] = gen
-
-    for gen in generators.values():
-        gen.generate(generators)
-        pyfile = cStringIO.StringIO()
-        cppfile = cStringIO.StringIO()
-        gen.write_files(pyfile, cppfile)

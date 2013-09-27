@@ -30,3 +30,13 @@ def register_classname(name, cls):
 
 def class_from_classname(name):
     return classname_registry[name]
+
+import sys
+from _ffi import ffi
+modulefilename = ffi.verifier.modulefilename
+if sys.platform == 'darwin':
+    # Linking directly on OSX is unneeded and potentially an error
+    modulefilename = ''
+#TODO: Windows needs a special case to get the import library (.lib file)
+del sys
+del ffi

@@ -932,14 +932,11 @@ def cmd_cffi_gen(options, args):
         if '-D__WXGTK__' in cxxflags:
             cxxflags += ' ' + runcmd('pkg-config --cflags gtk+-2.0', True, False)
             libs += ' ' + runcmd('pkg-config --libs gtk+-2.0', True, False)
-        libs = str(shlex.split(libs))
-        libs = libs[:-1] + ',  wrapper_lib._ffi.ffi.verifier.modulefilename]'
+        libs = shlex.split(libs)
         cxxflags = shlex.split(cxxflags)
     else:
         msw = getMSWSettings(options)
         libs = ['-LIBPATH:' + msw.dllDir]
-        libs = str(libs)
-        libs = libs[:-1] + ',  wrapper_lib._ffi.ffi.verifier.modulefilename.replace("dll","lib")]'
         cxxflags = ['-I' + wxDir() + '/include',
                     '-I' + wxDir() + '/include/msvc',
                     '-DwxMSVC_VERSION_AUTO',
@@ -952,9 +949,10 @@ def cmd_cffi_gen(options, args):
     cxxflags.append('-I' + opj(CFFI_DIR, 'include'))
     cxxflags.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
     cxxflags.append('-I' + opj(cfg.ROOT_DIR, 'src'))
-    verify_args = 'extra_compile_args=%s, extra_link_args=%s' % (cxxflags,
-                                                                libs)
 
+    globalVerifyArgs = {'extra_compile_args': cxxflags,
+                        'extra_link_args': libs,
+                       }
 
     DEF_DIR = os.path.join(CFFI_DIR, 'def_gen')
     def_path_pattern = os.path.join(DEF_DIR, '%s.def')
@@ -975,8 +973,9 @@ def cmd_cffi_gen(options, args):
         cppfile = open(cppfilepath, 'w')
         pyfile = open(opj(CFFI_DIR, 'wx', gen.name + '.py'), 'w')
         userPyfile = open(opj(CFFI_DIR, 'wx', gen.name.strip('_') + '.py'), 'w')
-        gen.writeFiles(pyfile, cppfile, hfile, userPyfile,
-                       verify_args + ', sources=["%s"]' % cppfilepath)
+        verifyArgs = dict(sources=[cppfilepath], **globalVerifyArgs)
+        gen.writeFiles(pyfile, cppfile, hfile, userPyfile, verifyArgs)
+
 
     # Copy src/__init__.py
     copyFile(opj(cfg.ROOT_DIR, 'src', '__init__.py'),
