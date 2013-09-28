@@ -254,6 +254,12 @@ def run():
     module.addInclude(INCLUDES)
     module.includePyCode('src/core_ex.py', order=10)
 
+    module.addHeaderCode("""\
+    #if defined(__GNUC__)
+        #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    #endif
+    """)
+
     module.addPyFunction('version', '()',
         doc="""Returns a string containing version and port info""",
         body="""\

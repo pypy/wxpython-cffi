@@ -1532,8 +1532,9 @@ class CffiModuleGenerator(object):
             # A special case for global wrapped variables: take the object's
             # address instead of copying onto the heap
             assignVal = '&' + var.name
-        print >> cppfile, ('extern "C" {0.type.cType} {0.cName} = {1};'.
-                            format(var, assignVal))
+        cppfile.write(nci("""\
+        extern "C" {0.type.cType} {0.cName};
+        {0.type.cType} {0.cName} = {1};""".format(var, assignVal)))
         print >> pyfile, var.pyName + ' = ' + var.type.c2py('clib.' + var.cName)
 
     def printMemberVar(self, var, pyfile, cppfile, indent, parent):
