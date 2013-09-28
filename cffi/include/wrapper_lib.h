@@ -1,19 +1,24 @@
 #include <cstring>
 #include <cstdlib>
 
-extern "C" void (*wrapper_lib_adjust_refcount)(void *, int);
+extern "C"
+{
+    void (*WL_ADJUST_REFCOUNT)(void *, int);
+    char **WL_EXCEPTION_NAME;
+    char **WL_EXCEPTION_STRING;
+}
 
-#define CFFI_SET_EXCEPTION(name, string)\
+#define WL_SET_EXCEPTION(name, string)\
     do\
     {\
-        cffiexception_name = (char*)malloc(strlen(name)+1);\
-        strcpy(cffiexception_name, name);\
-        cffiexception_string = (char*)malloc(strlen(string)+1);\
-        strcpy(cffiexception_string, string);\
+        *WL_EXCEPTION_NAME = (char*)malloc(strlen(name)+1);\
+        strcpy(*WL_EXCEPTION_NAME, name);\
+        *WL_EXCEPTION_STRING = (char*)malloc(strlen(string)+1);\
+        strcpy(*WL_EXCEPTION_STRING, string);\
     } while(0);
 
-#define CFFI_CHECK_EXCEPTION()\
-    (cffiexception_name != NULL)
+#define WL_CHECK_EXCEPTION()\
+    (*WL_EXCEPTION_NAME != NULL)
 
 template<typename T, typename CType>
 struct cfficonvert_mappedtype
@@ -77,18 +82,18 @@ public:
     cffiRefCountedPyObjBase(void *handle)
       : m_handle(handle)
     {
-        wrapper_lib_adjust_refcount(handle, 1);
+        WL_ADJUST_REFCOUNT(handle, 1);
     }
 
     cffiRefCountedPyObjBase(const cffiRefCountedPyObjBase &other)
       : m_handle(other.m_handle)
     {
-        wrapper_lib_adjust_refcount(other.m_handle, 1);
+        WL_ADJUST_REFCOUNT(other.m_handle, 1);
     }
 
     ~cffiRefCountedPyObjBase()
     {
-        wrapper_lib_adjust_refcount(m_handle, -1);
+        WL_ADJUST_REFCOUNT(m_handle, -1);
     }
 
     void *get_handle()

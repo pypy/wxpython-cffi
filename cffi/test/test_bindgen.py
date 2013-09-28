@@ -816,7 +816,7 @@ class TestBindGen(object):
             name='raise_exception', items=[
                 ParamDef(type='char *', name='name'),
                 ParamDef(type='char *', name='str')])
-        f.setCppCode('CFFI_SET_EXCEPTION(name, str);')
+        f.setCppCode('WL_SET_EXCEPTION(name, str);')
         module.addItem(f)
 
         c = ClassDef(name='DetectableBase')

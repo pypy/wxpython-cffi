@@ -187,10 +187,6 @@ class CffiModuleGenerator(object):
         self.globalItems.extend(self.enums)
 
     def buildVerifyArgs(self, verifyArgs):
-        # Add wrapper_lib's cffi library to the link flags
-        verifyArgs.setdefault('extra_link_args', []).append(
-            LiteralVerifyArg('wrapper_lib.modulefilename'))
-
         args = []
         for key, value in verifyArgs.iteritems():
             if isinstance(value, str):
@@ -273,8 +269,9 @@ class CffiModuleGenerator(object):
         print >> pyfile, nci("""\
         ''')
         cdefs = ('''
-        char *cffiexception_name;
-        char *cffiexception_string;
+        extern void (*WL_ADJUST_REFCOUNT)(void *, int);
+        extern char **WL_EXCEPTION_NAME;
+        extern char **WL_EXCEPTION_STRING;
 
         void %s(void);""" % initFunc)
         for line in self.module.cdefs_cffi:
@@ -291,6 +288,7 @@ class CffiModuleGenerator(object):
         clib = ffi.verify(cdefs, %s)
         del cdefs
 
+        wrapper_lib.populate_clib_ptrs(clib)
         clib.%s()""" % (self.buildVerifyArgs(verifyArgs), initFunc))
 
         # Print classes' C++ bodies, before any method bodies are printed

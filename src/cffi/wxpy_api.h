@@ -1,14 +1,14 @@
 // Redefine some of the marcos used to set exceptions in sip backend to make
 // porting to the cffi backend easier
 
-#define wxPyErr_SetString CFFI_SET_EXCEPTION
-#define PyErr_SetString CFFI_SET_EXCEPTION
-#define PyErr_NoMemory() CFFI_SET_EXCEPTION(PyExc_MemoryError, "")
+#define wxPyErr_SetString WL_SET_EXCEPTION
+#define PyErr_SetString WL_SET_EXCEPTION
+#define PyErr_NoMemory() WL_SET_EXCEPTION(PyExc_MemoryError, "")
 
-#define PyErr_Occurred() CFFI_CHECK_EXCEPTION()
+#define PyErr_Occurred() WL_CHECK_EXCEPTION()
 
-#define wxPyRaiseNotImplemented() CFFI_SET_EXCEPTION("NotImplemented", "")
-#define wxPyRaiseNotImplementedMsg(msg) CFFI_SET_EXCEPTION("NotImplemented", msg)
+#define wxPyRaiseNotImplemented() WL_SET_EXCEPTION("NotImplemented", "")
+#define wxPyRaiseNotImplementedMsg(msg) WL_SET_EXCEPTION("NotImplemented", msg)
 
 // Redefine CPython's exception names so we can reuse them
 #define PyExc_ValueError "ValueError"
