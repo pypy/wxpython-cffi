@@ -48,12 +48,12 @@ def run():
     # Release the GIL for potentially blocking or long-running functions
     c.find('ShowModal').releaseGIL()
 
-    # windows function that uses a template, but it would be easier to reimplement it in Python if
+    # Added after 2.9.5, c++ with Functor
+    #  Uses a template, but it would be easier to reimplement it in Python if
     # it is ever needed so don't bother complexifying the wrapper for it.
-    try:
-        c.find('ShowWindowModalThenDo').ignore()
-    except:
-        pass
+    item = c.findItem('ShowWindowModalThenDo')
+    if item:
+        item.ignore()
 
     # context manager methods
     c.addPyMethod('__enter__', '(self)', 'return self')
