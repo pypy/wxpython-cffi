@@ -282,3 +282,8 @@ Miscellaneous
 The ``pyCode_cffi`` attribute of a ClassDef can be used to specify any extra
 code to be added to the Python body a class. Note this is added to the end of
 the body.
+
+If you need to locate which ETG script provides a particular class or function,
+the easiest way is to grep for it in the ``sip/gen`` directory of a checkout of
+upstream wxPython Phoenix. You will of course need to have run ``./build.py
+etg`` in the checkout before that directory will be populated.
