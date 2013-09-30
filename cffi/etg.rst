@@ -28,7 +28,7 @@ The general process for converting the scripts are:
 ``etg`` directory.
 
 2. Locate the script for its module and uncomment the script's name in the
-modules ``INCLDUES`` list. The name of a script's module is the ``MODULE``
+modules ``INCLUDES`` list. The name of a script's module is the ``MODULE``
 string near the top of the file.
 
 3. Replace WigCode segments with manual declarations and add conversion code as
