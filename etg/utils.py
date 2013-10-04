@@ -23,6 +23,9 @@ ITEMS  = [ 'utils_8h.xml',
            'wxVersionInfo',
            ]
 
+OTHERDEPS = [ 'etg/sip/utils.py',
+              'etg/cffi/utils.py',
+            ]
 #---------------------------------------------------------------------------
 
 def run():
@@ -71,6 +74,7 @@ def run():
     module.find('wxGetOsVersion.minor').out = True
 
     #-----------------------------------------------------------------
+    tools.runGeneratorSpecificScript(module)
     tools.doCommonTweaks(module)
     tools.runGenerators(module)
 
