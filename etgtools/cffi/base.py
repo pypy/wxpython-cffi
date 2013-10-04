@@ -18,6 +18,7 @@ class flags(dict):
 class CppObject(object):
     def __init__(self, item, parent):
         self.item = item
+        self.parent = parent
 
         self.name = item.name
         self.pyname = item.pyName
@@ -25,6 +26,7 @@ class CppObject(object):
         self.unscopedpyname = parent.pyscopeprefix + self.pyname
 
         self.flags = flags(item)
+        parent.add_object(self)
 
     def setup(self):
         pass
@@ -81,10 +83,10 @@ class CppScope(object):
 
     def setup_types(self):
         self.finalized_types = []
-        for type in self.types:
-            type.setup()
         for scope in self.subscopes.itervalues():
             scope.setup_types()
+        for type in self.types:
+            type.setup()
 
     def setup_objects(self):
         for obj in self.objects:
@@ -113,6 +115,7 @@ class CppType(object):
         self.item = item
         self.name = item.name
         self.pyname = getattr(item, 'pyName', '') or item.name
+        self.parent = parent
 
         self.unscopedname = parent.scopeprefix + self.name
         self.unscopedpyname = parent.pyscopeprefix + self.pyname
@@ -125,5 +128,8 @@ class CppType(object):
         pass
 
 class PyObject(object):
+    def __init__(self, item, parent):
+        pass
+
     def print_pycode(self, userpyfile):
         pass

@@ -11,7 +11,7 @@ import wrapper_lib
 # Manually add the top-level directory to our path so we can import etgtools
 # modules
 sys.path.append("../..")
-from etgtools import extractors, cffi_bindgen
+from etgtools import extractors
 from etgtools.generators import nci
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
@@ -19,7 +19,7 @@ from etgtools.extractors import (
     PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef, TypedefDef,
     MappedTypeDef_cffi)
 
-from etgtools.cffi_bindgen import LiteralVerifyArg
+from etgtools.cffi.bindgen import BindingGenerator, LiteralVerifyArg
 
 from buildtools.config import Config
 cfg = Config(noWxConfig=True).ROOT_DIR
@@ -29,12 +29,14 @@ class TestBindGen(object):
     @classmethod
     def setup_class(cls):
         cls.tmpdir = pytest.ensuretemp('build', dir=True)
-        cls.gens = cls.create_generators()
+        cls.gen = cls.create_generators()
         cls.mod = cls.build_module('_core')
         cls.mod2 = cls.build_module('_extra')
 
     @classmethod
     def create_generators(cls):
+        gen = BindingGenerator(str(cls.tmpdir.join('%s.def')))
+
         module = ModuleDef('bindgen_test', '_core', '_core')
         module.addHeaderCode('#include <test_bindgen.h>')
 
@@ -882,8 +884,7 @@ class TestBindGen(object):
         with mod_path.open('w') as f:
             pickle.dump(module, f)
 
-        gen1 = cffi_bindgen.CffiModuleGenerator(module.name,
-                                                str(cls.tmpdir.join('%s.def')))
+        gen.generate(module.name)
 
         module = ModuleDef('bindgen_test', '_extra', '_extra')
         module.addImport('_core')
@@ -905,12 +906,8 @@ class TestBindGen(object):
         with mod_path.open('w') as f:
             pickle.dump(module, f)
 
-        gen2 = cffi_bindgen.CffiModuleGenerator(module.name,
-                                                str(cls.tmpdir.join('%s.def')))
-        gens = {'_core': gen1, '_extra': gen2}
-        gen1.init(gens)
-        gen2.init(gens)
-        return gens
+        gen.generate(module.name)
+        return gen
 
     @classmethod
     def build_module(cls, name):
@@ -929,18 +926,18 @@ class TestBindGen(object):
                                  ]
 
         link_args = []
-        if sys.platform != 'darwin':
-            for mod in cls.gens[name].imports:
-                link_args.append(LiteralVerifyArg(mod.name +
-                                               '.ffi.verifier.modulefilename'))
+        #if sys.platform != 'darwin':
+        #    for mod in cls.gens[name].imports:
+        #        link_args.append(LiteralVerifyArg(mod.name +
+        #                                       '.ffi.verifier.modulefilename'))
         verify_args['extra_link_args'] = link_args
         verify_args['extra_compile_args'] = ["-O0", '-g']
 
         with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file,\
              user_py_path.open('w') as user_py_file, h_path.open('w') as h_file:
             # Use distutis via cffi to build the cpp code
-            cls.gens[name].writeFiles(
-                py_file, cpp_file, h_file, user_py_file, verify_args)
+            cls.gen.write_files(
+                name, py_file, cpp_file, h_file, user_py_file, verify_args)
 
         return user_py_path.pyimport()
 

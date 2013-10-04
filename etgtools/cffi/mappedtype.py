@@ -1,4 +1,4 @@
-from base import CppType
+from .base import CppType
 
 from .. import extractors
 

@@ -1,4 +1,4 @@
-from base import CppType, CppObject
+from .base import CppType, CppObject
 
 from .. import extractors
 
@@ -8,16 +8,14 @@ extractors.EnumDef.generate = create_enum
 
 class Enum(CppType):
     def __init__(self, enum, parent):
-        # Take enum values and put them into the parent's items list
+        # Take enum values and put them into the parent scope
         super(Enum, self).__init__(enum, parent)
-        self.scopeprefix = parent.scopeprefix
-        self.pyscopeprefix = parent.pyscopeprefix
 
         for val in enum.items:
-            EnumValue(val, self)
+            EnumValue(val, parent)
 
+#TODO: maybe it makes more sense to move this into varable.py?
 class EnumValue(CppObject):
-    def __init__(self, val, enum):
-        super(EnumValue,self).__init__(self, enum.parent)
-        enum.parent.add_object(self)
+    def __init__(self, val, parent):
+        super(EnumValue,self).__init__(val, parent)
         self.type = 'const int'

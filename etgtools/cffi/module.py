@@ -1,20 +1,22 @@
 # Import all of these modules so the generate methods get added onto the
 # original extactor classes
-import wrappedtype
-import mappedtype
-import function
-import enum
+from . import wrappedtype
+from . import mappedtype
+from . import typedef
+from . import variable
+from . import function
+from . import enum
+from . import pycode
 
-from base import CppScope
+from .base import CppScope
 
 from .. import extractors
 
 class Module(CppScope):
-    def __init__(self, module, imported_modules):
+    def __init__(self, module):
         super(Module, self).__init__(None)
 
         self.module = self
-        self.imported_modules = imported_modules
 
         self.name = module.name
         self.cname = module.name
@@ -26,10 +28,8 @@ class Module(CppScope):
         for item in module.items:
             item.generate(self)
 
-    def setup(self):
-        # Setup any modules this one depends on
-        for mod in self.imported_modules:
-            mod.setup()
+    def setup(self, imported_modules):
+        self.imported_modules = imported_modules
 
         self.setup_types()
         self.setup_objects()
@@ -39,7 +39,7 @@ class Module(CppScope):
         if type is not None:
             return type
 
-        for mod in [self] + self.imported_modules:
+        for mod in self.imported_modules:
             type = mod.gettype(name)
             if type is not None:
                 self.typescache[name] = type
