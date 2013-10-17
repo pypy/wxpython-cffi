@@ -264,6 +264,9 @@ class CppType(object):
     def convert_variable_cpp_to_c(self, typeinfo, name):
         pass
 
+    def convert_variable_c_to_py(self, typeinfo, name):
+        pass
+
 
 class PyObject(object):
     def __init__(self, order, parent):

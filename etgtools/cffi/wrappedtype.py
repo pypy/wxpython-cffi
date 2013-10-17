@@ -231,7 +231,7 @@ class WrappedType(CppScope, CppType):
 
         if self.convert_subclass_code is not None:
             cppfile.write(nci("""\
-            WL_INTERNAL extern "C" const char * cffigetclassname_{0.cname}({0.cppname} *cpp_obj)
+            WL_INTERNAL const char * cffigetclassname_{0.cname}({0.cppname} *cpp_obj)
             {{""".format(self)))
             cppfile.write(nci(self.convert_subclass_code, 4))
             cppfile.write("}\n")
@@ -272,3 +272,6 @@ class WrappedType(CppScope, CppType):
             return '&' + name
         else:
             return "new %s(%s)" % (self.cppname, name)
+
+    def convert_variable_c_to_py(self, typeinfo, name):
+        pass

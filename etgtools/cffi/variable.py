@@ -19,12 +19,17 @@ class VariableBase(CppObject):
         pyfile.write("extern {0.type.cdef_type} {0.cname};\n".format(self))
 
     def print_cppcode(self, cppfile):
-        # TODO: Type conversion code!
         cppfile.write(nci("""\
         WL_INTERNAL {0.type.c_type} {0.cname};
         {0.type.c_type} {0.cname} = {1};
         """.format(self, self.type.convert_variable_cpp_to_c(self.name))))
         utils.pad(cppfile)
+
+    def print_pycode(self, pyfile, indent=0):
+        pyfile.write(nci(
+            "{0} = {1}".format(self.pyname,
+                               self.type.convert_variable_c_to_py("clib." + self.cname)),
+            indent))
 
 class GlobalVariable(VariableBase):
     PREFIX = 'cffigvar'
@@ -34,10 +39,10 @@ class Define(GlobalVariable):
     PREFIX = 'cffidefine'
     def __init__(self, define, parent):
         super(Define, self).__init__(define, parent)
-        self.item.type = 'const long long'
+        self.type = 'const long long'
 
     def setup(self):
-        super(Define, self).setup()
+        self.type = TypeInfo(self.parent, self.type, self.flags)
 
 class MemberVariable(VariableBase):
     pass
