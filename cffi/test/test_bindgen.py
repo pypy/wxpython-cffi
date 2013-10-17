@@ -19,6 +19,7 @@ from etgtools.extractors import (
     PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef, TypedefDef,
     MappedTypeDef_cffi)
 
+from etgtools.cffi_generator import CffiWrapperGenerator
 from etgtools.cffi.bindgen import BindingGenerator, LiteralVerifyArg
 
 from buildtools.config import Config
@@ -880,6 +881,9 @@ class TestBindGen(object):
             PyFunctionDef('seti', '(self, i)', 'self._i = i'),
             PyPropertyDef(name='i', getter='geti', setter='seti')])
 
+        CffiWrapperGenerator.stripIgnoredItems(module.items)
+        CffiWrapperGenerator.trimPrefixes(module.items)
+
         mod_path = cls.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
             pickle.dump(module, f)
@@ -901,6 +905,9 @@ class TestBindGen(object):
 
         c = ClassDef(name='ExternalModuleSubclass', bases=['SimpleClass'])
         module.addItem(c)
+
+        CffiWrapperGenerator.stripIgnoredItems(module.items)
+        CffiWrapperGenerator.trimPrefixes(module.items)
 
         mod_path = cls.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
@@ -937,7 +944,7 @@ class TestBindGen(object):
              user_py_path.open('w') as user_py_file, h_path.open('w') as h_file:
             # Use distutis via cffi to build the cpp code
             cls.gen.write_files(
-                name, py_file, cpp_file, h_file, user_py_file, verify_args)
+                name, py_file, user_py_file, cpp_file, h_file, verify_args)
 
         return user_py_path.pyimport()
 

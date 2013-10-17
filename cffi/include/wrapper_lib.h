@@ -20,6 +20,12 @@ extern "C"
 #define WL_CHECK_EXCEPTION()\
     (*WL_EXCEPTION_NAME != NULL)
 
+#ifdef __GNUC__
+#    define WL_INTERNAL extern "C" __attribute__((visibility ("internal")))
+#else
+#    define WL_INTERNAL extern "C"
+#endif
+
 template<typename T, typename CType>
 struct cfficonvert_mappedtype
 {

@@ -42,4 +42,5 @@ class BindingGenerator(object):
 
     def write_files(self, module_name, pyfile, userpyfile, cppfile, hfile,
                     verify_args):
-        pass
+        self.modules[module_name].write_files(pyfile, userpyfile, cppfile,
+                                              hfile, verify_args)

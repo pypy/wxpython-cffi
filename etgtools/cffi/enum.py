@@ -14,6 +14,9 @@ class Enum(CppType):
         for val in enum.items:
             EnumValue(val, parent)
 
+    def gettypeinfo(self, original, name, flags):
+        pass
+
 #TODO: maybe it makes more sense to move this into varable.py?
 class EnumValue(CppObject):
     def __init__(self, val, parent):
