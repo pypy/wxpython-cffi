@@ -9,6 +9,7 @@ class ItemFlags(dict):
         else:
             super(ItemFlags, self).__init__(dict(
                     pyint=getattr(item, 'pyInt', False),
+                    nocopy=getattr(item, 'noCopy', False),
                     array=getattr(item, 'array', False),
                     arraysize=getattr(item, 'arraySize', False),
                     out=getattr(item, 'out', False),
@@ -37,7 +38,7 @@ class TypeInfo(object):
         self.original = name
         self.flags = flags
 
-        self.const = 'const ' in name,
+        self.const = 'const ' in name
         self.ptrcount = name.count('*')
         self.refcount = name.count('&')
 
@@ -91,6 +92,9 @@ class CppObject(object):
     def print_cdef(self, pyfile):
         pass
 
+    def print_cdef_and_verify(self, pyfile):
+        pass
+
     def print_pycode(self, pyfile, indent=0):
         pass
 
@@ -117,12 +121,20 @@ class CppScope(object):
             parent.add_subscope(self)
 
     def print_nested_cdef(self, pyfile):
-        for obj in self.objects:
-            obj.print_cdef(pyfile)
         for type in self.types:
             type.print_cdef(pyfile)
+        for obj in self.objects:
+            obj.print_cdef(pyfile)
         for scope in self.subscopes.itervalues():
             scope.print_nested_cdef(pyfile)
+
+    def print_nested_cdef_and_verify(self, pyfile):
+        for type in self.types:
+            type.print_cdef_and_verify(pyfile)
+        for obj in self.objects:
+            obj.print_cdef_and_verify(pyfile)
+        for scope in self.subscopes.itervalues():
+            scope.print_nested_cdef_and_verify(pyfile)
 
     # Note this isn't print_nested_pycode. Scopes need to have Python
     # representation.
@@ -130,18 +142,18 @@ class CppScope(object):
         pass
 
     def print_nested_headercode(self, hfile):
-        for obj in self.objects:
-            obj.print_headercode(hfile)
         for type in self.types:
             type.print_headercode(hfile)
+        for obj in self.objects:
+            obj.print_headercode(hfile)
         for scope in self.subscopes.itervalues():
             scope.print_nested_headercode(hfile)
 
     def print_nested_cppcode(self, cppfile):
-        for obj in self.objects:
-            obj.print_cppcode(cppfile)
         for type in self.types:
             type.print_cppcode(cppfile)
+        for obj in self.objects:
+            obj.print_cppcode(cppfile)
         for scope in self.subscopes.itervalues():
             scope.print_nested_cppcode(cppfile)
 
@@ -222,6 +234,9 @@ class CppType(object):
     def print_cdef(self, pyfile):
         pass
 
+    def print_cdef_and_verify(self, pyfile):
+        pass
+
     def print_pycode(self, pyfile, indent=0):
         pass
 
@@ -235,13 +250,34 @@ class CppType(object):
         pass
 
 
-    # Conversion methods:
+    # Conversion methods (python code):
+
+    def call_cdef_param_setup(self, typeinfo, name):
+        pass
+
+    def call_cdef_param_inline(self, typeinfo, name):
+        return name
+
+    def call_cdef_param_cleanup(self, typeinfo, name):
+        pass
+
+    def virt_py_param_setup(self, typeinfo, name):
+        pass
+
+    def virt_py_param_inline(self, typeinfo, name):
+        return name
+
+    def virt_py_param_cleanup(self, typeinfo, name):
+        pass
+    # TODO: what do I actually need for virtual functions?
+
+    # Conversion methods (c++ code):
 
     def call_cpp_param_setup(self, typeinfo, name):
         pass
 
     def call_cpp_param_inline(self, typeinfo, name):
-        pass
+        return name
 
     def call_cpp_param_cleanup(self, typeinfo, name):
         pass
@@ -250,7 +286,7 @@ class CppType(object):
         pass
 
     def virt_cpp_param_inline(self, typeinfo, name):
-        pass
+        return name
 
     def virt_cpp_param_cleanup(self, typeinfo, name):
         pass

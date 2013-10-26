@@ -15,7 +15,7 @@ class VariableBase(CppObject):
     def setup(self):
         self.type = TypeInfo(self.parent, self.item.type, self.flags)
 
-    def print_cdef(self, pyfile):
+    def print_cdef_and_verify(self, pyfile):
         pyfile.write("extern {0.type.cdef_type} {0.cname};\n".format(self))
 
     def print_cppcode(self, cppfile):

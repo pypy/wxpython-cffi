@@ -31,10 +31,10 @@ ARRAY_SIZE_PARAM = 'array_size_'
 OUT_PARAM_SUFFIX = '_ptr'
 
 def getbasictype(name, typeinfo):
-    if name == 'void' and typedef.ptrcount:
-        return VoidPtrType
+    if name == 'void' and typeinfo.ptrcount:
+        return VoidPtrType()
     elif name in ('', None, 'void'):
-        return VoidTypeInfo
+        return VoidType()
     elif typeinfo.ptrcount and 'char' in name:
         return StringType(name)
     elif (name in BASIC_CTYPES or
@@ -162,11 +162,39 @@ class StringType(CppType):
 
 class VoidPtrType(CppType):
     def __new__(cls):
-        return cls
+        # Only one instance of VoidPtrType needed/wanted.
+        if not hasattr(cls, '_inst'):
+            cls._inst = super(cls, cls).__new__(cls)
+
+        return cls._inst
+
+    def __init__(self):
+        pass
+
+    def convert_variable_cpp_to_c(self, typeinfo, name):
+        return name
+
+    def convert_variable_c_to_py(self, typeinfo, name):
+        return name
 
 class VoidType(CppType):
     def __new__(cls):
-        return cls
+        if not hasattr(cls, '_inst'):
+            cls._inst = super(cls, cls).__new__(cls)
+
+        return cls._inst
+
+    def __init__(self):
+        pass
+
+    def build_typeinfo(self, typeinfo):
+        typeinfo.c_type = typeinfo.cdef_type = 'void'
+
+    def convert_variable_cpp_to_c(self, typeinfo, name):
+        return name
+
+    def convert_variable_c_to_py(self, typeinfo, name):
+        return name
 
 '''
 class TypeInfo(object):

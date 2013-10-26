@@ -113,7 +113,7 @@ class WrappedType(CppScope, CppType):
         typeinfo.py_type = '(' + ', '.join(pytypes) + ')'
 
         if not typeinfo.flags.inout and (typeinfo.ptrcount == 2 or
-           typeinfo.refcount and typeinfo.ptrtype):
+           typeinfo.refcount and typeinfo.ptrcount):
             typeinfo.flags.out = True
 
         if typeinfo.flags.out or typeinfo.flags.inout:
@@ -131,7 +131,7 @@ class WrappedType(CppScope, CppType):
         typeinfo.c_virt_type = typeinfo.c_type
         typeinfo.cdef_virt_type = typeinfo.cdef_type
 
-    def print_cdef(self, pyfile):
+    def print_cdef_and_verify(self, pyfile):
         if not self.uninstantiable and len(self.virtualmethods) > 0:
                                                      
             pyfile.write(nci("""\
@@ -237,13 +237,38 @@ class WrappedType(CppScope, CppType):
             cppfile.write("}\n")
 
     def call_cpp_param_setup(self, typeinfo, name):
-        pass
+        if (typeinfo.flags.out and typeinfo.ptrcount != 2 and
+            not (typeinfo.ptrCount == 1 and typeinfo.refcount)):
+            # Allocate a new object for `*` or `&` out parameters. Do not
+            # create a new object for `**` or `&*` parameters.
+            return "*{0} = new {1};".format(name, self.cppname)
+        if typeinfo.flags.array:
+            # TODO: Should the `_converted` naming convention continue and
+            #       what should arrayc2cpp be renamined to?
+            return "{0} {1}_converted = {2}({1}, {3});".format(
+                typeinfo.c_virt_return_type, name, self.typedef.arrayc2cpp,
+                ARRAY_SIZE_PARAM)
+        return None
 
     def call_cpp_param_inline(self, typeinfo, name):
-        pass
+        if typeinfo.flags.array:
+            return name + "_converted"
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            if typeinfo.refcount:
+                return '*' * (2 - typeinfo.ptrcount) + name
+            elif typeinfo.ptrcountunt == 1:
+                return '*' + name
+            else:
+                return name
+        #deref = not typeinfo.ptrcount and not typeinfo.refcount
+        deref = not typeinfo.ptrcount and typeinfo.refcount
+        return ('*' if deref else '') + name
 
     def call_cpp_param_cleanup(self, typeinfo, name):
-        pass
+        if typeinfo.flags.array and not typeinfo.flags.transfer:
+            # TODO: See above about `_covnerted` convention
+            return 'delete[] %s_converted;' % name
+        return None
 
     def virt_cpp_param_setup(self, typeinfo, name):
         pass
@@ -271,7 +296,25 @@ class WrappedType(CppScope, CppType):
              not self.purevirtualabstract):
             return '&' + name
         else:
+            # If returning a const ref (and nocopy isn't set) make a copy of
+            # the object (that Python will own) so it can be modified safely
             return "new %s(%s)" % (self.cppname, name)
 
     def convert_variable_c_to_py(self, typeinfo, name):
-        pass
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            # TODO: if this is * or &, make it py-owned, and if it is ** or
+            #       *&, make it cpp-owned
+            return 'wrapper_lib.obj_from_ptr(%s[0], %s)' % (
+                    name, self.unscopedpyname)
+        if typeinfo.flags.array:
+            return ("wrapper_lib.create_array_type({2}).c_to_py({0}, {1})"
+                    .format(name, ARRAY_SIZE_PARAM,
+                            self.unscopedpyname))
+        if (not (typeinfo.refcount or typeinfo.ptrcount) or
+            (not typeinfo.flags.nocopy and typeinfo.refcount and
+             typeinfo.const)):
+            return 'wrapper_lib.obj_from_ptr(%s, %s, True)' % (
+                    name, self.unscopedpyname)
+        return 'wrapper_lib.obj_from_ptr(%s, %s)' % (
+                name, self.unscopedpyname)
+

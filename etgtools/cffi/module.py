@@ -1,4 +1,5 @@
 import sys
+import warnings
 
 # Import all of these modules so the generate methods get added onto the
 # original extactor classes
@@ -56,13 +57,16 @@ class Module(CppScope):
 
         return None
 
-    def new_opqaue_type(self, name):
+    def new_opaque_type(self, name):
         warnings.warn("Encountered unknown type '%s'. Creating opaque type"
                         % name)
         c = extractors.ClassDef(name=name)
         # XXX Is it a good idea to always place an opaque type in the global
         #     scope?
-        c.generate(c, self)
+        c.generate(self)
+        # TODO: Maybe the generate method should return the new object so this
+        #       extra lookup isn't needed?
+        self.gettype(name).setup()
 
     # TODO: change how cppCode/headerCode/etc are handled. It would be more
     #       memory efficient to delay loading them until they are about to be
@@ -142,6 +146,8 @@ class Module(CppScope):
         #        continue
         #    pyfile.write("typedef %s %s;\n" % (typedef.type, typedef.name))
 
+        self.print_nested_cdef(pyfile)
+
         pyfile.write(nci("""\
         ''')
         cdefs = ('''
@@ -157,7 +163,7 @@ class Module(CppScope):
         #for mType in self.mappedTypes:
         #    self.printMappedTypeCDef(mType, pyfile)
         #dispatchItems(self.dispatchCDefs, self.globalItems, pyfile)
-        self.print_nested_cdef(pyfile)
+        self.print_nested_cdef_and_verify(pyfile)
 
         pyfile.write(nci("""\
         ''')
@@ -168,10 +174,10 @@ class Module(CppScope):
         wrapper_lib.populate_clib_ptrs(clib)
         clib.%s()""" % (self.build_verify_args(verify_args), initfunc)))
 
-        for obj in self.objects:
-            obj.print_pycode(pyfile)
         for type in self.types:
             type.print_pycode(pyfile)
+        for obj in self.objects:
+            obj.print_pycode(pyfile)
         for scope in self.subscopes.itervalues():
             scope.print_pycode(pyfile)
 
