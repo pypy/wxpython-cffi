@@ -62,6 +62,9 @@ class MappedType(CppType):
             typeinfo.c_virt_type = typeinfo.c_type
             typeinfo.cdef_virt_type = typeinfo.cdef_type
 
+        # TODO: this needs to be specified on a per C++ type basis
+        typeinfo.default_placeholder = 'ffi.NULL'
+
     def print_cppcode(self, cppfile):
         cppfile.write(nci("""\
         template<>

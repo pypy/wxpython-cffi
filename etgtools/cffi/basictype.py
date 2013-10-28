@@ -105,11 +105,15 @@ class BasicType(CppType):
             typeinfo.cdef_type += '*'
 
         typeinfo.py_type = 'numbers.Number'
+        typeinfo.default_placeholder = '0'
         if not typeinfo.flags and 'char' in self.name:
             # Treat all non-pyint chars as strings.
             # TODO: This is actually incorrect, we should only accept length 1
             #       strings. Add type to wrapper_lib to handle this
             typeinfo.py_type = '(__builtin__.str, __builtin__.unicode)'
+            typeinfo.default_placeholder = "''"
+
+        typeinfo.default_placeholder = '0'
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         if typeinfo.refcount:
@@ -145,6 +149,7 @@ class StringType(CppType):
             typeinfo.c_type = 'const ' + typeinfo.c_type
 
         typeinfo.py_type = '(__builtin__.unicode, __builtin__.str)'
+        typeinfo.default_placeholder = ''
 
         # TODO: Figure out what the correct choice is here when it comes up.
         #       The code from the pre-refactor below is definately wrong.
@@ -153,6 +158,8 @@ class StringType(CppType):
 
         typeinfo.c_virt_type = typeinfo.c_type
         typeinfo.cdef_virt_type = typeinfo.cdef_type
+
+        typeinfo.default_placeholder = 'ffi.NULL'
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         return name

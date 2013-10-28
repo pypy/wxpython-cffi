@@ -10,10 +10,33 @@ from .. import extractors
 class Param(object):
     def __init__(self, param, scope):
         self.name = param.name
+        self.item = param
         self.default = param.default
         self.flags = ItemFlags(param)
+        self.scope = scope
 
-        self.type = TypeInfo(scope, param.type, self.flags)
+    def setup(self):
+        self.type = TypeInfo(self.scope, self.item.type, self.flags)
+
+        if self.type.flags.hasdefault:
+            print self.default
+
+    def print_call_cdef_setup(self, pyfile, indent, default_index):
+        conversion = self.type.call_cdef_param_setup(self.name)
+
+        if self.default:
+            pyfile.write(nci("""\
+            if {0.name} is wrapper_lib.default_arg_indicator:
+                defaults_bitflags |= {1}
+                {0.name} = {0.type.default_placeholder}
+            """.format(self, default_index), indent + 4))
+
+        if conversion is not None and self.default: 
+            pyfile.write(nci('else:', indent + 4))
+
+        if conversion is not None:
+            pyfile.write(nci(
+                conversion, indent + 4 + 4 * int(bool(self.default))))
 
 class void_args_string(object):
     def __init__(self, func):
@@ -48,20 +71,30 @@ class FunctionBase(CppObject):
         self.params = [Param(p, self.parent) for p in self.item.items]
         self.type = TypeInfo(self.parent, self.item.type, self.flags)
 
+        for param in self.params:
+            param.setup()
+
     @args_string
     def c_args(self):
+        if self.has_default_args():
+            yield 'int defaults_bitflags'
         for param in self.params:
             yield " ".join((param.type.c_type, param.name))
 
     @void_args_string
     def cdef_args(self):
+        if self.has_default_args():
+            yield 'int defaults_bitflags'
         for param in self.params:
             yield " ".join((param.type.cdef_type, param.name))
 
     @args_string
     def py_args(self):
         for param in self.params:
-            yield param.name
+            if not param.default:
+                yield param.name
+            else:
+                yield param.name + '=wrapper_lib.default_arg_indicator'
 
     @args_string
     def wrapper_args(self):
@@ -74,13 +107,25 @@ class FunctionBase(CppObject):
 
     @args_string
     def call_cdef_args(self):
+        if self.has_default_args():
+            yield 'defaults_bitflags'
         for param in self.params:
             yield param.type.call_cdef_param_inline(param.name)
 
     @args_string
     def call_cpp_args(self):
+        default_count = 1
         for param in self.params:
-            yield param.type.call_cpp_param_inline(param.name)
+            if param.default:
+                yield 'defaults_bitflags & %d ? %s : %s' % (
+                    default_count, param.default,
+                    param.type.call_cpp_param_inline(param.name))
+                default_count <<= 1
+            else:
+                yield param.type.call_cpp_param_inline(param.name)
+
+    def has_default_args(self):
+        return any(bool(p.default) for p in self.params)
 
     def print_cdef_and_verify(self, pyfile):
         pyfile.write("{0.type.cdef_type} {0.cname}{0.cdef_args};\n".format(self))
@@ -89,10 +134,13 @@ class FunctionBase(CppObject):
         pyfile.write(nci("def {0.pyname}{0.py_args}:".format(self), indent))
         print_docstring(self, pyfile, indent + 4)
 
+        if self.has_default_args():
+            pyfile.write(nci('defaults_bitflags = 0', indent + 4))
+
+        default_index = 1
         for param in self.params:
-            conversion = param.type.call_cdef_param_setup(param.name)
-            if conversion is not None:
-                pyfile.write(nci(conversion, 4))
+            param.print_call_cdef_setup(pyfile, indent, default_index)
+            default_index <<= 1
 
         pyfile.write('    ');
         if not isinstance(self.type.type, VoidType):
@@ -219,6 +267,7 @@ class CppMethod(Method):
             # before it is the type
             param.type, param.name = arg.rsplit(' ', 1)
             self.params.append(Param(param, self.parent))
+            self.params[-1].setup()
 
 
 class CppMethod_cffi(Method):

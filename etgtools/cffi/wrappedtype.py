@@ -131,6 +131,8 @@ class WrappedType(CppScope, CppType):
         typeinfo.c_virt_type = typeinfo.c_type
         typeinfo.cdef_virt_type = typeinfo.cdef_type
 
+        typeinfo.default_placeholder = 'ffi.NULL'
+
     def print_cdef_and_verify(self, pyfile):
         if not self.uninstantiable and len(self.virtualmethods) > 0:
                                                      

@@ -35,3 +35,5 @@ def populate_clib_ptrs(clib):
     clib.WL_ADJUST_REFCOUNT = refcounting.adjust_refcount_cb
     clib.WL_EXCEPTION_NAME = exceptions.EXCEPTION_NAME
     clib.WL_EXCEPTION_STRING = exceptions.EXCEPTION_STRING
+
+default_arg_indicator = object()

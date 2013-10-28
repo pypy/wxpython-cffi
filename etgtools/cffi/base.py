@@ -16,6 +16,7 @@ class ItemFlags(dict):
                     inout=getattr(item, 'inOut', False),
                     transfer=getattr(item, 'transfer', False),
                     factory=getattr(item, 'factory', False),
+                    hasdefault=getattr(item, 'default', '') != '',
                 ))
 
     def __getattr__(self, attr):
@@ -31,6 +32,8 @@ class TypeInfo(object):
     cdef_virt_type = ""
     cdef_virt_return_type = ""
     py_type = ""
+
+    #default_placeholder = None
 
     def __init__(self, scope, name, flags):
         from basictype import getbasictype
