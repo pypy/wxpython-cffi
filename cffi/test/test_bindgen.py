@@ -893,7 +893,7 @@ class TestBindGen(object):
         c = ClassDef(name='CustomCppMethodsClass')
         c.addItem(CppMethodDef_cffi(
             'custom_pycode_only',
-            pyArgs=ArgsString("(WL_Object self, int i)"),
+            pyArgs=ArgsString("(WL_Self self, int i)"),
             pyBody="""\
             data = ffi.new('int[]', [int(i), 10])
             call(ffi.NULL, data)
@@ -903,7 +903,7 @@ class TestBindGen(object):
             cBody="static_cast<CustomCppMethodsClass*>(self)->custom_pycode_only(data);"))
         c.addItem(CppMethodDef_cffi(
             'custom_pycode_and_cppcode', isVirtual=True,
-            pyArgs=ArgsString("WL_Object self, WL_Object callback"),
+            pyArgs=ArgsString("WL_Self self, WL_Object callback"),
             pyBody="""\
             assert callable(callback)
             cb = ffi.callback('int(*)(int)', callback)
@@ -926,7 +926,7 @@ class TestBindGen(object):
         ))
         c.addItem(CppMethodDef_cffi(
             'call_custom_pycode_and_cppcode',
-            pyArgs=ArgsString("WL_Object self, WL_Object callback"),
+            pyArgs=ArgsString("WL_Self self, WL_Object callback"),
             pyBody="""\
             assert callable(callback)
             cb = ffi.callback('int(*)(int)', callback)
@@ -934,6 +934,16 @@ class TestBindGen(object):
             """,
             cReturnType='int', cArgsString='(void *self, intcallback cb)',
             cBody="return static_cast<CustomCppMethodsClass*>(self)->call_custom_pycode_and_cppcode(cb);"""
+        ))
+        c.addItem(CppMethodDef_cffi(
+            'overloaded',
+            pyArgs=ArgsString('(WL_Self self, int i)'),
+            pyBody="return (self, i)"
+        ))
+        c.addItem(CppMethodDef_cffi(
+            'overloaded',
+            pyArgs=ArgsString('(WL_Self self)'),
+            pyBody="return self"
         ))
         module.addItem(c)
 
@@ -1862,6 +1872,11 @@ class TestBindGen(object):
         obj = CustomCppMethodsSubclass()
         assert obj.call_custom_pycode_and_cppcode(set_someint) == -1
         assert someint[0] == 42
+
+    def test_overloaded_cppmethod_cffi(self):
+        obj = self.mod.CustomCppMethodsClass()
+        assert obj.overloaded() is obj
+        assert obj.overloaded(10) == (obj, 10)
 
     def test_voidptr(self):
         class VoidPtrSubclass(self.mod.VoidPtrClass):

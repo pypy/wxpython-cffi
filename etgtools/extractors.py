@@ -1213,6 +1213,7 @@ class CppMethodDef_cffi(MethodDef):
                  virtualHandler=None, *args, **kwargs):
 
         kwargs['name'] = name
+        kwargs['type'] = 'void'
         super(CppMethodDef_cffi, self).__init__(*args, **kwargs)
 
 

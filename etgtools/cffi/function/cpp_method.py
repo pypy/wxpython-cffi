@@ -74,6 +74,10 @@ class MemberCppMethod_cffi(Method):
     @args_string
     def py_types_args(self):
         for p in self.py_params:
+            if p.type.original == 'WL_Self':
+                # This should be treated like a SelfParam, which is to say,
+                # it does not need to be typechecked.
+                continue
             type = p.type.py_type if p.type.original != 'WL_Object' else 'object'
 
             if self.overload_manager.is_overloaded():
@@ -96,7 +100,6 @@ class MemberCppMethod_cffi(Method):
             # Don't try handling the type when we have custom C++ code. The
             # user can specify any type in this situation.
             self.user_c_type = meth.cReturnType
-            meth.type = 'void'
 
         super(MemberCppMethod_cffi, self).__init__(meth, parent)
 

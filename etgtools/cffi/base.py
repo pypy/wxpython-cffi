@@ -58,7 +58,7 @@ class TypeInfo(object):
         for token in ['const ', '*', '&']:
             name = name.replace(token, '').strip()
 
-        if name == 'WL_Object':
+        if name in ('WL_Object', 'WL_Self'):
             # WL_Object is a special case. This type is used only for Python
             # arguments lists.
             return
