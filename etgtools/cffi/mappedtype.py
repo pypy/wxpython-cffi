@@ -13,6 +13,9 @@ class MappedType(CppType):
         super(MappedType, self).__init__(cls, parent)
 
         self.ctype = cls.cType
+        self.instancecheck_code = cls.instanceCheck or 'pass'
+        self.convert_to_c_code = cls.py2c or 'pass'
+        self.convert_to_py_code = cls.c2py or 'pass'
 
         self.to_c_code = cls.cpp2c
         self.to_c_name = 'WL_mappedtype<{0.name}, {0.ctype}>::to_c'.format(self)
@@ -24,12 +27,13 @@ class MappedType(CppType):
 
         self.to_cpp_cdefname = self.name + '_to_cpp'
 
+        self.default_placeholder = cls.placeHolder
 
     def build_typeinfo(self, typeinfo):
         typeinfo.c_type = self.ctype
         typeinfo.cdef_type = self.ctype
-        typeinfo.c_virt_return_type = self.name + '*'
-        typeinfo.cdef_virt_return_type = 'void *'
+        typeinfo.c_virt_return_type = self.ctype
+        typeinfo.cdef_virt_return_type = self.ctype
 
         pytypes = [self.unscopedpyname]
         if typeinfo.ptrcount:
@@ -42,7 +46,7 @@ class MappedType(CppType):
             typeinfo.flags.out = True
 
         if typeinfo.flags.out or typeinfo.flags.inout:
-            # A ** is needed when using out so C++ can write into the pointer
+            # T** is needed when using out so C++ can write into the pointer
             # Python is holding.
             typeinfo.c_type += '*'
             typeinfo.cdef_type += '*'
@@ -53,17 +57,32 @@ class MappedType(CppType):
             typeinfo.py_type = ('wrapper_lib.create_array_type(%s, ctype="%s")'
                                 % (self.name, typeinfo.cdef_type))
 
-        if typeinfo.flags.out:
-            # When using an out paremeter, the type for the callback signature
-            # needs to be ** so Python can write into the C++ pointer
-            typeinfo.c_virt_type = self.name + '**'
-            typeinfo.cdef_virt_type = "void **"
-        else:
-            typeinfo.c_virt_type = typeinfo.c_type
-            typeinfo.cdef_virt_type = typeinfo.cdef_type
+        typeinfo.c_virt_type = typeinfo.c_type
+        typeinfo.cdef_virt_type = typeinfo.cdef_type
 
-        # TODO: this needs to be specified on a per C++ type basis
-        typeinfo.default_placeholder = 'ffi.NULL'
+        typeinfo.default_placeholder = self.default_placeholder
+
+    def print_pycode(self, pyfile, indent=0):
+        pyfile.write(nci("""\
+        class {0.pyname}(wrapper_lib.MappedBase):
+            @classmethod
+            def __instancecheck__(cls, py_obj):
+        """.format(self), indent))
+        pyfile.write(nci(self.instancecheck_code, indent + 8))
+
+        pyfile.write(nci("""\
+            @classmethod
+            def to_py(cls, cdata):
+        """, indent + 4))
+        pyfile.write(nci(self.convert_to_py_code, indent + 8))
+
+        pyfile.write(nci("""\
+            @classmethod
+            def to_c(cls, py_obj):
+                if py_obj is None:
+                    return ffi.NULL
+        """, indent + 4))
+        pyfile.write(nci(self.convert_to_c_code, indent + 8))
 
     def print_cppcode(self, cppfile):
         cppfile.write(nci("""\
@@ -87,25 +106,48 @@ class MappedType(CppType):
         }}
         """.format(self, nci(self.to_c_code, 12), nci(self.to_cpp_code, 12))))
 
+    def call_cdef_param_setup(self, typeinfo, name):
+        if typeinfo.flags.out:
+            return "{0}{1.OUT_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')".format(
+                    name, typeinfo)
+        if typeinfo.flags.inout:
+            return """\
+            {0} = {1.unscopedpyname}.to_c({0})
+            {0}{2.OUT_PARAM_SUFFIX} = ffi.new('{2.cdef_type}', {0})
+            """.format(name, self, typeinfo)
+        if typeinfo.flags.array:
+            return ("{0}, {1.ARRAY_SIZE_PARAM}, {0}_keepalive = "
+                    "wrapper_lib.create_array_type({2.unscopedpyname}, ctype='{1.cdef_type}').to_c({0})"
+                    .format(name, typeinfo, self))
+        return "{0} = {1}.to_c({0})".format(name, self.unscopedpyname)
+
+    def call_cdef_param_inline(self, typeinfo, name):
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            return name + typeinfo.OUT_PARAM_SUFFIX
+        return name
+
     def call_cpp_param_setup(self, typeinfo, name):
+        if typeinfo.flags.hasdefault:
+            raise Exception()
+            return '{0} *{1}_converted = NULL;'.format(self.name, name)
+
         if typeinfo.flags.out:
             isptr = '*' if ((typeinfo.refcount and typeinfo.ptrcount == 1) or
                             typeinfo.ptrcount == 2) else ''
-            #    return '{0} *{1}_converted;'.format(self.name, name)
-            #else:
-            #    return '{0} {1}_converted;'.format(self.name, name)
             return '{0} {1}{2}_converted;'.format(self.name, isptr, name)
 
         if typeinfo.flags.array:
-            return "{0} {1}_converted = {2}({1}, {3});".format(
-                typeinfo.c_virt_return_type, name, self.to_cpp_array_name,
-                ARRAY_SIZE_PARAM)
+            return "{0.name} *{1}_converted = {0.to_cpp_array_name}({1}, {2});".format(
+                self, name, typeinfo.ARRAY_SIZE_PARAM)
 
         deref = '*' if typeinfo.flags.inout else ''
-        return '{0} {1}_converted = {2}({3}{1});'.format(
-            typeinfo.c_virt_return_type, name, self.to_cpp_name, deref)
+        return '{0.name} *{1}_converted = {0.to_cpp_name}({2}{1});'.format(
+            self, name, deref)
 
     def call_cpp_param_inline(self, typeinfo, name):
+        if typeinfo.flags.hasdefault:
+            return '{0}_converted = {1}({2}{0});'.format(
+                name, self.to_cpp_name, deref)
         name += '_converted'
         if typeinfo.flags.array:
             return name
@@ -122,8 +164,6 @@ class MappedType(CppType):
             else:
                 return name
 
-        # TODO: refsAsPtrs?
-        #deref = not self.isPtr and not (self.isRef and refsAsPtrs)
         deref = not typeinfo.ptrcount
         return ('*' if deref else '') + name
 
@@ -140,47 +180,67 @@ class MappedType(CppType):
             """.format(name, self.to_c_name)
         if typeinfo.flags.out:
             return "*{0} = {1}({0}_converted);".format(name, self.to_c_name)
-        # TODO: if transfering the mapped type, don't delete it?
-        #       Test if sip actually doesn't delete in this case
-        return 'delete %s_converted;' % name
+        # If transfering the mapped type, don't delete it. This is a sip
+        # behavior that isn't particularly well documented.
+        if not typeinfo.flags.transfer:
+            return 'delete %s_converted;' % name
+
+    def virt_py_param_inline(self, typeinfo, name):
+        if typeinfo.flags.array:
+            return ("wrapper_lib.create_array_type({0}, ctype='{1.cdef_type}').to_py({2}, {1.ARRAY_SIZE_PARAM})"
+                    .format(self.unscopedpyname, typeinfo, name))
+
+        deref = '[0]' if typeinfo.flags.inout else ''
+        return "%s.to_py(%s%s)" % (self.unscopedpyname, name, deref)
+
+    def virt_py_param_cleanup(self, typeinfo, name):
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            return ('{0}[0] = {1.unscopedpyname}.to_c({0}{2})'
+                    .format(name, self, typeinfo.PY_RETURN_SUFFIX))
+
+    def virt_py_return(self, typeinfo, name):
+        return ('{0} = {1.unscopedpyname}.to_c({0})'
+                .format(name, self))
 
     def virt_cpp_param_setup(self, typeinfo, name):
-        pass
+        if typeinfo.flags.out:
+            return "{0} {1}_converted;".format(typeinfo.c_virt_return_type, name)
+        if typeinfo.flags.inout:
+            return "{0} {1}_converted = {2}({1});".format(
+                typeinfo.c_virt_return_type, name, self.to_c_name)
 
     def virt_cpp_param_inline(self, typeinfo, name):
-        return name
+        if typeinfo.flags.array:
+            return "%s(%s, %s)" % (self.to_c_array_name, name,
+                                   typeinfo.ARRAY_SIZE_PARAM)
+
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            return '&' + name + "_converted"
+        return '%s(%s)' % (self.to_c_name, name)
 
     def virt_cpp_param_cleanup(self, typeinfo, name):
-        pass
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            if typeinfo.ptrcount == 2: # T**
+                return "*{0} = {1.to_cpp_name}({0}_converted);".format(name,
+                                                                       self)
+            elif typeinfo.ptrcount and typeinfo.refcount: # T*&
+                return "{0} = {1.to_cpp_name}({0}_converted);".format(name,
+                                                                      self)
+            elif typeinfo.ptrcount and not typeinfo.refcount: # T*
+                return ("*{0} = *WL_AutoDelPtr<{1.name}>({1.to_cpp_name}({0}_converted));"
+                        .format(name, self))
+            elif not typeinfo.ptrcount and typeinfo.refcount: # T&
+                return ("{0} = *WL_AutoDelPtr<{1.name}>({1.to_cpp_name}({0}_converted));"
+                        .format(name, self))
 
-    def virt_cpp_return_setup(self, typeinfo, name):
-        pass
-
-    def virt_cpp_return_cleanup(self, typeinfo, name):
-        pass
+    def virt_cpp_return(self, typeinfo, name):
+        deref = '*' if not typeinfo.ptrcount else ''
+        return '%s%s(%s)' % (deref, self.to_cpp_name, name)
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
-        # TODO: do these belong here or somewhere else?
-        #if self.array:
-        #    return "%s(%s, %s)" % (self.typedef.arraycpp2c, varName,
-        #                           ARRAY_SIZE_PARAM)
-
-        #if typeinfo.flags.out:
-        #    if self.ptrCount == 2:
-        #        return name
-        #    if  self.isRef and self.isPtr:
-        #        return '&' + name
-        #    else:
-        #        return '&' + name + "_ptr"
-        #if typeinfo.flags.inout:
-        #    return '&' + varName + "_converted"
         return '%s(%s)' % (self.to_c_name, name)
 
     def convert_variable_c_to_py(self, typeinfo, name):
-        #if typeinfo.flags.out or typeinfo.flags.inout:
-        #    return '%s.c2py(%s[0])' % (self.unscopedpyname, name)
-        #if typeinfo.flags.array:
-        #    return ("wrapper_lib.create_array_type({2}, ctype='{3}').c2py({0}, {1})"
-        #            .format(varName, ARRAY_SIZE_PARAM,
-        #                    self.typedef.unscopedPyName, self.cdefType))
-        return '%s.c2py(%s)' % (self.unscopedpyname, name)
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            name = name + typeinfo.OUT_PARAM_SUFFIX + '[0]'
+        return '%s.to_py(%s)' % (self.unscopedpyname, name)

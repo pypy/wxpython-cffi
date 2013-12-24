@@ -3,7 +3,6 @@ import functools
 
 class ItemFlags(dict):
     def __init__(self, item):
-        # TODO: add more flags?
         if isinstance(item, dict):
             super(ItemFlags, self).__init__(item)
         else:
@@ -15,8 +14,12 @@ class ItemFlags(dict):
                     out=getattr(item, 'out', False),
                     inout=getattr(item, 'inOut', False),
                     transfer=getattr(item, 'transfer', False),
+                    transfer_back=getattr(item, 'transferBack', False),
+                    transfer_this=getattr(item, 'transferThis', False),
+                    keepref=getattr(item, 'keepReference', False),
                     factory=getattr(item, 'factory', False),
-                    hasdefault=getattr(item, 'default', '') != '',
+                    hasdefault=bool(getattr(item, 'default', '')),
+                    deprecated=bool(getattr(item, 'deprecated', False)),
                 ))
 
     def __getattr__(self, attr):
@@ -24,6 +27,9 @@ class ItemFlags(dict):
 
 # TODO: cache instantiations
 class TypeInfo(object):
+    ARRAY_SIZE_PARAM = '_array_size_'
+    OUT_PARAM_SUFFIX = '_ptr'
+    PY_RETURN_SUFFIX = '_pyreturnval'
     # Fields that will be setup by CppType.build_typeinfo
     c_type = ""
     c_virt_type = ""
@@ -33,7 +39,11 @@ class TypeInfo(object):
     cdef_virt_return_type = ""
     py_type = ""
 
-    #default_placeholder = None
+    # TODO: cache cpp_type; it shouldn't change over an instance's lifetime
+    @property
+    def cpp_type(self):
+        return (("const " if self.const else "") + self.type.unscopedname +
+                '&' * self.refcount + '*' * self.ptrcount)
 
     def __init__(self, scope, name, flags):
         from basictype import getbasictype
@@ -48,6 +58,11 @@ class TypeInfo(object):
         for token in ['const ', '*', '&']:
             name = name.replace(token, '').strip()
 
+        if name == 'WL_Object':
+            # WL_Object is a special case. This type is used only for Python
+            # arguments lists.
+            return
+
         type = getbasictype(name, self)
         if type is None:
             type = scope.gettype(name)
@@ -60,9 +75,7 @@ class TypeInfo(object):
     def __eq__(self, other):
         if not isinstance(other, TypeInfo):
             return False
-        # TODO: maybe it isn't correct to use 'is' here instead of ==? That may
-        #       be preferable when thinking about typedefs?
-        return (self.type is other.type and
+        return (self.type == other.type and
                 self.const == other.const and
                 self.ptrcount == other.ptrcount and
                 self.refcount == other.refcount)
@@ -72,7 +85,7 @@ class TypeInfo(object):
         if callable(attr):
            return functools.partial(attr, self)
         else:
-            return attr 
+            return attr
 
 
 class CppObject(object):
@@ -81,7 +94,7 @@ class CppObject(object):
         self.parent = parent
 
         self.name = item.name
-        self.pyname = item.pyName
+        self.pyname = getattr(item, 'pyName', '') or item.name
         self.cname = parent.cscopeprefix + self.pyname
         self.unscopedname = parent.scopeprefix + self.name
         self.unscopedpyname = parent.pyscopeprefix + self.pyname
@@ -107,12 +120,16 @@ class CppObject(object):
     def print_cppcode(self, cppfile):
         pass
 
+    def __repr__(self):
+        return "<%s: '%s'>" % (type(self).__name__, self.name)
+
 class CppScope(object):
     def __init__(self, parent):
         self.objects = []
         self.types = []
         self.typescache = { }
-        self.subscopes = { }
+        self.subscopes = []
+        self.subscopescache = { }
 
         self.parent = parent
         self.scopeprefix = ''
@@ -128,7 +145,7 @@ class CppScope(object):
             type.print_cdef(pyfile)
         for obj in self.objects:
             obj.print_cdef(pyfile)
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.print_nested_cdef(pyfile)
 
     def print_nested_cdef_and_verify(self, pyfile):
@@ -136,7 +153,7 @@ class CppScope(object):
             type.print_cdef_and_verify(pyfile)
         for obj in self.objects:
             obj.print_cdef_and_verify(pyfile)
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.print_nested_cdef_and_verify(pyfile)
 
     # Note this isn't print_nested_pycode. Scopes need to have Python
@@ -149,7 +166,7 @@ class CppScope(object):
             type.print_headercode(hfile)
         for obj in self.objects:
             obj.print_headercode(hfile)
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.print_nested_headercode(hfile)
 
     def print_nested_cppcode(self, cppfile):
@@ -157,7 +174,7 @@ class CppScope(object):
             type.print_cppcode(cppfile)
         for obj in self.objects:
             obj.print_cppcode(cppfile)
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.print_nested_cppcode(cppfile)
 
     def gettype(self, name):
@@ -170,8 +187,8 @@ class CppScope(object):
         # Check if it is in one of the scoped nested in this one
         if '::' in name and type is None:
             scope, splitname = name.split('::', 1)
-            if scope in self.subscopes:
-                type = self.subscopes[scope].gettype(splitname)
+            if scope in self.subscopescache:
+                type = self.subscopescache[scope].gettype(splitname)
 
         # Check if it is in the parent's scope
         if self.parent is not None and type is None:
@@ -185,7 +202,7 @@ class CppScope(object):
 
     def setup_types(self):
         self.print_order = []
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.setup_types()
         for type in self.types:
             type.setup()
@@ -193,7 +210,7 @@ class CppScope(object):
     def setup_objects(self):
         for obj in self.objects:
             obj.setup()
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.setup_objects()
 
     def add_object(self, obj):
@@ -204,7 +221,8 @@ class CppScope(object):
         self.typescache[type.name] = type
 
     def add_subscope(self, scope):
-        self.subscopes[scope.name] = scope
+        self.subscopes.append(scope)
+        self.subscopescache[scope.name] = scope
 
     def append_to_printing_order(self, obj):
         """
@@ -243,6 +261,9 @@ class CppType(object):
     def print_pycode(self, pyfile, indent=0):
         pass
 
+    def print_finalize_pycode(self, pyfile):
+        pass
+
     def print_headercode(self, hfile):
         pass
 
@@ -272,7 +293,9 @@ class CppType(object):
 
     def virt_py_param_cleanup(self, typeinfo, name):
         pass
-    # TODO: what do I actually need for virtual functions?
+
+    def virt_py_return(self, typeinfo, name):
+        pass
 
     # Conversion methods (c++ code):
 
@@ -294,11 +317,8 @@ class CppType(object):
     def virt_cpp_param_cleanup(self, typeinfo, name):
         pass
 
-    def virt_cpp_return_setup(self, typeinfo, name):
-        pass
-
-    def virt_cpp_return_cleanup(self, typeinfo, name):
-        pass
+    def virt_cpp_return(self, typeinfo, name):
+        return name
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         pass
@@ -306,9 +326,12 @@ class CppType(object):
     def convert_variable_c_to_py(self, typeinfo, name):
         pass
 
+    def __repr__(self):
+        return "<%s: '%s'>" % (type(self).__name__, self.name)
+
 
 class PyObject(object):
-    def __init__(self, order, parent):
+    def __init__(self, order, pyobj, parent):
         if isinstance(parent, PyObject):
             # This gets printed inside the enclosing PyObject instead in the
             # top-level scope.
@@ -319,5 +342,8 @@ class PyObject(object):
         self.parent = parent
         self.pyitems = []
 
+        self.docstring = getattr(pyobj, 'briefDoc', False) or ''
+
     def print_pycode(self, userpyfile, indent=0):
         pass
+

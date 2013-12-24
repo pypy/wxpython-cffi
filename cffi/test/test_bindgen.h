@@ -4,6 +4,8 @@ using std::string;
 
 #define prefixedSOME_INT 15
 
+typedef int IntAlias;
+
 extern const char *global_str;
 extern const char *other_global_str;
 
@@ -42,15 +44,37 @@ public:
 class SimpleSubclass : public SimpleClass
 { };
 
+struct IntWrapper
+{
+    IntWrapper(int i_=0) : i(i_) { }
+    int i;
+};
+
 class VMethClass
 {
 public:
+    virtual ~VMethClass() { }
     virtual int virtual_method(int i);
     int call_virtual(int i);
+
+    virtual int overridden_vmeth1();
+    int call_overridden_vmeth1();
+
+    virtual VMethClass* overridden_vmeth2();
+    VMethClass* call_overridden_vmeth2();
+
+    virtual IntWrapper overridden_vmeth3(int i);
+    IntWrapper call_overridden_vmeth3(int i);
+
 };
 
 class VMethSubclass : public VMethClass
-{ };
+{
+public:
+    virtual int overridden_vmeth1();
+    virtual VMethSubclass* overridden_vmeth2();
+    virtual IntWrapper overridden_vmeth3(int i);
+};
 
 class PMethClass
 {
@@ -63,6 +87,11 @@ class VDtorClass
 {
 public:
     virtual ~VDtorClass() { };
+
+    void delete_self()
+    {
+        delete this;
+    }
 };
 
 class PVMethClass
@@ -71,6 +100,7 @@ protected:
     virtual int protected_virtual_method(int i);
 
 public:
+    virtual ~PVMethClass() { }
     int call_method(int i);
 };
 
@@ -148,6 +178,7 @@ public:
     class NestedClassesInner
     {
     public:
+        virtual ~NestedClassesInner() { }
         virtual int vmeth();
         int call_vmeth();
 
@@ -162,6 +193,7 @@ public:
     class NestedClassesInnerVirtual
     {
     public:
+        virtual ~NestedClassesInnerVirtual() { }
         NestedClassesInnerVirtual* make()
         {
             return new NestedClassesInnerVirtual();
@@ -224,6 +256,7 @@ struct Vector;
 class ArrayClass
 {
 public:
+    virtual ~ArrayClass() { }
     ArrayClass() : m_i(0) {}
     ArrayClass(int i) : m_i(i) {}
     int m_i;
@@ -237,6 +270,7 @@ public:
 class MappedTypeClass
 {
 public:
+    virtual ~MappedTypeClass() { }
     string m_name;
     virtual string get_name();
     string call_get_name();
@@ -248,6 +282,7 @@ public:
 class WrappedTypeClass
 {
 public:
+    virtual ~WrappedTypeClass() { }
     virtual CtorsClass & get_ref();
     CtorsClass & call_get_ref();
 
@@ -266,15 +301,10 @@ struct Vector
     int j;
 };
 
-struct IntWrapper
-{
-    IntWrapper(int i_=0) : i(i_) { }
-    int i;
-};
-
 class IntWrapperClass
 {
 public:
+    virtual ~IntWrapperClass() { }
     virtual IntWrapper trivial_mappedtype(IntWrapper i, IntWrapper &k);
     IntWrapper call_trivial_mappedtype(IntWrapper i, IntWrapper &k);
 
@@ -285,6 +315,7 @@ public:
 class OutClass
 {
 public:
+    virtual ~OutClass() { }
     virtual int get_coords_ptr(int *x, int *y);
     virtual int get_coords_ref(int &x, int &y);
     virtual void get_mappedtype_ptr(string *x, string **y);
@@ -303,6 +334,7 @@ public:
 class InOutClass
 {
 public:
+    virtual ~InOutClass() { }
     virtual void double_ptr(int *i);
     virtual void double_ref(int &i);
 
@@ -325,10 +357,11 @@ public:
 class AbstractClass
 {
 public:
+    virtual ~AbstractClass() { }
     virtual void purevirtual()=0;
 };
 
-class ConcreteSubclass
+class ConcreteSubclass : public AbstractClass
 {
 public:
     virtual void purevirtual() { }
@@ -337,6 +370,7 @@ public:
 class PureVirtualClass
 {
 public:
+    virtual ~PureVirtualClass() { }
     virtual int purevirtual()=0;
     int call_purevirtual() { return purevirtual(); }
 };
@@ -414,6 +448,7 @@ TransferClass * global_transferback_return(TransferClass *obj);
 class FactoryClass
 {
 public:
+    virtual ~FactoryClass() { }
     virtual FactoryClass * make();
     FactoryClass * make_keep_ref(FactoryClass *ref);
     FactoryClass * make_transfer_this(FactoryClass *ref);
@@ -436,6 +471,7 @@ class ExternalModuleSubclass : public SimpleClass
 class VirtualCatcherBase
 {
 public:
+    virtual ~VirtualCatcherBase() { }
     virtual const char *vmeth() { return ""; }
     const char *call_vmeth() { return vmeth(); }
 };
@@ -443,6 +479,7 @@ public:
 class DetectableBase
 {
 public:
+    virtual ~DetectableBase() { }
     virtual const char * get_class_name() { return "DetectableBase"; }
 };
 
@@ -457,6 +494,7 @@ DetectableBase * get_detectable_object(bool base);
 class VoidPtrClass
 {
 public:
+    virtual ~VoidPtrClass() { }
     virtual void* copy_data(void *data, int size);
     void* call_copy_data(void *data, int size);
 };
@@ -468,3 +506,40 @@ struct OpaqueType
 
 OpaqueType* make_opaque_object(int i);
 int take_opaque_object(OpaqueType*);
+
+class DocstringClass
+{
+public:
+    void docstring_meth() { }
+    void docstring_overloaded_meth() { }
+    void docstring_overloaded_meth(int i) { }
+};
+
+typedef CtorsClass CtorsAlias;
+class TypedefClass
+{
+public:
+    CtorsAlias& passthrough(CtorsAlias &obj) { return obj; }
+};
+
+class CustomCppMethodsClass
+{
+public:
+    virtual ~CustomCppMethodsClass() { }
+    int basic_method() { return -42; }
+
+    void custom_pycode_only(int *data)
+    {
+        data[0] = data[0] + data[1];
+    }
+
+    virtual int custom_pycode_and_cppcode(int(*cb)(int))
+    {
+        return cb(11) * -2;
+    }
+
+    int call_custom_pycode_and_cppcode(int(*cb)(int))
+    {
+        return this->custom_pycode_and_cppcode(cb);
+    }
+};

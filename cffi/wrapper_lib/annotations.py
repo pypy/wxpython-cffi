@@ -25,7 +25,7 @@ class CppWrapperSeq(object):
     __metaclass__ = SeqType
 
     @classmethod
-    def py2c(self, seq):
+    def to_c(self, seq):
         seq_len = len(seq)
         array = ffi.new('void*[]', seq_len)
         keepalive = []
@@ -40,24 +40,21 @@ class CppWrapperSeq(object):
         return array, seq_len, (array, keepalive)
 
     @classmethod
-    def c2py(self, array, len):
+    def to_py(self, array, len):
         return [obj_from_ptr(array[i], self._cls) for i in range(len)]
 
 class MappedTypeSeq(object):
     __metaclass__ = SeqType
 
     @classmethod
-    def py2c(self, seq):
-        def test(cdata):
-            print ffi.string(cdata)
-        for obj in seq:
-            keepalive = [self._cls.py2c(obj) for obj in seq]
-        array = ffi.new(self._array_ctype, [i[0] for i in keepalive])
-        return array, len(seq), keepalive
+    def to_c(self, seq):
+        cdata = [self._cls.to_c(obj) for obj in seq]
+        array = ffi.new(self._array_ctype, cdata)
+        return array, len(seq), array
 
     @classmethod
-    def c2py(self, array, len):
-        return [self._cls.c2py(array[i]) for i in range(len)]
+    def to_py(self, array, len):
+        return [self._cls.to_py(array[i]) for i in range(len)]
 
 seq_type_cache = {}
 
@@ -80,10 +77,19 @@ def create_array_type(cls, ctype=None):
 #----------------------------------------------------------------------------#
 # C Strings
 
-def allocate_cstring(str, clib):
-    cstring = ffi.cast('char*', clib.malloc(len(str) + 1))
-    for i, c in enumerate(str):
+def allocate_cstring(s, clib):
+    cstring = ffi.cast('char*', clib.malloc(len(s) + 1))
+    for i, c in enumerate(str(s)):
         cstring[i] = c
     cstring[i + 1] = '\0'
+
+    return cstring
+
+def allocate_cunicode(s, clib):
+    size = ffi.sizeof('wchar_t') * (len(s) + 1)
+    cstring = ffi.cast('whchar_t*', clib.malloc(size))
+    for i, c in enumerate(unicode(s)):
+        cstring[i] = c
+    cstring[i + 1] = u'\0'
 
     return cstring

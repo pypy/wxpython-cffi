@@ -17,6 +17,10 @@ def call_once(func):
 def pad(f):
     f.write('\n')
 
-# TODO
 def print_docstring(obj, file, indent):
-    pass
+    file.write(nci('"""', indent))
+
+    if obj.docstring:
+        file.write(nci(obj.docstring, indent))
+
+    file.write(nci('"""', indent))

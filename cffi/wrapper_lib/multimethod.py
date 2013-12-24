@@ -1,8 +1,9 @@
 import inspect
 import functools
 
-from deprecated import deprecated
-from lazy_defaults import eval_func_defaults
+from .deprecated import deprecated
+from .lazy_defaults import eval_func_defaults
+from .defaults import DefaultArgIndicator
 
 class MMTypeCheckMeta(type):
     def __instancecheck__(self, instance):
@@ -195,12 +196,11 @@ class DeprecatedOverload(Overload):
         super(DeprecatedOverload, self).finalize()
         self.func = wrapper
 
-def check_args_types(*args):
-    assert len(args) % 3 == 0
-    for i in range(0, len(args), 3):
-        arg_type = args[i]
-        arg_value = args[i + 1]
 
-        if not isinstance(arg_value, arg_type):
+def check_args_types(*args):
+    for a in args:
+        arg_name, arg_type, arg_value = a
+
+        if not isinstance(arg_value, (arg_type, DefaultArgIndicator)):
             raise TypeError("argument '%s' has unexpected type '%s'" %
-                            (args[i + 2], type(arg_value)))
+                            (arg_name, type(arg_value)))

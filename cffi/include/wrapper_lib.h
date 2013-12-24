@@ -21,9 +21,11 @@ extern "C"
     (*WL_EXCEPTION_NAME != NULL)
 
 #ifdef __GNUC__
-#    define WL_INTERNAL extern "C" __attribute__((visibility ("internal")))
+#    define WL_INTERNAL extern __attribute__((visibility ("internal")))
+#    define WL_C_INTERNAL extern "C" __attribute__((visibility ("internal")))
 #else
-#    define WL_INTERNAL extern "C"
+#    define WL_INTERNAL extern
+#    define WL_C_INTERNAL extern "C"
 #endif
 
 template<typename T, typename CType>
@@ -90,7 +92,7 @@ public:
     {
         WL_ADJUST_REFCOUNT(handle, 1);
     }
-
+#
     WL_RefCountedPyObjBase(const WL_RefCountedPyObjBase &other)
       : m_handle(other.m_handle)
     {
@@ -110,3 +112,33 @@ public:
 protected:
     void *m_handle;
 };
+
+template<typename T>
+class WL_AutoDelPtr
+{
+public:
+    T *ptr;
+
+    WL_AutoDelPtr(T *ptr_) : ptr(ptr_) { }
+    ~WL_AutoDelPtr()
+    {
+        delete ptr;
+    }
+
+    T& operator *()
+    {
+        return *ptr;
+    }
+};
+
+// TODO: If I decide that I'm not taking this path, remove these
+#define WL_CALL_ORIGINAL_BUILDER_RETURN(METHOD, VINDEX, ...)\
+    if(this->vflags[VINDEX])\
+        return this::METHOD(__VA_ARGS__);
+
+#define WL_CALL_ORIGINAL_BUILDER_VOID(METHOD, VINDEX, ...)\
+    if(this->vflags[VINDEX])\
+    {\
+        this::METHOD(__VA_ARGS__);\
+        return;\
+    }

@@ -8,6 +8,8 @@ from . import mappedtype
 from . import typedef
 from . import variable
 from . import function
+from . import property
+from . import membervar
 from . import enum
 from . import pycode
 
@@ -60,13 +62,14 @@ class Module(CppScope):
     def new_opaque_type(self, name):
         warnings.warn("Encountered unknown type '%s'. Creating opaque type"
                         % name)
+        # XXX This is another place where manipulation of the input data is
+        #     happening. Maybe creating a OpaqueType class is needed? That
+        #     would probably duplicate functionality from WrappedType though...
         c = extractors.ClassDef(name=name)
         # XXX Is it a good idea to always place an opaque type in the global
-        #     scope?
-        c.generate(self)
-        # TODO: Maybe the generate method should return the new object so this
-        #       extra lookup isn't needed?
-        self.gettype(name).setup()
+        #     scope? What's the alternative, making tons of opaque types with
+        #     the same name in different scopes?
+        c.generate(self).setup()
 
     # TODO: change how cppCode/headerCode/etc are handled. It would be more
     #       memory efficient to delay loading them until they are about to be
@@ -138,14 +141,6 @@ class Module(CppScope):
         void* malloc(size_t);
         void free(void*);"""))
 
-        # These typedefs don't go in the cdefs string because we don't
-        # want them included in the verify code too.
-        #for typedef in self.module.items:
-        #    if (not isinstance(typedef, extractors.TypedefDef) or
-        #        not typedef.platformDependent):
-        #        continue
-        #    pyfile.write("typedef %s %s;\n" % (typedef.type, typedef.name))
-
         self.print_nested_cdef(pyfile)
 
         pyfile.write(nci("""\
@@ -156,13 +151,7 @@ class Module(CppScope):
         extern char **WL_EXCEPTION_STRING;
 
         void %s(void);""" % initfunc))
-        #for line in self.item.cdefs_cffi:
-        #    pyfile.write(nci(line))
-        #for klass in self.classes:
-        #    self.printClassCDefs(klass, pyfile)
-        #for mType in self.mappedTypes:
-        #    self.printMappedTypeCDef(mType, pyfile)
-        #dispatchItems(self.dispatchCDefs, self.globalItems, pyfile)
+        pyfile.write('\n'.join(self.item.cdefs_cffi))
         self.print_nested_cdef_and_verify(pyfile)
 
         pyfile.write(nci("""\
@@ -178,36 +167,14 @@ class Module(CppScope):
             type.print_pycode(pyfile)
         for obj in self.objects:
             obj.print_pycode(pyfile)
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.print_pycode(pyfile)
 
         for item in self.pyitems:
             item.print_pycode(userpyfile)
 
-
-        # Print classes' C++ bodies, before any method bodies are printed
-        #for klass in self.classes:
-        #    self.printClassCppBody(klass, hfile, cppfile)
-
-        #for mType in self.mappedTypes:
-        #    self.printMappedType(mType, pyfile, cppfile, 0)
-
-        # Print classes' Python bodies and items
-        #for klass in self.classes:
-        #    self.printClass(klass, pyfile, cppfile)
-
-        # Print global items
-        #dispatchItems(self.dispatchPrint, self.globalItems, pyfile, cppfile)
-
-        # Print Python finalization code (finalize multimethods, etc)
-        #for klass in self.classes:
-        #    self.printClassFinalization(klass, pyfile)
-        #dispatchItems(self.dispatchFinalize, self.globalItems, pyfile)
-
-        # Print Py*Defs (globals first)
-        #dispatchItems(self.dispatchPrintPyDefs, self.pyItems, userPyfile, 0)
-        #for klass in self.classes:
-        #    self.printClassPyDefs(klass, userPyfile)
+        for type in self.types:
+            type.print_finalize_pycode(pyfile)
 
     def build_verify_args(self, verify_args):
         args = []

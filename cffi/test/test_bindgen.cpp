@@ -75,6 +75,55 @@ int VMethClass::call_virtual(int i)
     return this->virtual_method(i);
 }
 
+
+int VMethClass::overridden_vmeth1()
+{
+    return 12;
+}
+
+int VMethClass::call_overridden_vmeth1()
+{
+    return overridden_vmeth1();
+}
+
+
+VMethClass* VMethClass::overridden_vmeth2()
+{
+    return NULL;
+}
+
+VMethClass* VMethClass::call_overridden_vmeth2()
+{
+    return overridden_vmeth2();
+}
+
+
+IntWrapper VMethClass::overridden_vmeth3(int i)
+{
+    return IntWrapper(i / 2);
+}
+
+IntWrapper VMethClass::call_overridden_vmeth3(int i)
+{
+    return overridden_vmeth3(i);
+}
+
+int VMethSubclass::overridden_vmeth1()
+{
+    return 15;
+}
+
+VMethSubclass* VMethSubclass::overridden_vmeth2()
+{
+    return this;
+}
+
+IntWrapper VMethSubclass::overridden_vmeth3(int i)
+{
+    return IntWrapper(i * 2);
+}
+
+
 char PMethClass::protected_method(char c)
 {
     return toupper(c);

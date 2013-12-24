@@ -1,11 +1,11 @@
 from .base import CppObject, TypeInfo
+from .function import Method
 
 from . import utils
 
 from .. import extractors
 from ..generators import nci
 
-# TODO: does this do anything?
 class VariableBase(CppObject):
     PREFIX = ''
     def __init__(self, item, parent):
@@ -22,7 +22,7 @@ class VariableBase(CppObject):
         cppfile.write(nci("""\
         WL_INTERNAL {0.type.c_type} {0.cname};
         {0.type.c_type} {0.cname} = {1};
-        """.format(self, self.type.convert_variable_cpp_to_c(self.name))))
+        """.format(self, self.type.convert_variable_cpp_to_c(self.unscopedname))))
         utils.pad(cppfile)
 
     def print_pycode(self, pyfile, indent=0):
@@ -44,9 +44,6 @@ class Define(GlobalVariable):
     def setup(self):
         self.type = TypeInfo(self.parent, self.type, self.flags)
 
-class MemberVariable(VariableBase):
-    pass
-
 #----------------------------------------------------------------------------#
 
 def create_gvar(gvar, parent):
@@ -56,7 +53,3 @@ extractors.GlobalVarDef.generate = create_gvar
 def create_define(define, parent):
     Define(define, parent)
 extractors.DefineDef.generate = create_define
-
-def create_mvar(mvar, parent):
-    MemberVariable(mvar, parent)
-extractors.MemberVarDef.generate = create_mvar

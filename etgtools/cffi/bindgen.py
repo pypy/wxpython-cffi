@@ -44,3 +44,37 @@ class BindingGenerator(object):
                     verify_args):
         self.modules[module_name].write_files(pyfile, userpyfile, cppfile,
                                               hfile, verify_args)
+
+
+    """
+    def __init__(self, module_name, path_pattern):
+        with open(path_pattern % module_name, 'rb') as f:
+            main_module = pickle.load(f)
+        self.name = main_module.name
+        self.completed = False
+
+        for mod in main_module.includes:
+            with open(path_pattern % mod, 'rb') as f:
+                mod = pickle.load(f)
+                for attr in ('headerCode', 'cppCode', 'initializerCode',
+                             'preInitializerCode', 'postInitializerCode',
+                             'includes', 'imports', 'items', 'cdefs_cffi'):
+                    getattr(main_module, attr).extend(getattr(mod, attr))
+
+        self.imported_modules = set(main_module.imports)
+        self.module = Module(main_module)
+        TypeInfo.clearCache()
+
+    def generate(self, generators):
+        if self.completed is True:
+            return
+        self.completed = True
+
+        # Build a list of the generators for modules we're importing. We will
+        # need this to lookup C++ classes that come from the imported modules
+        imported_modules = []
+        for import_name in self.imported_modules:
+            self.imports.append(generators[import_name].module)
+
+        module.setup(imported_modules)
+    """

@@ -4,12 +4,12 @@ from .base import CppType, CppScope
 from .. import extractors
 from ..generators import nci
 
-def create_wrappedtype(mtype, parent):
-    WrappedType(mtype, parent)
+def create_wrappedtype(mtype, parent, is_opaque=False):
+    return WrappedType(mtype, parent, is_opaque)
 extractors.ClassDef.generate = create_wrappedtype
 
 class WrappedType(CppScope, CppType):
-    def __init__(self, cls, parent):
+    def __init__(self, cls, parent, is_opaque=False):
         CppType.__init__(self, cls, parent)
         CppScope.__init__(self, parent)
 
@@ -18,7 +18,7 @@ class WrappedType(CppScope, CppType):
         self.pyscopeprefix = parent.pyscopeprefix + self.pyname + '.'
 
         self.convert_pyobj_code = getattr(cls, 'convertFromPyObject_cffi', None)
-        self.convert_pyobj_isinstance_code = getattr(cls, 'instancecheck', None)
+        self.convert_pyobj_isinstance_code = getattr(cls, 'instanceCheck_cffi', None)
         self.convert_subclass_code = getattr(cls, 'detectSubclassCode_cffi', None)
 
         self.allownone = self.item.allowNone
@@ -28,11 +28,25 @@ class WrappedType(CppScope, CppType):
         self.virtualmethods = []
         self.protectedmethods = []
 
+        self.to_c_array_name = 'WL_wrappedtype_array_to_c<%s>' % self.unscopedname
+        self.to_cpp_array_name = 'WL_wrappedtype_array_to_cpp<%s>' % self.unscopedname
+
+        self.docstring = cls.briefDoc or ''
+
         for klass in cls.innerclasses:
-            WrappedType(klass, self)
+            klass.generate(self)
+
+        for item in cls.items:
+            item.generate(self)
+
+    def is_superclass(self, other):
+        return self is other or any(self.is_superclass(b) for b in other.bases)
 
     def setup_types(self):
         self.setup()
+
+    def setup_objects(self):
+        pass
 
     @utils.call_once
     def setup(self):
@@ -51,29 +65,62 @@ class WrappedType(CppScope, CppType):
             base.setup()
             self.bases.append(base)
 
-        super(WrappedType, self).setup_types()
+        # Before we can start examining methods, they need to be setup
         super(WrappedType, self).setup_objects()
 
+        self.setup_ctors()
         self.pickup_base_virtuals()
         self.purevirtualabstract = any(m.purevirtual for m in self.virtualmethods)
 
         if len(self.virtualmethods) > 0 or len(self.protectedmethods) > 0:
-            self.cppnname = 'cfficlass' + self.cname
+            self.cppname = 'cfficlass' + self.cname
             self.hassubclass = True
         else:
-            self.cppname = self.name
+            self.cppname = self.unscopedname
             self.hassubclass = False
+
+        # Add a dtor if the class doesn't already have one
+        from .function import DtorMethod
+        if not any(isinstance(m, DtorMethod) for m in self.objects):
+            DtorMethod.new_std_dtor(self)
+
+        super(WrappedType, self).setup_types()
 
         self.parent.append_to_printing_order(self)
 
+    def setup_ctors(self):
+        """Add a copy Ctor and a default Ctor, if possible."""
+        hasanyctor = False
+        hascopyctor = False
+        from .function import CtorMethod
+        for meth in self.objects:
+            if not isinstance(meth, CtorMethod):
+                continue
+
+            hasanyctor = True
+            hascopyctor = hascopyctor or meth.iscopyctor()
+
+
+        if not hasanyctor:
+            (extractors.MethodDef(name=self.name, isCtor=True)
+             .generate(self)
+             .setup())
+        if not hascopyctor:
+            (extractors.MethodDef(
+                name=self.name, isCtor=True,
+                items=[extractors.ParamDef(type='const %s &' % self.name,
+                                           name='other')])
+             .generate(self)
+             .setup())
+
     def pickup_base_virtuals(self):
+        from .function import InheritedVirtualMethod
         for base in self.bases:
             # Look at every virtual method in the base and see if it has been
             # reimplemented in this class. If not, add it to the virtuals list.
             for vmeth in base.virtualmethods:
-                if vmeth not in self.virtualmethods:
-                    # TODO: do I want to duplicate the virtual method here?
-                    self.virtualmethods.append(vmeth.copy(self))
+                if not any(m.can_override(vmeth) for m in self.virtualmethods):
+                    InheritedVirtualMethod(self, vmeth)
 
     def gettype(self, name):
         type = super(WrappedType, self).gettype(name)
@@ -94,20 +141,14 @@ class WrappedType(CppScope, CppType):
         typeinfo.c_virt_return_type = self.unscopedname + ' *'
         typeinfo.cdef_virt_return_type = 'void *'
 
-        if not (typeinfo.ptrcount or typeinfo.refcount):
-            # Functions that return wrapped types by value will return via a
-            # pointer parameter
-            typeinfo.c_virt_return_type = 'void'
-            typeinfo.cdef_virt_return_type = 'void'
-
         if typeinfo.const:
             typeinfo.c_type = 'const ' + typeinfo.c_type
 
         pytypes = [self.unscopedpyname]
-        #if self.convertcode is not None:
-        if hasattr(self.item, 'convertFromPyObject_cffi'):
+        if self.convert_pyobj_code is not None:
             pytypes.append('{0}._pyobject_mapping_'.format(
                 self.unscopedpyname))
+        # Pointers and references with allownone are allowed to take Nones
         if typeinfo.ptrcount or self.allownone:
             pytypes.append('types.NoneType')
         typeinfo.py_type = '(' + ', '.join(pytypes) + ')'
@@ -135,7 +176,7 @@ class WrappedType(CppScope, CppType):
 
     def print_cdef_and_verify(self, pyfile):
         if not self.uninstantiable and len(self.virtualmethods) > 0:
-                                                     
+
             pyfile.write(nci("""\
             void(*{0.cname}_vtable[{1}])(void);
             void {0.cname}_set_flag(void *, int);
@@ -144,12 +185,6 @@ class WrappedType(CppScope, CppType):
         if self.convert_subclass_code is not None:
             pyfile.write("char * cffigetclassname_%s(void *);\n" %
                          self.cname)
-
-        # TODO: detect private assign op and private copy ctor better
-        #if (not klass.privateAssignOp and not klass.privateCopyCtor and
-        #    not klass.abstract):
-        #    print >> pyfile, ("void {0}{1}(void*, void*);"
-        #                      .format(ASSIGN_PREFIX, klass.name))
 
     @utils.call_once
     def print_pycode(self, pyfile, indent=0):
@@ -167,8 +202,7 @@ class WrappedType(CppScope, CppType):
             bases = 'wrapper_lib.CppWrapper'
         pyfile.write(nci("class %s(%s):" % (self.pyname, bases), indent))
 
-        # TODO: remove this once classes are actually printed
-        pyfile.write(nci('pass', indent + 4))
+        utils.print_docstring(self, pyfile, indent + 4)
 
 
         # Print class members that are picked up by the metaclass
@@ -213,43 +247,108 @@ class WrappedType(CppScope, CppType):
             obj.print_pycode(pyfile, indent + 4)
         for type in self.types:
             type.print_pycode(pyfile, indent + 4)
-        for scope in self.subscopes.itervalues():
+        for scope in self.subscopes:
             scope.print_pycode(pyfile, indent + 4)
+
+    def print_finalize_pycode(self, pyfile):
+        pyfile.write("wrapper_lib.eval_class_attrs(%s)\n" % self.unscopedpyname)
+
+        # XXX Should this be a decorator or maybe part of the metaclass?
+        #     Should the unscopedname be used? Maybe this should be user
+        #     configurable?
+        pyfile.write("wrapper_lib.register_cpp_classname('%s', %s)\n" %
+                         (self.name, self.unscopedpyname))
+
+        for type in self.types:
+            type.print_finalize_pycode(pyfile)
+
+    def print_headercode(self, hfile):
+        if not self.hassubclass:
+            return
+
+        hfile.write(nci("""\
+        class {0.cppname} : public {0.unscopedname}
+        {{
+        public:""".format(self)))
+
+        for obj in self.objects:
+            obj.print_headercode(hfile)
+
+        # TODO: Do I want to always write the flag here or do I pull it in
+        #       using a template super-class?
+
+        hfile.write("    signed char vflags[%d];\n" % len(self.virtualmethods))
+
+        hfile.write("};\n\n")
+
+    def print_nested_headercode(self, hfile):
+        # XXX Making a non-future proof assumption: no objects nested inside
+        #     a wrapped class have their own header code to print, except for
+        #     other wrapped classes.
+        for type in self.types:
+            type.print_headercode(hfile)
 
     def print_cppcode(self, cppfile):
         if len(self.virtualmethods) > 0 and not self.uninstantiable:
             cppfile.write(nci("""\
-            WL_INTERNAL void(*{0.cname}_vtable[{1}])();
+            WL_C_INTERNAL void(*{0.cname}_vtable[{1}])();
 
-            WL_INTERNAL void {0.cname}_set_flag({0.cppname} *self, int i)
+            WL_C_INTERNAL void {0.cname}_set_flag({0.cppname} *self, int i)
             {{
                 self->vflags[i] = 1;
             }}
 
-            WL_INTERNAL void {0.cname}_set_flags({0.cppname} *self, char *flags)
+            WL_C_INTERNAL void {0.cname}_set_flags({0.cppname} *self, char *flags)
             {{
                 memcpy(self->vflags, flags, sizeof(self->vflags));
-            }}""".format(self, len(self.virtualMethods))))
+            }}""".format(self, len(self.virtualmethods))))
 
         if self.convert_subclass_code is not None:
             cppfile.write(nci("""\
-            WL_INTERNAL const char * cffigetclassname_{0.cname}({0.cppname} *cpp_obj)
+            WL_C_INTERNAL const char * cffigetclassname_{0.cname}({0.cppname} *cpp_obj)
             {{""".format(self)))
             cppfile.write(nci(self.convert_subclass_code, 4))
             cppfile.write("}\n")
 
+    def call_cdef_param_setup(self, typeinfo, name):
+        if typeinfo.flags.out:
+            return ("{0}{1.OUT_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')"
+                     .format(name, typeinfo))
+
+        conversion = ''
+        if self.convert_pyobj_code is not None:
+            conversion = "{0} = {1}._pyobject_mapping_.convert({0})".format(
+                name, self.unscopedpyname)
+
+        if typeinfo.flags.inout:
+            return conversion + """\
+            {0} = wrapper_lib.get_ptr({0})
+            {0}{1.OUT_PARAM_SUFFIX} = ffi.new('{1.cdef_type}', {0})
+            """.format(name, typeinfo)
+
+        if typeinfo.flags.array:
+            return ("{0}, {1.ARRAY_SIZE_PARAM}, {0}_keepalive = "
+                    "wrapper_lib.create_array_type({2}).to_c({0})"
+                    .format(name, typeinfo, self.unscopedpyname))
+        return conversion if conversion != '' else None
+
+    def call_cdef_param_inline(self, typeinfo, name):
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            return name + typeinfo.OUT_PARAM_SUFFIX
+        if typeinfo.flags.array:
+            return name
+        return 'wrapper_lib.get_ptr(%s)' % name
+
     def call_cpp_param_setup(self, typeinfo, name):
         if (typeinfo.flags.out and typeinfo.ptrcount != 2 and
-            not (typeinfo.ptrCount == 1 and typeinfo.refcount)):
+            not (typeinfo.ptrcount == 1 and typeinfo.refcount)):
             # Allocate a new object for `*` or `&` out parameters. Do not
             # create a new object for `**` or `&*` parameters.
             return "*{0} = new {1};".format(name, self.cppname)
         if typeinfo.flags.array:
-            # TODO: Should the `_converted` naming convention continue and
-            #       what should arrayc2cpp be renamined to?
             return "{0} {1}_converted = {2}({1}, {3});".format(
-                typeinfo.c_virt_return_type, name, self.typedef.arrayc2cpp,
-                ARRAY_SIZE_PARAM)
+                typeinfo.c_virt_return_type, name, self.to_cpp_array_name,
+                typeinfo.ARRAY_SIZE_PARAM)
         return None
 
     def call_cpp_param_inline(self, typeinfo, name):
@@ -258,60 +357,121 @@ class WrappedType(CppScope, CppType):
         if typeinfo.flags.out or typeinfo.flags.inout:
             if typeinfo.refcount:
                 return '*' * (2 - typeinfo.ptrcount) + name
-            elif typeinfo.ptrcountunt == 1:
+            elif typeinfo.ptrcount == 1:
                 return '*' + name
             else:
                 return name
-        #deref = not typeinfo.ptrcount and not typeinfo.refcount
         deref = not typeinfo.ptrcount and typeinfo.refcount
         return ('*' if deref else '') + name
 
     def call_cpp_param_cleanup(self, typeinfo, name):
         if typeinfo.flags.array and not typeinfo.flags.transfer:
-            # TODO: See above about `_covnerted` convention
             return 'delete[] %s_converted;' % name
         return None
 
+    def virt_py_param_setup(self, typeinfo, name):
+        if typeinfo.flags.inout:
+            return ('{0}_tmpobj = wrapper_lib.obj_from_ptr({0}[0], {1})'
+                    .format(name, self.unscopedpyname))
+
+        if typeinfo.flags.array:
+            return ("{0}_tmpobj = wrapper_lib.create_array_type({2}).to_py({0}, {1})"
+                    .format(name, typeinfo.ARRAY_SIZE_PARAM, self.unscopedpyname))
+
+        takeownership = ''
+        if not (typeinfo.refcount or typeinfo.ptrcount) or (not typeinfo.flags.nocopy and
+           typeinfo.refcount and typeinfo.const):
+            takeownership = ', True'
+        return ('{0}_tmpobj = wrapper_lib.obj_from_ptr({0}, {1}, {2})'
+                .format(name, self.unscopedpyname, takeownership))
+
+    def virt_py_param_inline(self, typeinfo, name):
+        if typeinfo.flags.array:
+            return ("wrapper_lib.create_array_type({2}).to_py({0}, {1})"
+                    .format(name, typeinfo.ARRAY_SIZE_PARAM, self.unscopedpyname))
+        return name + '_tmpobj'
+
+    def virt_py_param_cleanup(self, typeinfo, name):
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            return ("{0}[0] = wrapper_lib.get_ptr({0}{1.PY_RETURN_SUFFIX})"
+                    .format(name, typeinfo))
+
+    def virt_py_return(self, typeinfo, name):
+        # Replicate sip's (largely undocumented) handling of ownership of
+        # objects returned by virtual methods annotated with factory or
+        # transfer_back:
+        return ("""\
+        wrapper_lib.give_ownership({0}, None, {1})
+        {0} = wrapper_lib.get_ptr({0})"""
+        .format(name, typeinfo.flags.factory or typeinfo.flags.transfer_back))
+
     def virt_cpp_param_setup(self, typeinfo, name):
-        pass
+        if typeinfo.flags.array:
+            return None
+
+        if typeinfo.flags.inout or (typeinfo.flags.out and
+           typeinfo.ptrcount != 2 and not (typeinfo.refcount and typeinfo.ptrcount)):
+            if typeinfo.refcount:
+                init = '&' + name
+            elif typeinfo.ptrcount:
+                init = name
+            return "%s %s_ptr = %s;" % (typeinfo.c_virt_return_type, name, init)
 
     def virt_cpp_param_inline(self, typeinfo, name):
-        pass
+        if typeinfo.flags.array:
+            return "%s(%s, %s)" % (self.to_c_array_name, name,
+                                   typeinfo.ARRAY_SIZE_PARAM)
+        if typeinfo.flags.out:
+            if typeinfo.ptrcount == 2:
+                return name
+            if  typeinfo.refcount and typeinfo.ptrcount:
+                return '&' + name
+            else:
+                return '&' + name + "_ptr"
 
-    def virt_cpp_param_cleanup(self, typeinfo, name):
-        pass
-
-    def virt_cpp_return_setup(self, typeinfo, name):
-        pass
-
-    def virt_cpp_return_cleanup(self, typeinfo, name):
-        pass
-
-    def convert_variable_cpp_to_c(self, typeinfo, name):
+        if typeinfo.flags.inout:
+            return '&' + name + "_ptr"
         # Always pass wrapped classes as pointers. If this is by value or
         # a const reference, it needs to be copy constructored onto the
         # heap, with Python taking ownership of the new object.
         if typeinfo.ptrcount:
             return name
-        elif typeinfo.refcount and (not typeinfo.const or
-             typeinfo.flags.nocopy or not self.uninstantiable or
-             not self.purevirtualabstract):
+        elif typeinfo.refcount and (not typeinfo.const or typeinfo.flags.nocopy or
+                             not self.uninstantiable):# or
             return '&' + name
         else:
-            # If returning a const ref (and nocopy isn't set) make a copy of
-            # the object (that Python will own) so it can be modified safely
             return "new %s(%s)" % (self.cppname, name)
+
+
+    def virt_cpp_param_cleanup(self, typeinfo, name):
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            if typeinfo.ptrcount != 2 and not (typeinfo.refcount and typeinfo.ptrcount):
+                deref = '*' if typeinfo.ptrcount else ''
+                return """\
+                if({1}_ptr != NULL)
+                    {0}{1} = *{1}_ptr;""".format(deref, name)
+
+    def virt_cpp_return(self, typeinfo, name):
+        return ('*' if not typeinfo.ptrcount else '') + name
+
+    def convert_variable_cpp_to_c(self, typeinfo, name):
+        # Always pass wrapped classes as pointers. If this is by value or
+        # a const reference, it needs to be copy constructored onto the
+        # heap, with Python taking ownership of the new object.
+        if (not (typeinfo.refcount or typeinfo.ptrcount) or typeinfo.const and
+            not typeinfo.flags.nocopy and not self.uninstantiable):
+            # If returning a const object (and nocopy isn't set) make a copy of
+            # the object (that Python will own) so it can be modified safely
+            deref = '*' if typeinfo.ptrcount else ''
+            return "new %s(%s%s)" % (self.cppname, deref, name)
+        else:
+            ref = '&' if not typeinfo.ptrcount else ''
+            return ref + name
 
     def convert_variable_c_to_py(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
-            # TODO: if this is * or &, make it py-owned, and if it is ** or
-            #       *&, make it cpp-owned
-            return 'wrapper_lib.obj_from_ptr(%s[0], %s)' % (
-                    name, self.unscopedpyname)
-        if typeinfo.flags.array:
-            return ("wrapper_lib.create_array_type({2}).c_to_py({0}, {1})"
-                    .format(name, ARRAY_SIZE_PARAM,
-                            self.unscopedpyname))
+            return 'wrapper_lib.obj_from_ptr(%s%s[0], %s)' % (
+                    name, typeinfo.OUT_PARAM_SUFFIX, self.unscopedpyname)
         if (not (typeinfo.refcount or typeinfo.ptrcount) or
             (not typeinfo.flags.nocopy and typeinfo.refcount and
              typeinfo.const)):
