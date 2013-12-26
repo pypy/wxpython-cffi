@@ -25,6 +25,9 @@ class ItemFlags(dict):
     def __getattr__(self, attr):
         return self[attr]
 
+    def __setattr__(self, attr, val):
+        self[attr] = val
+
 # TODO: cache instantiations
 class TypeInfo(object):
     ARRAY_SIZE_PARAM = '_array_size_'

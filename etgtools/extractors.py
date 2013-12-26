@@ -14,6 +14,7 @@ wxWidgets API info which we need from them.
 
 import sys
 import os
+import re
 import pprint
 import xml.etree.ElementTree as et
 
@@ -1693,6 +1694,8 @@ def skippingMsg(kind, element):
 
 
 class ArgsString(list):
+    re = None
+    re_pattern = r'(?P<type>[a-zA-Z0-9_ ]+[ *&]+)(?P<name>[a-zA-Z0-9_]+)'
     """
     Formating arguments strings:
     Parameters are only supported in the format of '<type-name> <parameter-
@@ -1702,6 +1705,8 @@ class ArgsString(list):
     checked Python object.
     """
     def __init__(self, argsstring):
+        if self.re is None:
+            self.re = re.compile(self.re_pattern)
         # Based heavily on extractors.FunctionDef.makePyArgsString
         super(ArgsString, self).__init__()
 
@@ -1720,7 +1725,7 @@ class ArgsString(list):
                 arg = arg.split('=')[0].strip()
             # Now the last word should be the variable name, and everything
             # before it is the type
-            type, name = arg.rsplit(' ', 1)
+            type, name = self.re.match(arg).groups()
 
             param.type = type.strip()
             param.name = name.strip()

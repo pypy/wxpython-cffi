@@ -43,7 +43,7 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
                 if hasattr(e, 'overloads') and len(e.overloads) > 0:
                     # If a method is ignored, replace it with the first
                     # overload that isn't ignored
-                    self.stripIgnoredItems(e.overloads)
+                    cls.stripIgnoredItems(e.overloads)
                     if len(e.overloads) > 0:
                         e.overloads[0].overloads = e.overloads[1:]
                         items[i] = e.overloads[0]

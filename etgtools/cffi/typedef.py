@@ -54,6 +54,7 @@ class Typedef(CppType):
                             indent))
 
     def build_typeinfo(self, typeinfo):
+        typeinfo.original = self.type.name
         self.type.build_typeinfo(typeinfo)
 
         typeinfo.type = self

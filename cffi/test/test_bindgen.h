@@ -543,3 +543,57 @@ public:
         return this->custom_pycode_and_cppcode(cb);
     }
 };
+
+class CharTypesClass
+{
+public:
+    int char_scalar(char c)
+    {
+        return c;
+    }
+
+    int schar_scalar(signed char c)
+    {
+        return c;
+    }
+
+    int uchar_scalar(unsigned char c)
+    {
+        return c;
+    }
+
+    int char_vector(char *c)
+    {
+        return c[0];
+    }
+
+    int schar_vector(signed char *c)
+    {
+        return c[0];
+    }
+
+    int uchar_vector(unsigned char *c)
+    {
+        return c[0];
+    }
+
+};
+
+class UnsignedTypesClass
+{
+public:
+    unsigned u(unsigned i)
+    {
+        return -i;
+    }
+
+    unsigned int ui(unsigned int i)
+    {
+        return -i;
+    }
+
+    unsigned long long ull(unsigned long long i)
+    {
+        return -i;
+    }
+};

@@ -1,4 +1,5 @@
 
+import re
 import sys
 import warnings
 from binascii import crc32
@@ -9,10 +10,12 @@ import etgtools.extractors as extractors
 
 # C basic types -> Python conversion functions
 BASIC_CTYPES = {
+    '' : 'int', # unsigned
     'int': 'int',
     'short': 'int',
     'long': 'int',
     'long long': 'int',
+    'signed': 'int',
     'unsigned': 'int',
     'size_t' : 'int',
     'ssize_t' : 'int',
@@ -20,10 +23,7 @@ BASIC_CTYPES = {
     'double': 'float',
     'char': 'str',
     'wchar_t': 'unicode',
-    'char*': 'str',
-    'char *': 'str',
-    'signed char': 'int',
-    'unsigned char': 'int',
+    'char': 'str',
     'bool': 'bool',
 }
 
@@ -33,6 +33,7 @@ def getbasictype(name, typeinfo):
     elif name in ('', None, 'void'):
         return VoidType()
     elif typeinfo.ptrcount and 'char' in name:
+        # One length strings (ie `char`) are not StringType
         return StringType(name)
     elif (name in BASIC_CTYPES or
             name.replace('unsigned ', '').strip() in BASIC_CTYPES or
@@ -47,9 +48,6 @@ class BasicType(CppType):
         if name in cls._cache:
             return cls._cache[name]
 
-        if not name in BASIC_CTYPES:
-            raise UnknownTypeException(name)
-
         type = super(BasicType, cls).__new__(cls, name)
         cls._cache[name] = type
         return type
@@ -57,14 +55,23 @@ class BasicType(CppType):
     def __init__(self, name):
         self.name = name
         self.unscopedname = name
-        self.unscopedpyname = BASIC_CTYPES[name]
+
+        self.stripped_name = (self.name.replace('unsigned ', '')
+                              .replace('signed ', '').strip())
+
+        self.unscopedpyname = BASIC_CTYPES[self.stripped_name]
+
+    is_char_re = re.compile(r'(^| )char\s*$')
+    @property
+    def is_char(self):
+        return self.is_char_re.search(self.name) is not None
 
     def build_typeinfo(self, typeinfo):
         if typeinfo.flags.array:
             raise TypeError('use of the Array annotation is unsupported on '
                             "'%s' parameters" % typeinfo.original)
 
-        if typeinfo.flags.pyint and 'char' not in typeinfo.name:
+        if typeinfo.flags.pyint and not self.is_char:
             raise TypeError('use of the PyInt annotation is unsupported on '
                             "'%s' parameters" % typeinfo.original)
 
@@ -74,14 +81,11 @@ class BasicType(CppType):
         typeinfo.c_type = self.name
         typeinfo.cdef_type = self.name
 
-        if typeinfo.flags.pyint and not 'signed' in self.name:
-            typeinfo.cdef_type = typeinfo.cdef_type.replace('char', 'signed char')
-
         if typeinfo.const and 'const ' not in typeinfo.c_type:
             typeinfo.c_type = 'const ' + typeinfo.c_type
 
         if typeinfo.name == 'bool':
-            # MSVC doesn't support _Bool, so pass bools as into through cffi
+            # MSVC doesn't support _Bool, so pass bools as ints through cffi
             typeinfo.c_type = 'int'
             typeinfo.cdef_type = 'int'
 
@@ -105,7 +109,7 @@ class BasicType(CppType):
 
         typeinfo.py_type = 'numbers.Number'
         typeinfo.default_placeholder = '0'
-        if not typeinfo.flags.pyint and 'char' in self.name:
+        if not typeinfo.flags.pyint and self.is_char:
             # Treat all non-pyint chars as strings.
             # TODO: This is actually incorrect, we should only accept length 1
             #       strings. Add type to wrapper_lib to handle this
@@ -122,17 +126,27 @@ class BasicType(CppType):
             return """\
             {0} = {1}({0})
             {0}{2.OUT_PARAM_SUFFIX} = ffi.new('{2.cdef_type}', {0})
-            """.format(name, BASIC_CTYPES[self.name], typeinfo)
+            """.format(name, BASIC_CTYPES[self.stripped_name], typeinfo)
 
     def call_cdef_param_inline(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
             return name + typeinfo.OUT_PARAM_SUFFIX
 
-        if 'signed ' in self.name or typeinfo.flags.pyint:
-            # A special case for integer chars
-            return 'int(%s)' % name
+        if self.is_char:
+            if 'signed ' in self.name:
+                # CFFI expects an int
+                if typeinfo.flags.pyint:
+                    return 'int(%s)' % name
+                else:
+                    return 'ord(%s)' % name
+            else:
+                # CFFI expects a length-1 string
+                if typeinfo.flags.pyint:
+                    return 'chr(%s)' % name
+                else:
+                    return 'str(%s)' % name
 
-        return "%s(%s)" % (BASIC_CTYPES[self.name], name)
+        return "%s(%s)" % (BASIC_CTYPES[self.stripped_name], name)
 
     def virt_py_param_inline(self, typeinfo, name):
         if typeinfo.flags.inout:
@@ -143,7 +157,7 @@ class BasicType(CppType):
         if typeinfo.flags.out or typeinfo.flags.inout:
             # For out and inout cases, we're writing into a pointer
             return "{0}[0] = {1}({0}{2.PY_RETURN_SUFFIX})".format(
-                        name, BASIC_CTYPES[self.name], typeinfo)
+                        name, BASIC_CTYPES[self.stripped_name], typeinfo)
 
     def virt_cpp_param_inline(self, typeinfo, name):
         ref = '&' if typeinfo.refcount else ''
@@ -171,21 +185,38 @@ class BasicType(CppType):
         if typeinfo.flags.out or typeinfo.flags.inout:
             return '%s%s[0]' % (name, typeinfo.OUT_PARAM_SUFFIX)
 
-        if 'signed ' in self.name or typeinfo.flags.pyint:
-            # A special case for integer chars
-            return 'int(%s)' % name
-        return "%s(%s)" % (BASIC_CTYPES[self.name], name)
+        if self.is_char:
+            if 'signed ' in self.name:
+                # CFFI gives us an int
+                if typeinfo.flags.pyint:
+                    return name
+                else:
+                    return 'chr(%s)' % name
+            else:
+                # CFFI gives us a length-1 string
+                if typeinfo.flags.pyint:
+                    return 'ord(%s)' % name
+                else:
+                    return name
+
+        return "%s(%s)" % (BASIC_CTYPES[self.stripped_name], name)
 
 class StringType(CppType):
     _cache = {}
     def __new__(cls, name):
-        if name in cls._cache:
-            return cls._cache[name]
+        signedness = int('signed ' in name) - 2*int('unsigned ' in name)
+        unicodeness = 'wchar_t' in name
+        identifier = (signedness, unicodeness)
 
-        assert name in ('char', 'wchar_t')
+        if identifier in cls._cache:
+            return cls._cache[(identifier)]
 
         type = super(StringType, cls).__new__(cls, name)
         cls._cache[name] = type
+
+        type.signed = signedness
+        type.unicode = unicodeness
+
         return type
 
     def __init__(self, name):
@@ -193,7 +224,18 @@ class StringType(CppType):
         self.unscopedname = name
 
     def build_typeinfo(self, typeinfo):
-        typeinfo.c_type = self.name + '*'
+        if self.signed == 1:
+            typeinfo.c_type = 'signed '
+        elif self.signed == 0:
+            typeinfo.c_type = ''
+        elif self.signed == -1:
+            typeinfo.c_type = 'unsigned '
+
+        if self.unicode:
+            typeinfo.c_type += 'wchar_t *'
+        else:
+            typeinfo.c_type += 'char *'
+
         typeinfo.cdef_type = typeinfo.c_type
 
         if typeinfo.const:
@@ -211,9 +253,9 @@ class StringType(CppType):
         typeinfo.default_placeholder = 'ffi.NULL'
 
     def virt_py_return(self, typeinfo, name):
-        if self.name == 'char':
-            conversion = 'string'
-        elif self.name == 'wchar_t':
+        if not self.unicode:
+            conversion = 'str'
+        else:
             conversion = 'unicode'
         return '{0} = wrapper_lib.allocate_c{1}({0}, clib)'.format(name,
                                                                    conversion)

@@ -24,7 +24,7 @@ class BindingGenerator(object):
             module = pickle.load(f)
 
         for mod in module.includes:
-            with open(path_pattern % mod, 'rb') as f:
+            with open(self.path_pattern % mod, 'rb') as f:
                 mod = pickle.load(f)
                 for attr in ('headerCode', 'cppCode', 'initializerCode',
                              'preInitializerCode', 'postInitializerCode',

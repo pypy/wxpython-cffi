@@ -369,6 +369,28 @@ class TestBindGen(object):
                     items=[ParamDef(type='char', name='c', pyInt=True)])]))
         module.addItem(c)
 
+        c = ClassDef(name='CharTypesClass')
+        c.addMethod('int', 'char_scalar', '', items=ArgsString('(char i)'))
+        c.addMethod('int', 'schar_scalar', '',
+                    items=ArgsString('(signed char iii)'))
+        c.addMethod('int', 'uchar_scalar', '',
+                    items=ArgsString('(unsigned char i)'))
+        c.addMethod('int', 'char_vector', '', items=ArgsString('(char *i)'))
+        c.addMethod('int', 'schar_vector', '',
+                    items=ArgsString('(signed char *i)'))
+        c.addMethod('int', 'uchar_vector', '',
+                    items=ArgsString('(unsigned char *i)'))
+        module.addItem(c)
+
+        c = ClassDef(name='UnsignedTypesClass')
+        c.addMethod('unsigned', 'u', '(unsigned i)',
+                    items=ArgsString('(unsigned i)'))
+        c.addMethod('unsigned int', 'ui', '(unsigned int i)',
+                    items=ArgsString('(unsigned int i)'))
+        c.addMethod('unsigned long long', 'ull', '(unsigned long long i)',
+                    items=ArgsString('(unsigned long long i)'))
+        module.addItem(c)
+
         c = ClassDef(name='ArrayClass')
         c.addItem(MethodDef(
             name='ArrayClass', argsString='()', isCtor=True, overloads=[
@@ -1328,6 +1350,21 @@ class TestBindGen(object):
 
         assert obj.overloaded() == ord('c')
         assert obj.overloaded(11) == 11
+
+    def test_char_types(self):
+        obj = self.mod.CharTypesClass()
+        assert obj.char_scalar(chr(255)) == -1
+        assert obj.uchar_scalar(chr(255)) == 255
+
+        assert obj.schar_scalar(chr(1)) == 1
+        with pytest.raises(OverflowError):
+            obj.schar_scalar(chr(255))
+
+    def test_unsigned_types(self):
+        obj = self.mod.UnsignedTypesClass()
+        assert obj.u(1) == 2 ** 32 - 1
+        assert obj.ui(1) == 2 ** 32 - 1
+        assert obj.ull(1) == 2 ** 64 - 1
 
     def test_array(self):
         AC = self.mod.ArrayClass
