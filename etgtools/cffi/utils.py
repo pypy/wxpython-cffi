@@ -24,3 +24,13 @@ def print_docstring(obj, file, indent):
         file.write(nci(obj.docstring, indent))
 
     file.write(nci('"""', indent))
+
+class nondata_property(object):
+    def __init__(self, fget):
+        self.fget = fget
+
+    def __get__(self, inst, cls):
+        if inst is not None:
+            return self.fget(inst)
+        else:
+            return self

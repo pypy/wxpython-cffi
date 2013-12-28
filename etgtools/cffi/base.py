@@ -1,5 +1,7 @@
 import functools
 
+import utils
+
 
 class ItemFlags(dict):
     def __init__(self, item):
@@ -29,6 +31,7 @@ class ItemFlags(dict):
         self[attr] = val
 
 # TODO: cache instantiations
+#       Rename this to QualifiedType? It would make its purpose clearer
 class TypeInfo(object):
     ARRAY_SIZE_PARAM = '_array_size_'
     OUT_PARAM_SUFFIX = '_ptr'
@@ -43,10 +46,16 @@ class TypeInfo(object):
     py_type = ""
 
     # TODO: cache cpp_type; it shouldn't change over an instance's lifetime
-    @property
+    @utils.nondata_property
     def cpp_type(self):
         return (("const " if self.const else "") + self.type.unscopedname +
                 '&' * self.refcount + '*' * self.ptrcount)
+
+    # The comparison_name is used to determine if two TypeInfo objects
+    # represent the same C++ types. By default it is the cpp_type, which
+    # should be good enough for most situations. It can be changed if a type
+    # needs custom behavior (e.g. typedefs and 4 vs 8 byte long).
+    comparison_name = cpp_type
 
     def __init__(self, scope, name, flags):
         from basictype import getbasictype
@@ -78,10 +87,7 @@ class TypeInfo(object):
     def __eq__(self, other):
         if not isinstance(other, TypeInfo):
             return False
-        return (self.type == other.type and
-                self.const == other.const and
-                self.ptrcount == other.ptrcount and
-                self.refcount == other.refcount)
+        return self.comparison_name == other.comparison_name
 
     def __getattr__(self, attr):
         attr = getattr(self.type, attr)

@@ -544,6 +544,8 @@ public:
     }
 };
 
+typedef char CharTypedef;
+
 class CharTypesClass
 {
 public:
@@ -577,6 +579,19 @@ public:
         return c[0];
     }
 
+    wchar_t * wchar_string(wchar_t *c)
+    {
+        wchar_t *cpy = (wchar_t*)malloc(sizeof(wchar_t) * wcslen(c));
+        wcscpy(cpy, c);
+        return cpy;
+    }
+
+    CharTypedef * typedef_string(CharTypedef *c)
+    {
+        char *cpy = (char*)malloc(sizeof(char) * strlen(c));
+        strcpy(cpy, c);
+        return cpy;
+    }
 };
 
 class UnsignedTypesClass
@@ -595,5 +610,16 @@ public:
     unsigned long long ull(unsigned long long i)
     {
         return -i;
+    }
+};
+
+class NestedTypedefsClass
+{
+public:
+    typedef int int1;
+    typedef int1 int2;
+    int2 return_typedef(int2 i)
+    {
+        return i - 2;
     }
 };

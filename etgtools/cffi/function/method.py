@@ -253,6 +253,8 @@ class Method(FunctionBase):
             pyfile.write(nci('return pyreturnval', indent + 4))
 
     def can_override(self, other):
+        # Don't bother checking the return types. Its a compiler error if the
+        # parameters and names match but the return types don't.
         if ((self.name != other.name) or
             (len(self.params) != len(other.params)) or
             (self.virtual is not other.virtual) or

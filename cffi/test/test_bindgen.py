@@ -369,6 +369,8 @@ class TestBindGen(object):
                     items=[ParamDef(type='char', name='c', pyInt=True)])]))
         module.addItem(c)
 
+        module.addItem(TypedefDef(type='char', name='CharTypedef'))
+
         c = ClassDef(name='CharTypesClass')
         c.addMethod('int', 'char_scalar', '', items=ArgsString('(char i)'))
         c.addMethod('int', 'schar_scalar', '',
@@ -380,6 +382,16 @@ class TestBindGen(object):
                     items=ArgsString('(signed char *i)'))
         c.addMethod('int', 'uchar_vector', '',
                     items=ArgsString('(unsigned char *i)'))
+        c.addMethod('wchar_t *', 'wchar_string', '',
+                    items=ArgsString('(wchar_t *i)'))
+        c.addMethod('CharTypedef *', 'typedef_string', '',
+                    items=ArgsString('(CharTypedef *i)'))
+        module.addItem(c)
+
+        c = ClassDef(name='NestedTypedefsClass')
+        c.addItem(TypedefDef(type='int', name='int1'))
+        c.addItem(TypedefDef(type='int1', name='int2'))
+        c.addMethod('int2', 'return_typedef', '', items=ArgsString('(int2 i)'))
         module.addItem(c)
 
         c = ClassDef(name='UnsignedTypesClass')
@@ -1359,6 +1371,13 @@ class TestBindGen(object):
         assert obj.schar_scalar(chr(1)) == 1
         with pytest.raises(OverflowError):
             obj.schar_scalar(chr(255))
+
+        assert obj.wchar_string('string') == 'string'
+        assert obj.typedef_string('string') == 'string'
+
+    def test_nested_typedef(self):
+        obj = self.mod.NestedTypedefsClass()
+        assert obj.return_typedef(1) == -1
 
     def test_unsigned_types(self):
         obj = self.mod.UnsignedTypesClass()

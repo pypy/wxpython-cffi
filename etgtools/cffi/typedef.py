@@ -41,9 +41,6 @@ class Typedef(CppType):
 
         self.parent.append_to_printing_order(self)
 
-    def __eq__(self, other):
-        return self.type == other
-
     def print_cdef(self, pyfile):
         if self.platform_dependant:
             pyfile.write("typedef %s %s;\n" % (self.item.type, self.item.name))
@@ -54,39 +51,60 @@ class Typedef(CppType):
                             indent))
 
     def build_typeinfo(self, typeinfo):
-        typeinfo.original = self.type.name
-        self.type.build_typeinfo(typeinfo)
+        original_name = typeinfo.original
+        alias_name = (
+            ('const ' if typeinfo.const and not 'const ' in self.item.type else '') +
+            self.item.type +
+            '*' * typeinfo.ptrcount +
+            ('&' if typeinfo.refcount else '')
+        )
 
+        typeinfo.flags.pyint = typeinfo.flags.pyint or self.flags.pyint
+        alias_typeinfo = TypeInfo(self.parent, alias_name, typeinfo.flags)
+
+        typeinfo.__dict__.update(alias_typeinfo.__dict__)
+        typeinfo.comparison_name = alias_typeinfo.comparison_name
+
+        if not hasattr(typeinfo, 'typedefed_type'):
+            # typedefed_type should refer the non-typedef type at the bottom of
+            # the chain. If typedefed_type is already set, the type bellow this
+            # one in the chain is a typedef and typedefed_type already refers
+            # the bottom one.
+            typeinfo.typedefed_type = typeinfo.type
         typeinfo.type = self
+        typeinfo.original = original_name
         if self.platform_dependant:
             typeinfo.cdef_type = self.item.name
 
     def call_cdef_param_setup(self, typeinfo, name):
-        return self.type.call_cdef_param_setup(typeinfo, name)
+        return typeinfo.typedefed_type.call_cdef_param_setup(typeinfo, name)
 
     def call_cdef_param_inline(self, typeinfo, name):
-        return self.type.call_cdef_param_inline(typeinfo, name)
+        return typeinfo.typedefed_type.call_cdef_param_inline(typeinfo, name)
 
     def call_cdef_param_cleanup(self, typeinfo, name):
-        return self.type.call_cdef_param_cleanup(typeinfo, name)
+        return typeinfo.typedefed_type.call_cdef_param_cleanup(typeinfo, name)
 
     def virt_py_param_setup(self, typeinfo, name):
-        return self.type.virt_py_param_setup(typeinfo, name)
+        return typeinfo.typedefed_type.virt_py_param_setup(typeinfo, name)
 
     def virt_py_param_inline(self, typeinfo, name):
-        return self.type.virt_py_param_inline(typeinfo, name)
+        return typeinfo.typedefed_type.virt_py_param_inline(typeinfo, name)
 
     def virt_py_param_cleanup(self, typeinfo, name):
-        return self.type.virt_py_param_cleanup(typeinfo, name)
+        return typeinfo.typedefed_type.virt_py_param_cleanup(typeinfo, name)
 
     def virt_py_return(self, typeinfo, name):
-        return self.type.virt_py_return(typeinfo, name)
+        return typeinfo.typedefed_type.virt_py_return(typeinfo, name)
 
     def call_cpp_param_setup(self, typeinfo, name):
-        return self.type.call_cpp_param_setup(typeinfo, name)
+        #if self.name == 'wxUint8':
+        #    import pdb; pdb.set_trace()
+        #print self, typeinfo.typedefed_type
+        return typeinfo.typedefed_type.call_cpp_param_setup(typeinfo, name)
 
     def call_cpp_param_inline(self, typeinfo, name):
-        ret = self.type.call_cpp_param_inline(typeinfo, name)
+        ret = typeinfo.typedefed_type.call_cpp_param_inline(typeinfo, name)
 
         # For typedefs vary by plaform (ie time_t) we need a hard cast to the
         # original typename so that overload resolution works correctly.
@@ -95,25 +113,25 @@ class Typedef(CppType):
         return ret
 
     def call_cpp_param_cleanup(self, typeinfo, name):
-        return self.type.call_cpp_param_cleanup(typeinfo, name)
+        return typeinfo.typedefed_type.call_cpp_param_cleanup(typeinfo, name)
 
     def virt_cpp_param_setup(self, typeinfo, name):
-        return self.type.virt_cpp_param_setup(typeinfo, name)
+        return typeinfo.typedefed_type.virt_cpp_param_setup(typeinfo, name)
 
     def virt_cpp_param_inline(self, typeinfo, name):
-        return self.type.virt_cpp_param_inline(typeinfo, name)
+        return typeinfo.typedefed_type.virt_cpp_param_inline(typeinfo, name)
 
     def virt_cpp_param_cleanup(self, typeinfo, name):
-        return self.type.virt_cpp_param_cleanup(typeinfo, name)
+        return typeinfo.typedefed_type.virt_cpp_param_cleanup(typeinfo, name)
 
     def virt_cpp_return(self, typeinfo, name):
-        return self.type.virt_cpp_return(typeinfo, name)
+        return typeinfo.typedefed_type.virt_cpp_return(typeinfo, name)
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
-        return self.type.convert_variable_cpp_to_c(typeinfo, name)
+        return typeinfo.typedefed_type.convert_variable_cpp_to_c(typeinfo, name)
 
     def convert_variable_c_to_py(self, typeinfo, name):
-        return self.type.convert_variable_c_to_py(typeinfo, name)
+        return typeinfo.typedefed_type.convert_variable_c_to_py(typeinfo, name)
 
 #----------------------------------------------------------------------------#
 
