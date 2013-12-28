@@ -31,7 +31,7 @@ class WrappedType(CppScope, CppType):
         self.to_c_array_name = 'WL_wrappedtype_array_to_c<%s>' % self.unscopedname
         self.to_cpp_array_name = 'WL_wrappedtype_array_to_cpp<%s>' % self.unscopedname
 
-        self.docstring = cls.briefDoc or ''
+        self.docstring = utils.fix_docstring(cls.briefDoc)
 
         for klass in cls.innerclasses:
             klass.generate(self)

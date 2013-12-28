@@ -49,7 +49,6 @@ class Param(object):
                 conversion, indent + 4 + 4 * int(bool(self.default))))
 
     def __eq__(self, other):
-        # XXX Should we check that the flags are the same?
         return self.type == other.type
 
 class SelfParam(Param):
@@ -148,7 +147,7 @@ class FunctionBase(CppObject):
             self.ownership_transfer_name = 'creturnval'
             self.keepref_on_object = True
 
-        self.docstring = self.item.briefDoc or ''
+        self.docstring = utils.fix_docstring(self.item.briefDoc)
 
         for o in func.overloads:
             o.generate(parent)

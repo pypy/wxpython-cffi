@@ -1,5 +1,6 @@
 import functools
 
+from ..extractors import flattenNode
 from ..generators import nci
 
 def call_once(func):
@@ -16,6 +17,9 @@ def call_once(func):
 
 def pad(f):
     f.write('\n')
+
+def fix_docstring(docstring):
+    return flattenNode(docstring)
 
 def print_docstring(obj, file, indent):
     file.write(nci('"""', indent))

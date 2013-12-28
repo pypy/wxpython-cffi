@@ -136,17 +136,17 @@ class BasicType(CppType):
             if 'signed ' in self.name:
                 # CFFI expects an int
                 if typeinfo.flags.pyint:
-                    return 'int(%s)' % name
+                    return '__builtin__.int(%s)' % name
                 else:
-                    return 'ord(%s)' % name
+                    return '__builtin__.ord(%s)' % name
             else:
                 # CFFI expects a length-1 string
                 if typeinfo.flags.pyint:
-                    return 'chr(%s)' % name
+                    return '__builtin__.chr(%s)' % name
                 else:
-                    return 'str(%s)' % name
+                    return '__builtin__.str(%s)' % name
 
-        return "%s(%s)" % (BASIC_CTYPES[self.stripped_name], name)
+        return "__builtin__.%s(%s)" % (BASIC_CTYPES[self.stripped_name], name)
 
     def virt_py_param_inline(self, typeinfo, name):
         if typeinfo.flags.inout:
@@ -156,7 +156,7 @@ class BasicType(CppType):
     def virt_py_param_cleanup(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
             # For out and inout cases, we're writing into a pointer
-            return "{0}[0] = {1}({0}{2.PY_RETURN_SUFFIX})".format(
+            return "{0}[0] = __builtin__.{1}({0}{2.PY_RETURN_SUFFIX})".format(
                         name, BASIC_CTYPES[self.stripped_name], typeinfo)
 
     def virt_cpp_param_inline(self, typeinfo, name):
@@ -191,11 +191,11 @@ class BasicType(CppType):
                 if typeinfo.flags.pyint:
                     return name
                 else:
-                    return 'chr(%s)' % name
+                    return '__builtin__.chr(%s)' % name
             else:
                 # CFFI gives us a length-1 string
                 if typeinfo.flags.pyint:
-                    return 'ord(%s)' % name
+                    return '__builtin__.ord(%s)' % name
                 else:
                     return name
 
@@ -251,6 +251,13 @@ class StringType(CppType):
         typeinfo.cdef_virt_type = typeinfo.cdef_type
 
         typeinfo.default_placeholder = 'ffi.NULL'
+
+    def call_cdef_param_inline(self, typeinfo, name):
+        if not self.unicode:
+            conversion = '__builtin__.str'
+        else:
+            conversion = '__builtin__.unicode'
+        return '%s(%s)' % (conversion, name)
 
     def virt_py_return(self, typeinfo, name):
         if not self.unicode:

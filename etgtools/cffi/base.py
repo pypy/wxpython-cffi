@@ -351,7 +351,7 @@ class PyObject(object):
         self.parent = parent
         self.pyitems = []
 
-        self.docstring = getattr(pyobj, 'briefDoc', False) or ''
+        self.docstring = utils.fix_docstring(getattr(pyobj, 'briefDoc', None))
 
     def print_pycode(self, userpyfile, indent=0):
         pass

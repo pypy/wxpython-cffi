@@ -20,7 +20,7 @@ class StaticMethod(Method):
     @property
     def call_cpp_code(self):
         if self.cppcode:
-            return Method.call_cpp_code(self)
+            return super(StaticMethod, self).call_cpp_code
 
         code = ''
         if not isinstance(self.type.type, VoidType):

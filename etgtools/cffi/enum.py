@@ -78,7 +78,7 @@ class EnumValue(VariableBase):
     PREFIX = 'cffienumval'
     def __init__(self, val, parent):
         super(EnumValue,self).__init__(val, parent)
-        self.type = 'const int'
+        self.type = 'const long long'
 
     def setup(self):
         self.type = TypeInfo(self.parent, self.type, self.flags)
