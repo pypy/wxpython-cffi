@@ -67,7 +67,7 @@ def run():
         """,
 
 
-        instancecheck="""\
+        instanceCheck="""\
         if (not isinstance(py_obj, collections.Sequence) or
             isinstance(py_obj, (str, unicode))):
             return False
@@ -120,7 +120,7 @@ def run():
         return ret
         """,
 
-        instancecheck="""\
+        instanceCheck="""\
         if (not isinstance(py_obj, collections.Sequence) or
             isinstance(py_obj, (str, unicode))):
             return False
@@ -173,7 +173,7 @@ def run():
         return ret
         """,
 
-        instancecheck="""\
+        instanceCheck="""\
         if (not isinstance(py_obj, collections.Sequence) or
             isinstance(py_obj, (str, unicode))):
             return False

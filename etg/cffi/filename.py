@@ -22,7 +22,7 @@ def run():
         """,
         c2cpp="return new wxFileName(wxString(cdata));",
         cpp2c="return wxStrdup(cpp_obj->GetFullPath().wc_str());",
-        instancecheck='return isinstance(py_obj, (str, unicode))',))
+        instanceCheck='return isinstance(py_obj, (str, unicode))',))
 
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

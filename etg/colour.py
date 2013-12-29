@@ -301,7 +301,7 @@ def run():
         return Colour(py_obj[0], py_obj[1], py_obj[2])
     return Colour(py_obj[0], py_obj[1], py_obj[2], py_obj[3])
     """
-    c.instancecheck = """\
+    c.instanceCheck_cffi = """\
     if py_obj is None or isinstance(py_obj, (str, unicode)):
         return True
     if not isinstance(py_obj, collections.Sequence):

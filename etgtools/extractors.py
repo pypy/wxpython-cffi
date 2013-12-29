@@ -639,8 +639,6 @@ class ClassDef(BaseDef):
         self.isInner = False
 
         self.pyCode_cffi = None     # Extra code to include in the class body
-        self.privateCopyCtor = False
-        self.privateAssignOp = False
 
         # Stuff that needs to be generated after the class instead of within
         # it. Some back-end generators need to put stuff inside the class, and
@@ -1039,36 +1037,46 @@ class ClassDef(BaseDef):
 
     def addCopyCtor(self, prot='protected'):
         # add declaration of a copy constructor to this class
-        wig = WigCode("""\
-{PROT}:
-    {CLASS}(const {CLASS}&);""".format(CLASS=self.name, PROT=prot))
-        self.addItem(wig)
+        #wig = WigCode("""\
+        #{PROT}:
+        #    {CLASS}(const {CLASS}&);""".format(CLASS=self.name, PROT=prot))
+        #self.addItem(wig)
+        self.addMethod(
+            "", self.name, "(const %s & other)" % self.name,
+            items=ArgsString("(const %s & other)" % self.name),
+            isCtor=True, protection=prot
+        )
 
     def addPrivateCopyCtor(self):
         self.addCopyCtor('private')
-        self.privateCopyCtor = True
 
     def addPrivateAssignOp(self):
         # add declaration of an assignment opperator to this class
-        wig = WigCode("""\
-private:
-    {CLASS}& operator=(const {CLASS}&);""".format(CLASS=self.name))
-        self.addItem(wig)
-        self.privateAssignOp = True
+        #wig = WigCode("""\
+        #private:
+        #    {CLASS}& operator=(const {CLASS}&);""".format(CLASS=self.name))
+        #self.addItem(wig)
+        self.addMethod(
+            self.name + '&', 'operator=', '(const %s & other)' % self.name,
+            items=ArgsString('(const %s & other)' % self.name),
+            protection='private'
+        )
 
     def addDtor(self, prot='protected'):
         # add declaration of a destructor to this class
-        wig = WigCode("""\
-{PROT}:
-    ~{CLASS}();""".format(CLASS=self.name, PROT=prot))
-        self.addItem(wig)
+        #wig = WigCode("""\
+        #{PROT}:
+        #    ~{CLASS}();""".format(CLASS=self.name, PROT=prot))
+        #self.addItem(wig)
+        self.addMethod("", '~' + self.name, "()", isDtor=True, protection=prot)
 
     def addDefaultCtor(self, prot='protected'):
         # add declaration of a default constructor to this class
-        wig = WigCode("""\
-{PROT}:
-    {CLASS}();""".format(CLASS=self.name, PROT=prot))
-        self.addItem(wig)
+        #wig = WigCode("""\
+        #{PROT}:
+        #    {CLASS}();""".format(CLASS=self.name, PROT=prot))
+        #self.addItem(wig)
+        self.addMethod("", self.name, "()", isCtor=True, protection=prot)
 
 
 #---------------------------------------------------------------------------
@@ -1694,8 +1702,8 @@ def skippingMsg(kind, element):
 
 
 class ArgsString(list):
-    re = None
     re_pattern = r'(?P<type>[a-zA-Z0-9_ ]+[ *&]+)(?P<name>[a-zA-Z0-9_]+)'
+    re = re.compile(re_pattern)
     """
     Formating arguments strings:
     Parameters are only supported in the format of '<type-name> <parameter-
@@ -1705,8 +1713,6 @@ class ArgsString(list):
     checked Python object.
     """
     def __init__(self, argsstring):
-        if self.re is None:
-            self.re = re.compile(self.re_pattern)
         # Based heavily on extractors.FunctionDef.makePyArgsString
         super(ArgsString, self).__init__()
 

@@ -39,7 +39,6 @@ def run():
         
     c = module.find('wxDropSource')
     assert isinstance(c, etgtools.ClassDef)
-    c.addPrivateCopyCtor()
 
     for m in c.find('wxDropSource').all():
         if 'wxIcon' in m.argsString:
@@ -71,6 +70,8 @@ def run():
             wxPyRaiseNotImplementedMsg("Icons not supported, use SetCursor on non-wxGTK ports.");
         #endif
         """)
+
+    c.addPrivateCopyCtor()
     
     
     

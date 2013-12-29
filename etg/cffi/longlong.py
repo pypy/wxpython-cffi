@@ -26,7 +26,7 @@ def run():
         """,
         c2py="return cdata",
 
-        instancecheck="return isinstance(py_obj, numbers.Number)"))
+        instanceCheck="return isinstance(py_obj, numbers.Number)"))
 
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

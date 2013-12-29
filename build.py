@@ -910,7 +910,7 @@ def cmd_sip(options, args):
 
 
 def cmd_cffi_gen(options, args):
-    from etgtools.cffi_bindgen import CffiModuleGenerator
+    from etgtools.cffi.bindgen import BindingGenerator, LiteralVerifyArg
 
     cmdTimer = CommandTimer('cffi_gen')
     cfg = Config()
@@ -958,6 +958,23 @@ def cmd_cffi_gen(options, args):
     def_path_pattern = os.path.join(DEF_DIR, '%s.def')
     def_glob =  def_path_pattern % '_*'
 
+    gen = BindingGenerator(def_path_pattern)
+
+    for mod_path in glob.iglob(def_glob):
+        mod_name = os.path.basename(mod_path)[:-4]
+        gen.generate(mod_name)
+
+        cppfilepath = opj(CFFI_DIR, 'cpp_gen', mod_name + '.cpp')
+
+        hfile = open(opj(CFFI_DIR, 'cpp_gen', mod_name + '.h'), 'w')
+        cppfile = open(cppfilepath, 'w')
+        pyfile = open(opj(CFFI_DIR, 'wx', mod_name + '.py'), 'w')
+        userpyfile = open(opj(CFFI_DIR, 'wx', mod_name.strip('_') + '.py'), 'w')
+        verify_args = dict(sources=[cppfilepath], **globalVerifyArgs)
+        gen.write_files(mod_name, pyfile, userpyfile, cppfile, hfile,
+                        verify_args)
+
+    '''
     generators = {}
     for mod_path in glob.iglob(def_glob):
         mod_name = os.path.splitext(os.path.basename(mod_path))[0]
@@ -975,6 +992,7 @@ def cmd_cffi_gen(options, args):
         userPyfile = open(opj(CFFI_DIR, 'wx', gen.name.strip('_') + '.py'), 'w')
         verifyArgs = dict(sources=[cppfilepath], **globalVerifyArgs)
         gen.writeFiles(pyfile, cppfile, hfile, userPyfile, verifyArgs)
+    '''
 
 
     # Copy src/__init__.py

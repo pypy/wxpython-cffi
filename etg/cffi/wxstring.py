@@ -21,7 +21,7 @@ def run():
         """,
         c2cpp="return new wxString(cdata);",
         cpp2c="return wxStrdup(cpp_obj->wc_str());",
-        instancecheck='return isinstance(py_obj, (str, unicode))',))
+        instanceCheck='return isinstance(py_obj, (str, unicode))',))
 
     # Used just for testing the MappedType code, it can be removed later
     module.addItem(FunctionDef(

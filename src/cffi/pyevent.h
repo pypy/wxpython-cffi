@@ -2,7 +2,7 @@
 #define INCGRD_PYEVENT_H
 
 struct EmptyBase { };
-typedef cffiRefCountedPyObjBase<EmptyBase> wxPyEventDictRef;
+typedef WL_RefCountedPyObjBase<EmptyBase> wxPyEventDictRef;
 
 class wxPyEvent : public wxEvent
 {

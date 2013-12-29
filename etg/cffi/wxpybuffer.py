@@ -44,7 +44,7 @@ def run():
         """,
         c2cpp="return new wxPyBuffer(*cdata);",
         cpp2c="return cpp_obj;",
-        instancecheck="""\
+        instanceCheck="""\
         try:
             memoryview(py_obj)
             return True
@@ -81,7 +81,7 @@ def run():
         clib.free(cdata)
         return ret
         """,
-        instancecheck="""
+        instanceCheck="""
         try:
             memoryview(py_obj)
             return True
@@ -105,7 +105,7 @@ def run():
         clib.free(cdata)
         return ret
         """,
-        instancecheck="return isinstance(py_obj, str)"))
+        instanceCheck="return isinstance(py_obj, str)"))
     '''
 
     #-----------------------------------------------------------------

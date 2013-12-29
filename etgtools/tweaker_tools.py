@@ -721,7 +721,7 @@ def convertTwoIntegersTemplate_cffi(klass):
     klass.convertFromPyObject_cffi="""\
     return {PYNAME}(py_obj[0], py_obj[1])
     """
-    klass.instancecheck="""\
+    klass.instanceCheck_cffi="""\
     return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 2 and
             all([isinstance(py_obj[i], numbers.Number) for i in range(2)]))
     """
@@ -776,7 +776,7 @@ def convertFourIntegersTemplate_cffi(klass):
     klass.convertFromPyObject_cffi="""\
     return {PYNAME}(py_obj[0], py_obj[1], py_obj[2], py_obj[3])
     """
-    klass.instancecheck="""\
+    klass.instanceCheck_cffi="""\
     return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 4 and
             all([isinstance(py_obj[i], numbers.Number) for i in range(4)]))
     """
@@ -825,7 +825,7 @@ def convertTwoDoublesTemplate_cffi(klass):
     klass.convertFromPyObject_cffi="""\
     return {PYNAME}(py_obj[0], py_obj[1])
     """
-    klass.instancecheck="""\
+    klass.instanceCheck_cffi="""\
     return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 2 and
             all([isinstance(py_obj[i], numbers.Number) for i in range(2)]))
     """
@@ -881,7 +881,7 @@ def convertFourDoublesTemplate_cffi(klass):
     klass.convertFromPyObject_cffi="""\
     return {PYNAME}(py_obj[0], py_obj[1], py_obj[2], py_obj[3])
     """
-    klass.instancecheck="""\
+    klass.instanceCheck_cffi="""\
     return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 4 and
             all([isinstance(py_obj[i], numbers.Number) for i in range(4)]))
     """
@@ -977,11 +977,8 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
         }}
         return idx;""".format(**locals()), 'function'))
     c.addItem(extractors.CppMethodDef_cffi(
-        'void *', '_new',
-        '(size_t count, void **elements)', '(elements)',
-        pyArgs=[extractors.ParamDef(name='elements', type=ItemClass)],
-        isStatic=True,
-        body='return new %s(count, (%s **)elements);' % (ListClass, ItemClass),
+        '_new', isStatic=True,
+        pyArgs=extractors.ArgsString('(WL_Object elements)'),
         pyBody="""\
         wrapper_lib.check_args_types(
             ({0}._pyobject_mapping_, elements, "elements"))
@@ -995,7 +992,11 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
             array[i] = wrapper_lib.get_ptr(item)
 
         call(len(elemnts, array))
-        """.format(ListClass_pyName, ItemClass_pyName)))
+        """.format(ListClass_pyName, ItemClass_pyName),
+        cReturnType='void *',
+        cArgsString='(size_t count, void **elements)',
+        cBody='return new %s(count, (%s **)elements);' % (ListClass, ItemClass),
+    ))
     # TODO:  add support for index(value, [start, [stop]])
     c.addPyMethod(
         '__repr__', '(self)',
@@ -1060,7 +1061,7 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
     return SIP_TEMPORARY;
 %End
 '''
-    c.instancecheck = """\
+    c.instanceCheck_cffi = """\
     if (not isinstance(py_obj, collections.Sequence) or
         isinstance(py_obj, (str, unicode))):
         return False

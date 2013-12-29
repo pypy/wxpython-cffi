@@ -13,7 +13,7 @@ def run():
     module = etgtools.ModuleDef(PACKAGE, MODULE, NAME, DOCSTRING)
 
     module.addCppCode("""
-    typedef cffiRefCountedPyObjBase<wxObject> wxPyUserData;
+    typedef WL_RefCountedPyObjBase<wxObject> wxPyUserData;
 
     extern "C" void* new_wxPyUserData(void *ptr)
     {
@@ -31,7 +31,7 @@ def run():
         c2cpp="return (wxPyUserData*)cdata;",
         cpp2c="return ((wxPyUserData*)cpp_obj)->get_handle();",
         c2py="return None if cdata == ffi.NULL else ffi.from_handle(cdata)",
-        instancecheck='return True'))
+        instanceCheck='return True'))
 
 
     #-----------------------------------------------------------------
