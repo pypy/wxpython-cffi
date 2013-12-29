@@ -108,6 +108,16 @@ IntWrapper VMethClass::call_overridden_vmeth3(int i)
     return overridden_vmeth3(i);
 }
 
+int VMethClass::call_unoverridden_cppvmeth(int i)
+{
+    return this->unoverridden_cppvmeth(i);
+}
+
+int VMethClass::unoverridden_cppvmeth(int i)
+{
+    return 25 - i;
+}
+
 int VMethSubclass::overridden_vmeth1()
 {
     return 15;
@@ -122,7 +132,6 @@ IntWrapper VMethSubclass::overridden_vmeth3(int i)
 {
     return IntWrapper(i * 2);
 }
-
 
 char PMethClass::protected_method(char c)
 {

@@ -1,5 +1,5 @@
 from .function import Function
-from .method import nci, Param, SelfParam, Method, args_string
+from .method import nci, Param, SelfParam, Method, args_string, InheritedVirtualMethodMixin
 from .ctor import CtorMethod
 from ..basictype import VoidType
 
@@ -52,7 +52,11 @@ class GlobalCppMethod(Function):
 
 @cpp_method
 class MemberCppMethod(Method):
-    pass
+    def copy_onto_subclass(self, cls):
+        # It doesn't really make sense to have a MemberCppMethod be virtual;
+        # there is no way for a user to override the method from Python and be
+        # able to expect to behave correctly.
+        raise NotImplementedError()
 
 @cpp_method
 class CppCtorMethod(CtorMethod):
@@ -189,6 +193,9 @@ class MemberCppMethod_cffi(Method):
                       .format(self), 8))
         cppfile.write(nci(self.cpp_code, 8))
 
+    def copy_onto_subclass(self, cls):
+        InheritedVirtualCppMethod_cffi(self, cls)
+
 class FakeTypeInfo(object):
     """
     A fake TypeInfo for CppMethod_cffi's which have a custom virtual return
@@ -205,3 +212,6 @@ class FakeTypeInfo(object):
             self.type = VoidType()
         else:
             self.type = None
+
+class InheritedVirtualCppMethod_cffi(InheritedVirtualMethodMixin, MemberCppMethod_cffi):
+    pass

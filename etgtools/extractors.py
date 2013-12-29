@@ -1712,7 +1712,7 @@ class ArgsString(list):
 
         # TODO: This breaks on functions calls in defaults.
         params = []
-        args = argsstring.rsplit(')')[0].strip('(').split(',')
+        args = argsstring.rsplit(')', 1)[0].strip('(').split(',')
         for arg in args:
             if not arg:
                 continue

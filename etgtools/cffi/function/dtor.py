@@ -1,4 +1,4 @@
-from .method import nci, Method, Param, SelfParam
+from .method import nci, Method, Param, SelfParam, InheritedVirtualMethodMixin
 
 # TODO: sip supports custom C++ code for dtors, although wxPython doesn't make
 #       use of it. Maybe its worthwhile to have anyway?
@@ -46,17 +46,29 @@ class DtorMethod(Method):
         }}""".format(self)))
 
         if self.virtual:
-            cppfile.write(nci("""\
-            typedef void (*{0.cname}_funcptr)({0.parent.cppname} *);
-            {0.parent.cppname}::~{0.parent.cppname}()
-            {{
-                (({0.cname}_funcptr){0.parent.cname}_vtable[{0.vtable_index}])(this);
-            }}""".format(self)))
+            self.print_virtual_cppcode(cppfile)
 
     def print_virtual_cppcode(self, cppfile):
-        pass
+        cppfile.write(nci("""\
+        typedef void (*{0.cname}_funcptr)({0.parent.cppname} *);
+        {0.parent.cppname}::~{0.parent.cppname}()
+        {{
+            (({0.cname}_funcptr){0.parent.cname}_vtable[{0.vtable_index}])(this);
+        }}""".format(self)))
 
     @staticmethod
     def new_std_dtor(cls):
         dtor = MethodDef(name='~' + cls.name, isDtor=True)
         dtor.generate(cls).setup()
+
+    def copy_onto_subclass(self, cls):
+        InheritedVirtualDtorMethod(self, cls)
+
+class InheritedVirtualDtorMethod(InheritedVirtualMethodMixin, DtorMethod):
+    def print_pycode(self, pyfile, indent):
+        # Dtors have significantly simpler pycode than regular methods.
+        # Its safe to reuse the original __del__ code (and thus the original C
+        # code) because it is known for sure that the Dtor for the base class
+        # is virtual.
+        DtorMethod.print_pycode(self, pyfile, indent)
+

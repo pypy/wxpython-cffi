@@ -98,9 +98,6 @@ class Typedef(CppType):
         return typeinfo.typedefed_type.virt_py_return(typeinfo, name)
 
     def call_cpp_param_setup(self, typeinfo, name):
-        #if self.name == 'wxUint8':
-        #    import pdb; pdb.set_trace()
-        #print self, typeinfo.typedefed_type
         return typeinfo.typedefed_type.call_cpp_param_setup(typeinfo, name)
 
     def call_cpp_param_inline(self, typeinfo, name):

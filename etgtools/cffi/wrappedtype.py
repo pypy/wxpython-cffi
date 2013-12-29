@@ -114,13 +114,16 @@ class WrappedType(CppScope, CppType):
              .setup())
 
     def pickup_base_virtuals(self):
-        from .function import InheritedVirtualMethod
         for base in self.bases:
-            # Look at every virtual method in the base and see if it has been
-            # reimplemented in this class. If not, add it to the virtuals list.
             for vmeth in base.virtualmethods:
-                if not any(m.can_override(vmeth) for m in self.virtualmethods):
-                    InheritedVirtualMethod(self, vmeth)
+                # Check if the user has made a declaration hiding this method
+                # (ie delcared a method with the same name.)
+                if not any(m.name == vmeth.name for m in self.virtualmethods):
+                    # If no method is declared hiding the one from the base
+                    # class, copy each overload of the virtual method into the
+                    # sub class.
+                    for m in vmeth.overload_manager.functions:
+                        m.copy_onto_subclass(self)
 
     def gettype(self, name):
         type = super(WrappedType, self).gettype(name)
@@ -382,7 +385,7 @@ class WrappedType(CppScope, CppType):
         if not (typeinfo.refcount or typeinfo.ptrcount) or (not typeinfo.flags.nocopy and
            typeinfo.refcount and typeinfo.const):
             takeownership = ', True'
-        return ('{0}_tmpobj = wrapper_lib.obj_from_ptr({0}, {1}, {2})'
+        return ('{0}_tmpobj = wrapper_lib.obj_from_ptr({0}, {1}{2})'
                 .format(name, self.unscopedpyname, takeownership))
 
     def virt_py_param_inline(self, typeinfo, name):

@@ -117,6 +117,35 @@ class TestBindGen(object):
                     items=[ParamDef(type='int', name='i')])
         c.addMethod('IntWrapper', 'call_overridden_vmeth3', '(int i)',
                     items=[ParamDef(type='int', name='i')])
+        c.addItem(CppMethodDef_cffi(
+            'unoverridden_cppvmeth', isVirtual=True,
+            pyArgs=ArgsString('WL_Self self, char somechar'),
+            pyBody='return call(wrapper_lib.get_ptr(self), somechar)',
+            cReturnType='char', cArgsString='(void *self, char i)',
+            cBody='return \'a\' + static_cast<VMethClass*>(self)->unoverridden_cppvmeth(i - \'a\');',
+            virtualHandler=VirtualHandler_cffi(
+                funcPtrReturnType='int',
+                funcPtrArgsString='(void *self, int i)',
+                cBody='return call(this, i);',
+
+                pyArgs='(self, i)',
+                pyBody="""\
+                c = chr(ord('a') + i)
+                res = wrapper_lib.obj_from_ptr(self).unoverridden_cppvmeth(c)
+                return ord(res) - ord('a')
+                """,
+
+                originalCppType='int',
+                originalCppArgs=ArgsString('(int i)'),
+            )
+        ))
+        c.addItem(CppMethodDef_cffi(
+            'call_unoverridden_cppvmeth',
+            pyArgs=ArgsString('WL_Self self, char somechar'),
+            pyBody='return call(wrapper_lib.get_ptr(self), somechar)',
+            cReturnType='char', cArgsString='(void *self, char i)',
+            cBody='return \'a\' + static_cast<VMethClass*>(self)->call_unoverridden_cppvmeth(i - \'a\');',
+        ))
         module.addItem(c)
 
         module.addItem(TypedefDef(type='int', name='IntAlias'))
@@ -246,6 +275,9 @@ class TestBindGen(object):
             name='~VDtorClass', isVirtual=True, isDtor=True))
         c.addMethod('void', 'delete_self', '()')
 
+        module.addItem(c)
+
+        c = ClassDef(name='VDtorSubclass', bases=['VDtorClass'])
         module.addItem(c)
 
         c = ClassDef(name='MemberVarClass')
@@ -1137,6 +1169,9 @@ class TestBindGen(object):
             def overridden_vmeth3(self, i):
                 return 3 * i
 
+            def unoverridden_cppvmeth(self, c):
+                return c.swapcase()
+
         obj = self.mod.VMethClass()
         assert obj.overridden_vmeth1() == 12
         assert obj.call_overridden_vmeth1() == 12
@@ -1144,6 +1179,8 @@ class TestBindGen(object):
         assert obj.call_overridden_vmeth2() is None
         assert obj.overridden_vmeth3(6) == 3
         assert obj.call_overridden_vmeth3(6) == 3
+        assert obj.unoverridden_cppvmeth('a') == 'z'
+        assert obj.call_unoverridden_cppvmeth('a') == 'z'
 
         obj = self.mod.VMethSubclass()
         assert obj.overridden_vmeth1() == 15
@@ -1152,11 +1189,14 @@ class TestBindGen(object):
         assert obj.call_overridden_vmeth2() is obj
         assert obj.overridden_vmeth3(6) == 12
         assert obj.call_overridden_vmeth3(6) == 12
+        assert obj.unoverridden_cppvmeth('a') == 'z'
+        assert obj.call_unoverridden_cppvmeth('a') == 'z'
 
         obj = VMethSubclassSubclass()
         assert obj.call_overridden_vmeth1() == 9
         assert obj.call_overridden_vmeth2() is someobj
         assert obj.call_overridden_vmeth3(6) == 18
+        assert obj.call_unoverridden_cppvmeth('a') == 'A'
 
     def test_subclass_virtual_method_direct_call(self):
         c = self.mod.VMethSubclass()
@@ -1234,6 +1274,12 @@ class TestBindGen(object):
         # This is a really indirect way of testing that the virtual dtor was 
         # called: the object's internal pointer being change to NULL is a side
         # effect of it being deleted.
+        assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
+
+    def test_inherited_virtual_dtor(self):
+        obj = self.mod.VDtorSubclass()
+        pytest.set_trace()
+        obj.delete_self()
         assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
 
     def test_pymethod(self):

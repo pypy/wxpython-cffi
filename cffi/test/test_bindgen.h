@@ -66,6 +66,9 @@ public:
     virtual IntWrapper overridden_vmeth3(int i);
     IntWrapper call_overridden_vmeth3(int i);
 
+    virtual int unoverridden_cppvmeth(int i);
+    int call_unoverridden_cppvmeth(int i);
+
 };
 
 class VMethSubclass : public VMethClass
@@ -93,6 +96,9 @@ public:
         delete this;
     }
 };
+
+class VDtorSubclass : public VDtorClass
+{};
 
 class PVMethClass
 {

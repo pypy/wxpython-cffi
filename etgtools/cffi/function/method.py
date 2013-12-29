@@ -1,5 +1,6 @@
 from .base import (
-    utils, nci, args_string, FunctionBase, Param, SelfParam, VoidType, TypeInfo)
+    utils, nci, args_string, FunctionBase, Param, SelfParam, VoidType,
+    TypeInfo, OverloadManager)
 
 # Originally copied from tweaker_tools:
 CPP_OPERATORS = {
@@ -262,26 +263,51 @@ class Method(FunctionBase):
             return False
         return all(p == other.params[i] for i, p in enumerate(self.params))
 
+    def copy_onto_subclass(self, cls):
+        InheritedVirtualMethod(self, cls)
 
-class InheritedVirtualMethod(Method):
-    """
-    A virtual method which is inherited from a base class. This tries to reuse
-    as much code from the original as possible.
-    """
-    def __init__(self, parent, vmeth):
-        super(InheritedVirtualMethod, self).__init__(vmeth.item, parent)
-        self.setup()
+class InheritedVirtualMethodMixin(object):
+    @args_string
+    def vtable_indices(self):
+        for m in self.overload_manager.functions:
+            yield str(m.vtable_index)
 
-        self.original = vmeth
+    def __init__(self, original_method, new_class):
+        self.__dict__.update(original_method.__dict__)
+        self.parent = new_class
+        self.overload_manager = OverloadManager(self)
+        self.original = original_method
 
-    def print_pycode(self, pyfile, indent=0):
+        if self.protection == 'protected':
+            self.parent.protectedmethods.append(self)
+
+        self.vtable_index = len(self.parent.virtualmethods)
+        self.parent.virtualmethods.append(self)
+
+        self.parent.objects.append(self)
+
+        # Check if this is the first overload being copied into the new class.
+        # Reaching here means that there are no methods in the the class with
+        # the same name in the new class anyway
+        self.first_overload = not self.overload_manager.is_overloaded()
+
+    def print_pycode(self, pyfile, indent=4):
+        if self.first_overload:
+            # Coping calling code from the base class
+            indices = self.vtable_indices[1:-1]
+            pyfile.write(nci("""\
+            {0.pyname} = wrapper_lib.VirtualMethodStub({0.original.unscopedpyname}, {1})
+            """.format(self, indices), indent))
+
         pyfile.write(nci("""\
-        {0.pyname} = wrapper_lib.VirtualMethodStub({0.original.unscopedpyname}, {0.vtable_index})
         _virtual__{0.vtable_index} = wrapper_lib.VirtualDispatcher({0.vtable_index})({0.original.parent.pyname}._vdata.vtable[{0.original.vtable_index}])
         """.format(self), indent))
+
+    def print_cdef_and_verify(self, pyfile):
+        pass
 
     def print_cppcode(self, cppfile):
         self.print_virtual_cppcode(cppfile)
 
-    def print_cdef_and_verify(self, pyfile):
-        pass
+class InheritedVirtualMethod(InheritedVirtualMethodMixin, Method):
+    pass
