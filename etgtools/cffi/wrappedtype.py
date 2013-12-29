@@ -105,6 +105,9 @@ class WrappedType(CppScope, CppType):
             (extractors.MethodDef(name=self.name, isCtor=True)
              .generate(self)
              .setup())
+        # Hypothetically, we should check for a private assignment operator
+        # before generating the copy ctor, but I don't actually see the use
+        # case for it.
         if not hascopyctor:
             (extractors.MethodDef(
                 name=self.name, isCtor=True,

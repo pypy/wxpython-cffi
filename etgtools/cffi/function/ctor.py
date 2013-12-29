@@ -70,7 +70,12 @@ class CtorMethod(Method):
 
     def iscopyctor(self):
         # Note that self.params[0] is always a SelfParam
-        return len(self.params) == 2 and self.params[1].type is self.parent
+        required_params = [p for p in self.params if not p.default]
+        return (
+            len(required_params) == 2 and
+            self.params[1].type.type is self.parent and
+            self.params[1].type.ptrcount == 0
+        )
 
     def print_headercode(self, hfile):
         hfile.write('    {0.parent.cppname}{0.cpp_args} : {0.parent.unscopedname}{0.call_original_cpp_args} {{ }}\n'.format(self))

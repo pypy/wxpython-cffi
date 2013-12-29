@@ -218,6 +218,10 @@ class TestBindGen(object):
             name='get', pyName='get'))
         module.addItem(c)
 
+        c = ClassDef(name='PrivateCopyCtorClass')
+        c.addPrivateCopyCtor()
+        module.addItem(c)
+
         c = ClassDef(name='ReturnWrapperClass')
         c.addItem(MethodDef(
             type='', argsString='(int i)',

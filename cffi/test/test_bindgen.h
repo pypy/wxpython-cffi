@@ -131,6 +131,11 @@ extern CtorsClass global_wrapped_obj;
 void get_wrappedtype(CtorsClass *x, CtorsClass **y);
 void get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y);
 
+class PrivateCopyCtorClass
+{
+    PrivateCopyCtorClass(const PrivateCopyCtorClass&);
+};
+
 class PCtorClass
 {
 protected:

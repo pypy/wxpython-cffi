@@ -110,12 +110,17 @@ class Method(FunctionBase):
         return code + '{0.name}{0.call_cpp_args};\n'.format(self)
 
     def print_cppcode(self, cppfile):
+        if self.protection == 'private':
+            return
         super(Method, self).print_cppcode(cppfile)
 
         if self.virtual:
             self.print_virtual_cppcode(cppfile)
 
     def print_headercode(self, hfile):
+        if self.protection == 'private':
+            return
+
         if self.virtual:
             hfile.write("    virtual {0.type.original} {0.name}{0.cpp_args}{1};\n"
                         .format(self, ' const' if self.const else ''))
@@ -192,6 +197,9 @@ class Method(FunctionBase):
             pyfile.write(nci("wrapper_lib.give_ownership(self)", indent + 4))
 
     def print_pycode(self, pyfile, indent):
+        if self.protection == 'private':
+            return
+
         if self.virtual:
             self.print_virtual_pycode(pyfile, indent)
             pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" % self.vtable_index,
@@ -252,6 +260,12 @@ class Method(FunctionBase):
             if conversion is not None:
                 pyfile.write(nci(conversion, indent + 4))
             pyfile.write(nci('return pyreturnval', indent + 4))
+
+    def print_cdef_and_verify(self, pyfile):
+        if self.protection == 'private':
+            return
+
+        super(Method, self).print_cdef_and_verify(pyfile)
 
     def can_override(self, other):
         # Don't bother checking the return types. Its a compiler error if the
