@@ -30,7 +30,21 @@ class StaticMethod(Method):
                       .format(self))
 
     def print_headercode(self, hfile):
-        hfile.write("    using {0.parent.name}::{0.name};\n".format(self))
+        # No header code should be needed for public static methods.
+        if self.protection == 'public':
+            return
+
+        hfile.write(nci("""\
+        static {0.type.cpp_type} {0.name}{0.cpp_args}
+        {{""".format(self), 4))
+
+        hfile.write(' ' * 8)
+        if not isinstance(self.type.type, VoidType):
+            hfile.write('return ')
+
+        hfile.write("{0.parent.unscopedname}::{0.name}{0.call_original_cpp_args};\n"
+                    .format(self))
+        hfile.write('    }\n')
 
     def print_pycode(self, pyfile, indent):
         if not self.overload_manager.is_overloaded():

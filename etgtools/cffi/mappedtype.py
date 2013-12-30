@@ -145,11 +145,11 @@ class MappedType(CppType):
             self, name, deref)
 
     def call_cpp_param_inline(self, typeinfo, name):
-        deref = not typeinfo.ptrcount
-
+        deref = '*' * typeinfo.ptrcount
         if typeinfo.flags.hasdefault:
             return '{0}_converted = {1}({2}{0})'.format(
                 name, self.to_cpp_name, deref)
+
         name += '_converted'
         if typeinfo.flags.array:
             return name
@@ -166,6 +166,7 @@ class MappedType(CppType):
             else:
                 return name
 
+        deref = not typeinfo.ptrcount
         return ('*' if deref else '') + name
 
     def call_cpp_param_cleanup(self, typeinfo, name):
