@@ -148,7 +148,7 @@ class MappedType(CppType):
         deref = not typeinfo.ptrcount
 
         if typeinfo.flags.hasdefault:
-            return '{0}_converted = {1}({2}{0});'.format(
+            return '{0}_converted = {1}({2}{0})'.format(
                 name, self.to_cpp_name, deref)
         name += '_converted'
         if typeinfo.flags.array:

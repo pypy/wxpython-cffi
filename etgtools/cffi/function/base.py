@@ -31,6 +31,18 @@ class Param(object):
     def setup(self):
         self.type = TypeInfo(self.scope, self.item.type, self.flags)
 
+        # Defaults are printed in a function in the global namespace. If the
+        # default value refers to a variable by an less than fully-qualified
+        # name, we'll get a compiler error, even though the original header
+        # code was semantically correct. To get around this, we'll attempt to
+        # locate the variables and use their fully-qualified names.
+        # Sip does some amount expression analysis of defaults as well. Adding
+        # that may be necessary later, but for now, I'm content requiring users
+        # to re-write a some of thier more complex defaults.
+        default_obj = self.scope.getobject(self.default)
+        if default_obj is not None:
+            self.default = default_obj.unscopedname
+
     def print_call_cdef_setup(self, pyfile, indent, default_index):
         conversion = self.type.call_cdef_param_setup(self.name)
 

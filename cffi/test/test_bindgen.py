@@ -366,6 +366,16 @@ class TestBindGen(object):
             'NestedClassesInnerVirtual *', 'make', '()', isVirtual=True)
         module.addItem(c)
 
+        c = ClassDef(name='DefaultsClass')
+        c.addItem(EnumDef(name='DefaultsEnum', items=[
+            EnumValueDef(name='Defaults_A'),
+            EnumValueDef(name='Defaults_B')]))
+        c.addMethod(
+            'int', 'defaults_method', '(DefaultsEnum i = Defaults_A)',
+            items=ArgsString('(DefaultsEnum i = Defaults_A)'),
+        )
+        module.addItem(c)
+
         c = ClassDef(name='OperatorsClass')
         c.addItem(MethodDef(
             type='', argsString='(int x, int y)',
@@ -1136,6 +1146,10 @@ class TestBindGen(object):
     def test_global_func_with_default(self):
         assert self.mod.global_func_with_default() == 5
         assert self.mod.global_func_with_default('test') == 4
+
+    def test_method_with_default(self):
+        obj = self.mod.DefaultsClass()
+        assert obj.defaults_method() == self.mod.DefaultsClass.Defaults_A
 
     def test_custom_code_func(self):
         assert self.mod.custom_code_global_func() == 1

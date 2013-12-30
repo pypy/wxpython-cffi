@@ -251,6 +251,20 @@ public:
     }
 };
 
+class DefaultsClass
+{
+public:
+    enum DefaultsEnum
+    {
+        Defaults_A,
+        Defaults_B,
+    };
+    int defaults_method(DefaultsEnum f = Defaults_A)
+    {
+        return f;
+    }
+};
+
 class OperatorsClass
 {
 public:

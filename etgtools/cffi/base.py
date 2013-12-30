@@ -135,6 +135,7 @@ class CppObject(object):
 class CppScope(object):
     def __init__(self, parent):
         self.objects = []
+        self.objectscache = { }
         self.types = []
         self.typescache = { }
         self.subscopes = []
@@ -186,6 +187,29 @@ class CppScope(object):
         for scope in self.subscopes:
             scope.print_nested_cppcode(cppfile)
 
+    def getobject(self, name):
+        obj = None
+
+        # Check if the object is declared in this scope directly
+        if name in self.objectscache:
+            obj = self.objectscache[name]
+
+        # Check if it is in one of the scopes nested in this one
+        if '::' in name and obj is None:
+            scope, splitname = name.split('::', 1)
+            if scope in self.subscopescache:
+                obj = self.subscopescache[scope].getobject(splitname)
+
+        # Check if it is in the parent's scope
+        if self.parent is not None and obj is None:
+            obj = self.parent.getobject(name)
+
+        # Add the (full) name to this scope's list so future looks will be
+        # faster (most objects are referenced either many times or none)
+        self.objectscache[name] = obj
+
+        return obj
+
     def gettype(self, name):
         type = None
 
@@ -193,7 +217,7 @@ class CppScope(object):
         if name in self.typescache:
             type = self.typescache[name]
 
-        # Check if it is in one of the scoped nested in this one
+        # Check if it is in one of the scopes nested in this one
         if '::' in name and type is None:
             scope, splitname = name.split('::', 1)
             if scope in self.subscopescache:
@@ -224,6 +248,7 @@ class CppScope(object):
 
     def add_object(self, obj):
         self.objects.append(obj)
+        self.objectscache[obj.name] = obj
 
     def add_type(self, type):
         self.types.append(type)
