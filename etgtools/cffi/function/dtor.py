@@ -62,7 +62,8 @@ class DtorMethod(Method):
         dtor.generate(cls).setup()
 
     def copy_onto_subclass(self, cls):
-        InheritedVirtualDtorMethod(self, cls)
+        if not any(isinstance(m, DtorMethod) for m in cls.objects):
+            InheritedVirtualDtorMethod(self, cls)
 
 class InheritedVirtualDtorMethod(InheritedVirtualMethodMixin, DtorMethod):
     def print_pycode(self, pyfile, indent):

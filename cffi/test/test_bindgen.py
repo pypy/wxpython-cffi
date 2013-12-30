@@ -286,6 +286,12 @@ class TestBindGen(object):
         module.addItem(c)
 
         c = ClassDef(name='VDtorSubclass', bases=['VDtorClass'])
+        c.addItem(MethodDef(
+            type='', argsString='()',
+            name='~VDtorSubclass', isVirtual=True, isDtor=True))
+        module.addItem(c)
+
+        c = ClassDef(name='VDtorSubSubclass', bases=['VDtorSubclass'])
         module.addItem(c)
 
         c = ClassDef(name='MemberVarClass')
@@ -1285,7 +1291,7 @@ class TestBindGen(object):
         assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
 
     def test_inherited_virtual_dtor(self):
-        obj = self.mod.VDtorSubclass()
+        obj = self.mod.VDtorSubSubclass()
         obj.delete_self()
         assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
 

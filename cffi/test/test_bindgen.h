@@ -100,6 +100,9 @@ public:
 class VDtorSubclass : public VDtorClass
 {};
 
+class VDtorSubSubclass : public VDtorSubclass
+{};
+
 class PVMethClass
 {
 protected:
