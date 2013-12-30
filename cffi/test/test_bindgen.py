@@ -222,6 +222,10 @@ class TestBindGen(object):
         c.addPrivateCopyCtor()
         module.addItem(c)
 
+        c = ClassDef(name='PrivateCopyCtorSubclass',
+                     bases=['PrivateCopyCtorClass'])
+        module.addItem(c)
+
         c = ClassDef(name='ReturnWrapperClass')
         c.addItem(MethodDef(
             type='', argsString='(int i)',
@@ -1282,7 +1286,6 @@ class TestBindGen(object):
 
     def test_inherited_virtual_dtor(self):
         obj = self.mod.VDtorSubclass()
-        pytest.set_trace()
         obj.delete_self()
         assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
 

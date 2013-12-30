@@ -133,8 +133,15 @@ void get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y);
 
 class PrivateCopyCtorClass
 {
-    PrivateCopyCtorClass(const PrivateCopyCtorClass&);
+public:
+    PrivateCopyCtorClass() { }
+
+private:
+    PrivateCopyCtorClass(const PrivateCopyCtorClass&) { }
 };
+
+class PrivateCopyCtorSubclass : public PrivateCopyCtorClass
+{ };
 
 class PCtorClass
 {

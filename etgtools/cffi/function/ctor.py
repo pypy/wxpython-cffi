@@ -78,6 +78,9 @@ class CtorMethod(Method):
         )
 
     def print_headercode(self, hfile):
+        if self.protection == 'private':
+            return
+
         hfile.write('    {0.parent.cppname}{0.cpp_args} : {0.parent.unscopedname}{0.call_original_cpp_args} {{ }}\n'.format(self))
 
     def print_pycode_call(self, pyfile, indent):

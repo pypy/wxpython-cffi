@@ -39,6 +39,15 @@ class WrappedType(CppScope, CppType):
         for item in cls.items:
             item.generate(self)
 
+    @property
+    def copy_ctor_visibility(self):
+        from .function import CtorMethod
+        for m in self.objects:
+            if isinstance(m, CtorMethod) and m.iscopyctor():
+                return m.protection
+        # Every class should have a copy ctor.
+        raise Exception()
+
     def is_superclass(self, other):
         return self is other or any(self.is_superclass(b) for b in other.bases)
 
@@ -109,8 +118,12 @@ class WrappedType(CppScope, CppType):
         # before generating the copy ctor, but I don't actually see the use
         # case for it.
         if not hascopyctor:
+            # Search the bases to see if they have private copy ctors
+            protection = 'public'
+            if any(b.copy_ctor_visibility == 'private' for b in self.bases):
+                protection = 'private'
             (extractors.MethodDef(
-                name=self.name, isCtor=True,
+                name=self.name, isCtor=True, protection=protection,
                 items=[extractors.ParamDef(type='const %s &' % self.name,
                                            name='other')])
              .generate(self)
