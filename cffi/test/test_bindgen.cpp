@@ -480,6 +480,16 @@ void InOutClass::double_ref(CtorsClass &i)
     i = CtorsClass(i.get() * 2);
 }
 
+void InOutClass::double_refptr(CtorsClass *&i)
+{
+    *i = CtorsClass(i->get() * 2);
+}
+
+void InOutClass::double_ptrptr(CtorsClass **i)
+{
+    *i = new CtorsClass((*i)->get() * 2);
+}
+
 void InOutClass::double_ptr(Vector *i)
 {
     i->i *= 2;
@@ -490,6 +500,18 @@ void InOutClass::double_ref(Vector &i)
 {
     i.i *= 2;
     i.j *= 2;
+}
+
+void InOutClass::double_refptr(Vector *&i)
+{
+    i->i *= 2;
+    i->j *= 2;
+}
+
+void InOutClass::double_ptrptr(Vector **i)
+{
+    (*i)->i *= 2;
+    (*i)->j *= 2;
 }
 
 void InOutClass::call_double_ptr(int *i)
@@ -512,6 +534,16 @@ void InOutClass::call_double_ref(CtorsClass &i)
     double_ref(i);
 }
 
+void InOutClass::call_double_refptr(CtorsClass *&i)
+{
+    double_refptr(i);
+}
+
+void InOutClass::call_double_ptrptr(CtorsClass **i)
+{
+    double_ptrptr(i);
+}
+
 void InOutClass::call_double_ptr(Vector *i)
 {
     double_ptr(i);
@@ -520,6 +552,16 @@ void InOutClass::call_double_ptr(Vector *i)
 void InOutClass::call_double_ref(Vector &i)
 {
     double_ref(i);
+}
+
+void InOutClass::call_double_refptr(Vector *&i)
+{
+    double_refptr(i);
+}
+
+void InOutClass::call_double_ptrptr(Vector **i)
+{
+    double_ptrptr(i);
 }
 
 SmartVector double_vector(SmartVector &vec)

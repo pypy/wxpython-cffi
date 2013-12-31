@@ -496,56 +496,84 @@ class TestBindGen(object):
         module.addItem(c)
 
         c = ClassDef(name='InOutClass')
-        c.addItem(MethodDef(
+        c.addMethod(
             type='void', argsString='(int *num)', name='double_ptr',
-            isVirtual=True,
-            items=[ParamDef(type='int *', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                    type='void', argsString='(CtorsClass *num)',
-                    name='double_ptr', isVirtual=True, items=[
-                    ParamDef(type='CtorsClass *', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector *vec)', isVirtual=True,
-                name='double_ptr', items=[
-                    ParamDef(type='Vector *', name='vec', inOut=True)])]))
-        c.addItem(MethodDef(
+            isVirtual=True, items=ArgsString('(int *num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *num)',
+            name='double_ptr', isVirtual=True,
+            items=ArgsString('(CtorsClass * num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector *vec)', isVirtual=True,
+            name='double_ptr',
+            items=ArgsString('(Vector * vec)').annt(0, 'inOut'))
+        c.addMethod(
             type='void', argsString='(int &num)', name='double_ref',
             isVirtual=True,
-            items=[ParamDef(type='int &', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                type='void', argsString='(CtorsClass *num)', isVirtual=True,
-                name='double_ref', items=[
-                    ParamDef(type='CtorsClass &', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector &vec)',
-                name='double_ref', isVirtual=True, items=[
-                    ParamDef(type='Vector &', name='vec', inOut=True)])]))
-        c.addItem(MethodDef(
+            items=ArgsString('(int & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass &num)', isVirtual=True,
+            name='double_ref',
+            items=ArgsString('(CtorsClass & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector &vec)',
+            name='double_ref', isVirtual=True,
+            items=ArgsString('(Vector & vec)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *&num)', isVirtual=True,
+            name='double_refptr', items=[
+                ParamDef(type='CtorsClass *&', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector *&vec)',
+            name='double_refptr', isVirtual=True, items=[
+                ParamDef(type='Vector *&', name='vec', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(CtorsClass **num)', isVirtual=True,
+            name='double_ptrptr', items=[
+                ParamDef(type='CtorsClass **', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector **vec)',
+            name='double_ptrptr', isVirtual=True, items=[
+                ParamDef(type='Vector **', name='vec', inOut=True)])
+
+        c.addMethod(
             type='void', argsString='(int *num)', name='call_double_ptr',
-            items=[ParamDef(type='int *', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                    type='void', argsString='(CtorsClass *num)',
-                    name='call_double_ptr', items=[
-                    ParamDef(type='CtorsClass *', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector *vec)',
-                name='call_double_ptr', items=[
-                    ParamDef(type='Vector *', name='vec', inOut=True)])]))
-        c.addItem(MethodDef(
+            items=ArgsString('(int * num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *num)',
+            name='call_double_ptr',
+            items=ArgsString('(CtorsClass * num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector *vec)',
+            name='call_double_ptr',
+            items=ArgsString('(Vector * vec)').annt(0, 'inOut'))
+        c.addMethod(
             type='void', argsString='(int &num)', name='call_double_ref',
-            items=[ParamDef(type='int &', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                type='void', argsString='(CtorsClass *num)',
-                name='call_double_ref', items=[
-                    ParamDef(type='CtorsClass &', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector &vec)',
-                name='call_double_ref', items=[
-                    ParamDef(type='Vector &', name='vec', inOut=True)])]))
+            items=ArgsString('(int & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *num)',
+            name='call_double_ref',
+            items=ArgsString('(CtorsClass & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector &vec)',
+            name='call_double_ref',
+            items=ArgsString('(Vector & vec)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *&num)',
+            name='call_double_refptr', items=[
+                ParamDef(type='CtorsClass *&', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector *&vec)',
+            name='call_double_refptr', items=[
+                ParamDef(type='Vector *&', name='vec', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(CtorsClass **num)',
+            name='call_double_ptrptr', items=[
+                ParamDef(type='CtorsClass **', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector **vec)',
+            name='call_double_ptrptr', items=[
+                ParamDef(type='Vector **', name='vec', inOut=True)])
         module.addItem(c)
 
         c = ClassDef(name='AllowNoneClass')
@@ -1563,12 +1591,14 @@ class TestBindGen(object):
 
         assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
         assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
-
-        assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
-        assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
+        assert obj.double_refptr(self.mod.CtorsClass(12)).get() == 24
+        assert obj.double_ptrptr(self.mod.CtorsClass(13)).get() == 26
 
         assert obj.double_ptr((1, 2)) == (2, 4)
         assert obj.double_ref((4, 8)) == (8, 16)
+        assert obj.double_refptr((8, 7)) == (16, 14)
+        assert obj.double_ptrptr((9, 6)) == (18, 12)
+
 
     def test_virtual_ou(self):
         class OutSubclass(self.mod.OutClass):
@@ -1639,18 +1669,39 @@ class TestBindGen(object):
                     obj = self.mod.CtorsClass(-obj.get())
                     return obj
 
+            def double_refptr(self_, obj):
+                import numbers
+                if isinstance(obj, numbers.Number):
+                    return -obj
+                if isinstance(obj, tuple):
+                    return (-obj[0], -obj[1])
+                if isinstance(obj, self.mod.CtorsClass):
+                    obj = self.mod.CtorsClass(-obj.get())
+                    return obj
+
+            def double_ptrptr(self_, obj):
+                import numbers
+                if isinstance(obj, numbers.Number):
+                    return -obj
+                if isinstance(obj, tuple):
+                    return (-obj[0], -obj[1])
+                if isinstance(obj, self.mod.CtorsClass):
+                    obj = self.mod.CtorsClass(-obj.get())
+                    return obj
+
         obj = InOutSubclass()
         assert obj.call_double_ptr(10.0) == -10
         assert obj.call_double_ref(11) == -11
 
         assert obj.call_double_ptr(self.mod.CtorsClass(10.0)).get() == -10
         assert obj.call_double_ref(self.mod.CtorsClass(11)).get() == -11
-
-        assert obj.call_double_ptr(self.mod.CtorsClass(10.0)).get() == -10
-        assert obj.call_double_ref(self.mod.CtorsClass(11)).get() == -11
+        assert obj.call_double_refptr(self.mod.CtorsClass(12)).get() == -12
+        assert obj.call_double_ptrptr(self.mod.CtorsClass(13)).get() == -13
 
         assert obj.call_double_ptr((1, 2)) == (-1, -2)
         assert obj.call_double_ref((4, 8)) == (-4, -8)
+        assert obj.call_double_refptr((3, 7)) == (-3, -7)
+        assert obj.call_double_ptrptr((5, 9)) == (-5, -9)
 
     def test_trivial_mappedtype(self):
         class IntWrapperSubclass(self.mod.IntWrapperClass):

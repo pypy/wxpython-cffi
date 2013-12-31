@@ -375,18 +375,26 @@ public:
 
     virtual void double_ptr(CtorsClass *i);
     virtual void double_ref(CtorsClass &i);
+    virtual void double_refptr(CtorsClass *&i);
+    virtual void double_ptrptr(CtorsClass **i);
 
     virtual void double_ptr(Vector *i);
     virtual void double_ref(Vector &i);
+    virtual void double_refptr(Vector *&i);
+    virtual void double_ptrptr(Vector **i);
 
     void call_double_ptr(int *i);
     void call_double_ref(int &i);
 
     void call_double_ptr(CtorsClass *i);
     void call_double_ref(CtorsClass &i);
+    void call_double_refptr(CtorsClass *&i);
+    void call_double_ptrptr(CtorsClass **i);
 
     void call_double_ptr(Vector *i);
     void call_double_ref(Vector &i);
+    void call_double_refptr(Vector *&i);
+    void call_double_ptrptr(Vector **i);
 };
 
 class AbstractClass

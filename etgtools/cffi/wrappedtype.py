@@ -434,28 +434,28 @@ class WrappedType(CppScope, CppType):
         if typeinfo.flags.array:
             return None
 
-        if typeinfo.flags.inout or (typeinfo.flags.out and
-           typeinfo.ptrcount != 2 and not (typeinfo.refcount and typeinfo.ptrcount)):
-            if typeinfo.refcount:
-                init = '&' + name
-            elif typeinfo.ptrcount:
+        if typeinfo.ptrcount == 2 or (typeinfo.refcount and typeinfo.ptrcount):
+            return None
+
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            if typeinfo.ptrcount:
                 init = name
+            else: # typeinfo.refcount
+                init = '&' + name
             return "%s %s_ptr = %s;" % (typeinfo.c_virt_return_type, name, init)
 
     def virt_cpp_param_inline(self, typeinfo, name):
         if typeinfo.flags.array:
             return "%s(%s, %s)" % (self.to_c_array_name, name,
                                    typeinfo.ARRAY_SIZE_PARAM)
-        if typeinfo.flags.out:
+        if typeinfo.flags.out or typeinfo.flags.inout:
             if typeinfo.ptrcount == 2:
                 return name
-            if  typeinfo.refcount and typeinfo.ptrcount:
+            elif typeinfo.refcount and typeinfo.ptrcount:
                 return '&' + name
             else:
                 return '&' + name + "_ptr"
 
-        if typeinfo.flags.inout:
-            return '&' + name + "_ptr"
         # Always pass wrapped classes as pointers. If this is by value or
         # a const reference, it needs to be copy constructored onto the
         # heap, with Python taking ownership of the new object.
@@ -470,7 +470,8 @@ class WrappedType(CppScope, CppType):
 
     def virt_cpp_param_cleanup(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
-            if typeinfo.ptrcount != 2 and not (typeinfo.refcount and typeinfo.ptrcount):
+            if typeinfo.ptrcount != 2 and not (typeinfo.refcount and
+                                               typeinfo.ptrcount):
                 deref = '*' if typeinfo.ptrcount else ''
                 return """\
                 if({1}_ptr != NULL)

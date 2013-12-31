@@ -147,12 +147,14 @@ class MappedType(CppType):
             self, name, deref)
 
     def call_cpp_param_inline(self, typeinfo, name):
-        deref = '*' * typeinfo.ptrcount
         if typeinfo.flags.hasdefault:
-            return '{0}_converted = {1}({2}{0})'.format(
-                name, self.to_cpp_name, deref)
+            # Out params, clearly, don't have defaults
+            deref = '*' if typeinfo.flags.inout else ''
+            return '({0}_converted = {1.to_cpp_name}({2}{0}))'.format(
+                name, self, deref)
 
         name += '_converted'
+
         if typeinfo.flags.array:
             return name
 
@@ -163,10 +165,14 @@ class MappedType(CppType):
                 return '&' + name
 
         if typeinfo.flags.inout:
-            if typeinfo.refcount:
-                return '*' + name
-            else:
+            if typeinfo.ptrcount == 2:
+                return '&' + name
+            elif typeinfo.ptrcount and typeinfo.refcount:
                 return name
+            elif typeinfo.ptrcount:
+                return name
+            else:
+                return '*' + name
 
         deref = not typeinfo.ptrcount
         return ('*' if deref else '') + name
@@ -210,8 +216,11 @@ class MappedType(CppType):
         if typeinfo.flags.out:
             return "{0} {1}_converted;".format(typeinfo.c_virt_return_type, name)
         if typeinfo.flags.inout:
-            return "{0} {1}_converted = {2}({1});".format(
-                typeinfo.c_virt_return_type, name, self.to_c_name)
+            deref = ''
+            if typeinfo.ptrcount == 2:
+                deref = '*'
+            return "{0} {1}_converted = {2.to_c_name}({3}{1});".format(
+                typeinfo.c_virt_return_type, name, self, deref)
 
     def virt_cpp_param_inline(self, typeinfo, name):
         if typeinfo.flags.array:

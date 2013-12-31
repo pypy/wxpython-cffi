@@ -232,9 +232,6 @@ class FunctionBase(CppObject):
     def call_wrapper_args(self):
         for param in self.params:
             code = param.type.call_cpp_param_inline(param.name)
-            if self.name == 'FFont':
-                print param.name, code
-                import pdb; pdb.set_trace()
             if not self.original_wrapper_types:
                 code = param.type.user_cpp_param_inline(code)
             yield code
