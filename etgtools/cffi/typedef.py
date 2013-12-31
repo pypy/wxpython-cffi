@@ -71,8 +71,11 @@ class Typedef(CppType):
             # one in the chain is a typedef and typedefed_type already refers
             # the bottom one.
             typeinfo.typedefed_type = typeinfo.type
-        typeinfo.type = self
+
+        typeinfo.wrapper_type = typeinfo.wrapper_type.replace(
+            typeinfo.type.unscopedname, self.unscopedname)
         typeinfo.original = original_name
+        typeinfo.type = self
         if self.platform_dependant:
             typeinfo.cdef_type = self.item.name
 

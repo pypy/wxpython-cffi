@@ -99,8 +99,7 @@ class Method(FunctionBase):
 
         if self.cppcode:
             # If we have custom C++ code, call the wrapper for it
-            return code + ('{0.WRAPPER_PREFIX}{0.cname}{0.call_cpp_args};\n'
-                           .format(self))
+            return code + ('{0.wrapper_call_code};\n'.format(self))
 
         if self.protection != 'protected':
             code += 'self->'

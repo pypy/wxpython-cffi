@@ -360,6 +360,12 @@ class CppType(object):
     def convert_variable_c_to_py(self, typeinfo, name):
         pass
 
+    def user_cpp_param_inline(self, typeinfo, name):
+        return name
+
+    def user_cpp_return(self, typeinfo, name):
+        return name
+
     def __repr__(self):
         return "<%s: '%s'>" % (type(self).__name__, self.name)
 

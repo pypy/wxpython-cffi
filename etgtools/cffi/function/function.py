@@ -22,8 +22,7 @@ class Function(FunctionBase):
             code = '{0.type.cpp_type} cppreturnval = '.format(self)
 
         if self.cppcode:
-            code += ('{0.WRAPPER_PREFIX}{0.cname}{0.call_cpp_args};\n'
-                     .format(self))
+            code += ('{0.wrapper_call_code};\n'.format(self))
         else:
             code += '{0.name}{0.call_cpp_args};\n'.format(self)
         return code

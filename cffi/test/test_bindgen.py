@@ -75,6 +75,14 @@ class TestBindGen(object):
             name='custom_code_global_func', pyName='custom_code_global_func')
         f.setCppCode("return custom_code_global_func() - 1;")
         module.addItem(f)
+
+        f = FunctionDef(
+            type='double', argsString='(CtorsClass c, IntWrapper i)',
+            name='custom_code_global_func_wrappertypes', pyName='custom_code_global_func_wrappertypes',
+            items=ArgsString('(CtorsClass &c, IntWrapper i)'))
+        f.setCppCode("return c->get() + i->i;")
+        module.addItem(f)
+
         module.addItem(CppMethodDef(
             'short', 'global_cppmethod', '(short x, short y)',
             body="return (x * y)/(x + y);"))
@@ -1153,6 +1161,8 @@ class TestBindGen(object):
 
     def test_custom_code_func(self):
         assert self.mod.custom_code_global_func() == 1
+        assert self.mod.custom_code_global_func_wrappertypes(
+                self.mod.CtorsClass(10), 15) == 25
 
     def test_global_cppmethod(self):
         assert self.mod.global_cppmethod(4, 4) == 2

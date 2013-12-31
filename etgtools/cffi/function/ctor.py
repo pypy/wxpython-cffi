@@ -58,15 +58,22 @@ class CtorMethod(Method):
 
     @args_string
     def wrapper_args(self):
+        # Ctors don't have a `self` param to pass to the wrapper
         for param in self.params:
             if isinstance(param, SelfParam):
                 continue
-            if isinstance(param.type.type, WrappedType):
-                type = param.type.cpp_type.replace('&', '*')
-            else:
-                type = param.type.cpp_type
-            yield " ".join((type, param.name))
+            yield " ".join((getattr(param.type, self.wrapper_type_attr),
+                            param.name))
 
+    @args_string
+    def call_wrapper_args(self):
+        for param in self.params:
+            if isinstance(param, SelfParam):
+                continue
+            code = param.type.call_cpp_param_inline(param.name)
+            if not self.original_wrapper_types:
+                code = param.type.user_cpp_param_inline(code)
+            yield code
 
     def iscopyctor(self):
         # Note that self.params[0] is always a SelfParam
@@ -98,8 +105,7 @@ class CtorMethod(Method):
         code = '{0.type.cpp_type} cppreturnval = '.format(self)
         if self.cppcode:
             # If we have custom C++ code, call the wrapper for it
-            return (code + '{0.WRAPPER_PREFIX}{0.cname}{0.call_cpp_args};\n'
-                           .format(self))
+            return (code + '{0.wrapper_call_code};\n'.format(self))
         return code + 'new {0.parent.cppname}{0.call_cpp_args};\n'.format(self)
 
     def print_cdef_and_verify(self, pyfile):

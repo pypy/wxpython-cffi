@@ -193,6 +193,8 @@ class WrappedType(CppScope, CppType):
         typeinfo.c_virt_type = typeinfo.c_type
         typeinfo.cdef_virt_type = typeinfo.cdef_type
 
+        typeinfo.wrapper_type = typeinfo.cpp_type.strip('&*') + '*'
+
         typeinfo.default_placeholder = 'ffi.NULL'
 
     def print_cdef_and_verify(self, pyfile):
@@ -503,3 +505,17 @@ class WrappedType(CppScope, CppType):
         return 'wrapper_lib.obj_from_ptr(%s, %s)' % (
                 name, self.unscopedpyname)
 
+    def user_cpp_param_inline(self, typeinfo, name):
+        # Wrapped types are always handled as pointers. The various annotations
+        # don't affect this.
+        if typeinfo.ptrcount == 2:
+            return '*(' + name + ')'
+        if typeinfo.ptrcount == 1:
+            return name
+        return '&(' + name + ')'
+
+    def user_cpp_return(self, typeinfo, name):
+        # The user's C++ code should return a pointer, so deref as needed.
+        if typeinfo.ptrcount:
+            return name
+        return '*(' + name + ')'

@@ -2,6 +2,7 @@ from ..base import CppObject, ItemFlags, TypeInfo
 from ..basictype import VoidType
 
 from ..wrappedtype import WrappedType
+from ..mappedtype import MappedType
 
 from .. import utils
 from ..utils import nci
@@ -141,15 +142,18 @@ class OverloadManager(object):
         return len(self.functions) > 1
 
 class FunctionBase(CppObject):
-    WRAPPER_PREFIX = 'usercppwrapper_'
+    WRAPPER_NAME = 'WrappedUserCppCode::exec'
     def __init__(self, func, parent):
         super(FunctionBase, self).__init__(func, parent)
         self.func = func
         self.cname = self.PREFIX + self.cname
 
-        self.cppcode = getattr(func, 'cppCode', None)
-        if self.cppcode is not None:
-            self.cppcode = self.cppcode[0]
+        try:
+            self.cppcode = func.cppCode[0]
+            self.original_wrapper_types = func.cppCode[1] == 'original_types'
+        except (AttributeError, TypeError):
+            self.cppcode = None
+            self.original_wrapper_types = False
 
         # Flags for handling ownership transfering
         self.ownership_transfer_name = 'None'
@@ -204,14 +208,36 @@ class FunctionBase(CppObject):
             else:
                 yield param.name + '=wrapper_lib.default_arg_indicator'
 
+    @property
+    def wrapper_type_attr(self):
+        if self.original_wrapper_types:
+            return 'cpp_type'
+        else:
+            return 'wrapper_type'
+
+    @property
+    def wrapper_call_code(self):
+        call = '{0.WRAPPER_NAME}{0.call_wrapper_args}'.format(self)
+        if not self.original_wrapper_types:
+            call = self.type.user_cpp_return(call)
+        return call
+
     @args_string
     def wrapper_args(self):
         for param in self.params:
-            if isinstance(param.type.type, WrappedType):
-                type = param.type.cpp_type.replace('&', '*')
-            else:
-                type = param.type.cpp_type
-            yield " ".join((type, param.name))
+            yield " ".join((getattr(param.type, self.wrapper_type_attr),
+                            param.name))
+
+    @args_string
+    def call_wrapper_args(self):
+        for param in self.params:
+            code = param.type.call_cpp_param_inline(param.name)
+            if self.name == 'FFont':
+                print param.name, code
+                import pdb; pdb.set_trace()
+            if not self.original_wrapper_types:
+                code = param.type.user_cpp_param_inline(code)
+            yield code
 
     @args_string
     def call_cdef_args(self):
@@ -258,6 +284,7 @@ class FunctionBase(CppObject):
     @property
     def call_cpp_code(self):
         pass
+
 
     def has_default_args(self):
         return any(bool(p.default) for p in self.params)
@@ -367,12 +394,12 @@ class FunctionBase(CppObject):
 
 
     def print_cppcode(self, cppfile):
-        if self.cppcode:
-            self.print_wrapper(cppfile)
-
         cppfile.write(nci("""\
         WL_C_INTERNAL {0.type.c_type} {0.cname}{0.c_args}
         {{""".format(self)))
+
+        if self.cppcode:
+            self.print_wrapper(cppfile)
 
         for param in self.params:
             conversion = param.type.call_cpp_param_setup(param.name)
@@ -393,11 +420,17 @@ class FunctionBase(CppObject):
         cppfile.write('}\n\n')
 
     def print_wrapper(self, cppfile):
+        wrapper_type = getattr(self.type, self.wrapper_type_attr)
         cppfile.write(nci("""\
-        WL_INTERNAL {0.type.cpp_type} {0.WRAPPER_PREFIX}{0.cname}{0.wrapper_args}
-        {{""".format(self)))
+        struct WrappedUserCppCode
+        {{
+            inline static {1} exec{0.wrapper_args}
+            {{
+        """.format(self, wrapper_type), 4))
 
-        cppfile.write(nci(self.cppcode, 4))
+        cppfile.write(nci(self.cppcode, 12))
 
-        cppfile.write("}\n\n")
+        cppfile.write("""\
+        }
+    };\n""")
 

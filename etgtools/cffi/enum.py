@@ -21,6 +21,8 @@ class Enum(CppType):
     def build_typeinfo(self, typeinfo):
         self.type.build_typeinfo(typeinfo)
 
+        typeinfo.wrapper_type = typeinfo.wrapper_type.replace(
+            typeinfo.unscopedname, self.unscopedname)
         typeinfo.type = self
 
     def call_cdef_param_setup(self, typeinfo, name):

@@ -116,6 +116,8 @@ class BasicType(CppType):
             typeinfo.py_type = '(__builtin__.str, __builtin__.unicode)'
             typeinfo.default_placeholder = "''"
 
+        typeinfo.wrapper_type = typeinfo.cpp_type.strip('&*')
+
         typeinfo.default_placeholder = '0'
 
     def call_cdef_param_setup(self, typeinfo, name):
@@ -201,6 +203,16 @@ class BasicType(CppType):
 
         return "%s(%s)" % (BASIC_CTYPES[self.stripped_name], name)
 
+    def user_cpp_param_inline(self, typeinfo, name):
+        # Basic types are always handled as regular values.
+        deref = '*' * typeinfo.ptrcount
+        return deref + name
+
+    def user_cpp_return(self, typeinfo, name):
+        # We don't support return values of T* or T& basic types, so there's
+        # nothing special to do here.
+        return name
+
 class StringType(CppType):
     _cache = {}
     def __new__(cls, name):
@@ -250,6 +262,8 @@ class StringType(CppType):
         typeinfo.c_virt_type = typeinfo.c_type
         typeinfo.cdef_virt_type = typeinfo.cdef_type
 
+        typeinfo.wrapper_type = typeinfo.cpp_type
+
         typeinfo.default_placeholder = 'ffi.NULL'
 
     def call_cdef_param_inline(self, typeinfo, name):
@@ -272,6 +286,15 @@ class StringType(CppType):
 
     def convert_variable_c_to_py(self, typeinfo, name):
         return 'ffi.string(%s)' % name
+
+    def user_cpp_param_inline(self, typeinfo, name):
+        # String types are passed as pointers and we only support strings as
+        # pointers.
+        return name
+
+    def user_cpp_return(self, typeinfo, name):
+        # See above.
+        return name
 
 class VoidPtrType(CppType):
     def __new__(cls):
@@ -302,10 +325,20 @@ class VoidPtrType(CppType):
         # This simplifies some code in other places.
         typeinfo.ptrcount = 0
 
+        typeinfo.wrapper_type = 'void*'
+
     def convert_variable_cpp_to_c(self, typeinfo, name):
         return name
 
     def convert_variable_c_to_py(self, typeinfo, name):
+        return name
+
+    def user_cpp_param_inline(self, typeinfo, name):
+        # Void pointers are by there nature opaque.
+        return name
+
+    def user_cpp_return(self, typeinfo, name):
+        # See above.
         return name
 
 class VoidType(CppType):
@@ -327,6 +360,8 @@ class VoidType(CppType):
         typeinfo.cdef_virt_type = typeinfo.cdef_type
         typeinfo.c_virt_return_type = typeinfo.c_type
         typeinfo.cdef_virt_return_type = typeinfo.cdef_type
+
+        typeinfo.wrapper_type = 'void'
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         return name

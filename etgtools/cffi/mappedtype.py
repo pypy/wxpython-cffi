@@ -60,6 +60,8 @@ class MappedType(CppType):
         typeinfo.c_virt_type = typeinfo.c_type
         typeinfo.cdef_virt_type = typeinfo.cdef_type
 
+        typeinfo.wrapper_type = typeinfo.cpp_type.strip('*&') + '*'
+
         typeinfo.default_placeholder = self.default_placeholder
 
     def print_pycode(self, pyfile, indent=0):
@@ -246,3 +248,18 @@ class MappedType(CppType):
         if typeinfo.flags.out or typeinfo.flags.inout:
             name = name + typeinfo.OUT_PARAM_SUFFIX + '[0]'
         return '%s.to_py(%s)' % (self.unscopedpyname, name)
+
+    def user_cpp_param_inline(self, typeinfo, name):
+        # Mapped types are always handled as pointers. The various annotations
+        # don't affect this.
+        if typeinfo.ptrcount == 2:
+            return '*(' + name + ')'
+        if typeinfo.ptrcount == 1:
+            return name
+        return '&(' + name + ')'
+
+    def user_cpp_return(self, typeinfo, name):
+        # The user's C++ code should return a pointer, so deref as needed.
+        if typeinfo.ptrcount:
+            return name
+        return '*(' + name + ')'

@@ -13,23 +13,11 @@ def cpp_method(cls):
         CppMethodDefs are always specified with an empty parameter list. So
         that they may be treated like regular FunctionDefs where ever possible,
         this method will disassemble their args string into a list of Params.
-        Based heavily on extractors.FunctionDef.makePyArgsString
         """
-        params = []
-        args = self.func.argsString.rsplit(')')[0].strip('(').split(',')
-        for arg in args:
-            if not arg:
-                continue
-            param = extractors.ParamDef()
-            # Is there a default value?
-            if '=' in arg:
-                param.default = arg.split('=')[1].strip()
-                arg = arg.split('=')[0].strip()
-            # Now the last word should be the variable name, and everything
-            # before it is the type
-            param.type, param.name = arg.rsplit(' ', 1)
-            self.params.append(Param(param, self.parent))
-            self.params[-1].setup()
+        for p in extractors.ArgsString(self.func.argsString):
+            param = Param(p, self.parent)
+            self.params.append(param)
+            param.setup()
     cls.extract_params = extract_params
 
     def __init__(self, meth, parent):

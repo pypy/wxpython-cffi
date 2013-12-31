@@ -14,13 +14,13 @@ class MemberVariable(CppObject):
     def __init__(self, item, parent):
         getter = extractors.MethodDef(
             type=item.type, name='_mvargetter_' + item.pyName,
-            cppCode=('return self->%s;' % item.name, 'function'))
+            cppCode=('return self->%s;' % item.name, 'original_types'))
         getter.generate(parent)
 
         setter = extractors.MethodDef(
             type='void', name='_mvarsetter_' + item.pyName,
             items=[extractors.ParamDef(type=item.type, name='value')],
-            cppCode=('self->%s = value;' % item.name, 'function'))
+            cppCode=('self->%s = value;' % item.name, 'original_types'))
         setter.generate(parent)
 
         super(MemberVariable, self).__init__(item, parent)
