@@ -9,9 +9,9 @@ typedef int IntAlias;
 extern const char *global_str;
 extern const char *other_global_str;
 
+
 int simple_global_func();
 float global_func_with_args(int i, double j);
-int global_func_with_default(const char *str);
 double custom_code_global_func();
 
 int overloaded_func();
@@ -49,6 +49,8 @@ struct IntWrapper
     IntWrapper(int i_=0) : i(i_) { }
     int i;
 };
+
+int global_func_with_default(const char *str, const IntWrapper &i);
 
 class VMethClass
 {

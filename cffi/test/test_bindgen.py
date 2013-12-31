@@ -68,8 +68,9 @@ class TestBindGen(object):
         module.addItem(FunctionDef(
             type='int', argsString='(const char *s)',
             name='global_func_with_default', pyName='global_func_with_default',
-            items=[ParamDef(type='const char *', name='s',
-                           default='other_global_str')]))
+            items=ArgsString('(const char * s = other_global_str, '
+                              'const IntWrapper &i = IntWrapper(10))')))
+
         f = FunctionDef(
             type='double', argsString='()',
             name='custom_code_global_func', pyName='custom_code_global_func')
@@ -838,7 +839,8 @@ class TestBindGen(object):
             cpp2c="return cpp_obj->i;",
             instanceCheck="""\
             import numbers
-            return isinstance(py_obj, numbers.Number)"""))
+            return isinstance(py_obj, numbers.Number)""",
+            placeHolder='0'))
 
         module.addItem(FunctionDef(
             type='int', argsString='(string *str)', name='std_string_len',
@@ -1180,8 +1182,10 @@ class TestBindGen(object):
         assert self.mod.global_func_with_args(14, .25) == (14 * .25)
 
     def test_global_func_with_default(self):
-        assert self.mod.global_func_with_default() == 5
-        assert self.mod.global_func_with_default('test') == 4
+        assert self.mod.global_func_with_default() == 15
+        assert self.mod.global_func_with_default('test') == 14
+        assert self.mod.global_func_with_default('test', 9) == 13
+        assert self.mod.global_func_with_default(i=9) == 14
 
     def test_method_with_default(self):
         obj = self.mod.DefaultsClass()

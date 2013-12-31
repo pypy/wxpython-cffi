@@ -17,9 +17,9 @@ float global_func_with_args(int i, double j)
     return i * j;
 }
 
-int global_func_with_default(const char *str)
+int global_func_with_default(const char *str, const IntWrapper &i)
 {
-    return strlen(str);
+    return strlen(str) + i.i;
 }
 
 double custom_code_global_func()

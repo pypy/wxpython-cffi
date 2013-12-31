@@ -148,9 +148,8 @@ class MappedType(CppType):
 
     def call_cpp_param_inline(self, typeinfo, name):
         if typeinfo.flags.hasdefault:
-            # Out params, clearly, don't have defaults
-            deref = '*' if typeinfo.flags.inout else ''
-            return '({0}_converted = {1.to_cpp_name}({2}{0}))'.format(
+            deref = '*' if not typeinfo.ptrcount else ''
+            return '{2}({0}_converted = {1.to_cpp_name}({0}))'.format(
                 name, self, deref)
 
         name += '_converted'
