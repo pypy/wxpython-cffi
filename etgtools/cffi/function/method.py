@@ -166,10 +166,17 @@ class Method(FunctionBase):
             if conversion is not None:
                 cppfile.write(nci(conversion, 8))
 
+        # This is a workaround for a bug present in clang through at least 3.3
+        cppfile.write(nci("""\
+        {0.cname}_funcptr python_virtual_handler =
+            ({0.cname}_funcptr){0.parent.cname}_vtable[{0.vtable_index}];
+        """.format(self), 8))
+
         cppfile.write(' ' * 8)
         if not isinstance(self.type.type, VoidType):
             cppfile.write('{0.type.c_virt_return_type} cppreturnval = '.format(self))
-        cppfile.write('(({0.cname}_funcptr){0.parent.cname}_vtable[{0.vtable_index}]){0.call_virtual_cpp_args};\n'.format(self))
+        cppfile.write('python_virtual_handler{0.call_virtual_cpp_args};\n'
+                      .format(self))
 
         for param in self.params:
             conversion = param.type.virt_cpp_param_cleanup(param.name)

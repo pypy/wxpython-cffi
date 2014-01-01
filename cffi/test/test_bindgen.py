@@ -283,7 +283,25 @@ class TestBindGen(object):
             type='const ReturnWrapperClass &',
             argsString='()', noCopy=True,
             name='self_by_nocopy_cref', pyName='self_by_nocopy_cref'))
+        module.addItem(c)
 
+        c = ClassDef(name='PrivateCCtorReturnWrapperClass')
+        c.addMethod(
+            type='', argsString='(int i)',
+            name='PrivateCCtorReturnWrapperClass', isCtor=True,
+            items=ArgsString('(int i)'))
+        c.addPrivateCopyCtor()
+        c.addItem(MethodDef(
+            type='const PrivateCCtorReturnWrapperClass &',
+            argsString='()',
+            name='self_by_cref', pyName='self_by_cref'))
+        c.addMethod(
+            type='const PrivateCCtorReturnWrapperClass &', argsString='(int i)',
+            name='new_by_cref', pyName='new_by_cref', isStatic=True,
+            items=ArgsString('(int i)'))
+        c.addMethod(
+            type='int', argsString='()',
+            name='get', pyName='get')
         module.addItem(c)
 
         c = ClassDef(name='VDtorClass')
@@ -763,6 +781,29 @@ class TestBindGen(object):
             ]))
         module.addItem(c)
 
+        c = ClassDef(name='VirtualParametersOwnershipClass')
+        c.addMethod(
+            'void', 'by_value', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(CtorsClass i)')) 
+        c.addMethod(
+            'void', 'by_ptr', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(CtorsClass *i)')) 
+        c.addMethod(
+            'void', 'by_ref', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(CtorsClass &i)')) 
+        c.addMethod(
+            'void', 'by_cref', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(const CtorsClass &i)')) 
+        c.addMethod(
+            'void', 'by_cref_private_cctor', '', isVirtual=True,
+            items=ArgsString('(const PrivateCopyCtorClass &i)')) 
+        c.addMethod('void', 'call_by_value', '', items=ArgsString('()')) 
+        c.addMethod('void', 'call_by_ptr', '', items=ArgsString('()')) 
+        c.addMethod('void', 'call_by_ref', '', items=ArgsString('()')) 
+        c.addMethod('void', 'call_by_cref', '', items=ArgsString('()')) 
+        c.addMethod('void', 'call_by_cref_private_cctor', '')
+        module.addItem(c)
+
         c = ClassDef(name="DeprecatedClass", deprecated=True)
         c.addItem(MethodDef(
             type='void', argsString='()', name='deprecated_method'))
@@ -1160,6 +1201,7 @@ class TestBindGen(object):
             # Use distutis via cffi to build the cpp code
             cls.gen.write_files(
                 name, py_file, user_py_file, cpp_file, h_file, verify_args)
+        #import pytest; pytest.set_trace()
 
         return user_py_path.pyimport()
 
@@ -1399,6 +1441,17 @@ class TestBindGen(object):
         assert obj._py_owned
         assert from_value._py_owned
         assert from_cref._py_owned
+
+
+        from_cref = self.mod.PrivateCCtorReturnWrapperClass.new_by_cref(5)
+        assert from_cref.get() == 5
+        assert not from_cref._py_owned
+
+        obj = self.mod.PrivateCCtorReturnWrapperClass(5)
+        self.mod.wrapper_lib.give_ownership(obj)
+
+        from_cref = obj.self_by_cref()
+        assert obj is from_cref
 
     def test_membervar(self):
         obj = self.mod.MemberVarClass(5)
@@ -1997,6 +2050,41 @@ class TestBindGen(object):
         del obj
         gc.collect()
         assert wr() is not None
+
+    def test_virtual_parameters_ownership(self):
+        obj_from_virtual = [None]
+        class Subclass(self.mod.VirtualParametersOwnershipClass):
+            def by_value(self, obj):
+                obj_from_virtual[0] = obj
+            def by_ptr(self, obj):
+                obj_from_virtual[0] = obj
+            def by_ref(self, obj):
+                obj_from_virtual[0] = obj
+            def by_cref(self, obj):
+                obj_from_virtual[0] = obj
+            def by_cref_private_cctor(self, obj):
+                obj_from_virtual[0] = obj
+
+        obj = Subclass()
+
+        obj.call_by_value()
+        assert obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_ptr()
+        assert not obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_ref()
+        assert not obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_cref()
+        assert obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_cref_private_cctor()
+        assert not obj_from_virtual[0]._py_owned
 
     def test_deprecated(self):
         obj = pytest.deprecated_call(self.mod.DeprecatedClass)

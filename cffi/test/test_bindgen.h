@@ -183,6 +183,26 @@ private:
 
 };
 
+class PrivateCCtorReturnWrapperClass
+{
+public:
+    PrivateCCtorReturnWrapperClass(int i) : m_i(i) {};
+
+    static const PrivateCCtorReturnWrapperClass& new_by_cref(int i);
+
+    const PrivateCCtorReturnWrapperClass& self_by_cref();
+
+    int get()
+    {
+        return m_i;
+    }
+
+private:
+    PrivateCCtorReturnWrapperClass(const ReturnWrapperClass&);
+
+    int m_i;
+};
+
 class MemberVarClass
 {
 public:
@@ -499,6 +519,24 @@ public:
     FactoryClass * make_transfer_this(FactoryClass *ref);
 
     FactoryClass * call_make();
+};
+
+class VirtualParametersOwnershipClass
+{
+public:
+    virtual ~VirtualParametersOwnershipClass() { }
+    virtual void by_value(CtorsClass v) { }
+    virtual void by_ptr(CtorsClass *v) { }
+    virtual void by_ref(CtorsClass &v) { }
+    virtual void by_cref(const CtorsClass &v) { }
+    virtual void by_cref_private_cctor(const PrivateCopyCtorClass &v) { }
+
+    void call_by_value();
+    void call_by_ptr();
+    void call_by_ref();
+    void call_by_cref();
+    void call_by_cref_private_cctor();
+
 };
 
 class DeprecatedClass

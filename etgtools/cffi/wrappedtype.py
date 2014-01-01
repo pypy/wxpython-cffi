@@ -404,8 +404,10 @@ class WrappedType(CppScope, CppType):
                     .format(name, typeinfo.ARRAY_SIZE_PARAM, self.unscopedpyname))
 
         takeownership = ''
-        if not (typeinfo.refcount or typeinfo.ptrcount) or (not typeinfo.flags.nocopy and
-           typeinfo.refcount and typeinfo.const):
+        if (self.copy_ctor_visibility != 'private' and
+            not self.uninstantiable) and (
+             typeinfo.const and not typeinfo.flags.nocopy or
+             not typeinfo.refcount and not typeinfo.ptrcount):
             takeownership = ', True'
         return ('{0}_tmpobj = wrapper_lib.obj_from_ptr({0}, {1}{2})'
                 .format(name, self.unscopedpyname, takeownership))
@@ -484,8 +486,10 @@ class WrappedType(CppScope, CppType):
         # Always pass wrapped classes as pointers. If this is by value or
         # a const reference, it needs to be copy constructored onto the
         # heap, with Python taking ownership of the new object.
-        if (not (typeinfo.refcount or typeinfo.ptrcount) or typeinfo.const and
-            not typeinfo.flags.nocopy and not self.uninstantiable):
+        if (self.copy_ctor_visibility != 'private' and
+            not self.uninstantiable) and (
+             typeinfo.const and not typeinfo.flags.nocopy or
+             not typeinfo.refcount and not typeinfo.ptrcount):
             # If returning a const object (and nocopy isn't set) make a copy of
             # the object (that Python will own) so it can be modified safely
             deref = '*' if typeinfo.ptrcount else ''
@@ -498,9 +502,10 @@ class WrappedType(CppScope, CppType):
         if typeinfo.flags.out or typeinfo.flags.inout:
             return 'wrapper_lib.obj_from_ptr(%s%s[0], %s)' % (
                     name, typeinfo.OUT_PARAM_SUFFIX, self.unscopedpyname)
-        if (not (typeinfo.refcount or typeinfo.ptrcount) or
-            (not typeinfo.flags.nocopy and typeinfo.refcount and
-             typeinfo.const)):
+        if (self.copy_ctor_visibility != 'private' and
+            not self.uninstantiable) and (
+             typeinfo.const and not typeinfo.flags.nocopy or
+             not typeinfo.refcount and not typeinfo.ptrcount):
             return 'wrapper_lib.obj_from_ptr(%s, %s, True)' % (
                     name, self.unscopedpyname)
         return 'wrapper_lib.obj_from_ptr(%s, %s)' % (

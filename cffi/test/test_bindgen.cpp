@@ -213,6 +213,16 @@ const ReturnWrapperClass& ReturnWrapperClass::self_by_nocopy_cref()
     return *this;
 }
 
+const PrivateCCtorReturnWrapperClass& PrivateCCtorReturnWrapperClass::new_by_cref(int i)
+{
+    return *(new PrivateCCtorReturnWrapperClass(i));
+}
+
+const PrivateCCtorReturnWrapperClass& PrivateCCtorReturnWrapperClass::self_by_cref()
+{
+    return *this;
+}
+
 int ReturnWrapperClass::get()
 {
     return m_i;
@@ -623,6 +633,39 @@ FactoryClass * FactoryClass::call_make()
 {
     return make();
 }
+
+void VirtualParametersOwnershipClass::call_by_value()
+{
+    by_value(CtorsClass(1));
+}
+
+void VirtualParametersOwnershipClass::call_by_ptr()
+{
+    by_ptr(new CtorsClass(2));
+}
+
+void VirtualParametersOwnershipClass::call_by_ref()
+{
+    by_ref(*(new CtorsClass(3)));
+}
+
+void VirtualParametersOwnershipClass::call_by_cref()
+{
+    by_cref(CtorsClass(4));
+}
+
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wbind-to-temporary-copy"
+#endif
+void VirtualParametersOwnershipClass::call_by_cref_private_cctor()
+{
+    by_cref_private_cctor(PrivateCopyCtorClass());
+}
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
+
 
 void deprecated_func() { }
 
