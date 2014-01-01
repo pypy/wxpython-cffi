@@ -83,7 +83,8 @@ class WrappedType(CppScope, CppType):
         self.pickup_base_virtuals()
         self.purevirtualabstract = any(m.purevirtual for m in self.virtualmethods)
 
-        if len(self.virtualmethods) > 0 or len(self.protectedmethods) > 0:
+        if not self.uninstantiable and (len(self.virtualmethods) > 0 or
+                                        len(self.protectedmethods) > 0):
             self.cppname = 'cfficlass' + self.cname
             self.hassubclass = True
         else:
