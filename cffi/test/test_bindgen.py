@@ -1201,7 +1201,6 @@ class TestBindGen(object):
             # Use distutis via cffi to build the cpp code
             cls.gen.write_files(
                 name, py_file, user_py_file, cpp_file, h_file, verify_args)
-        #import pytest; pytest.set_trace()
 
         return user_py_path.pyimport()
 

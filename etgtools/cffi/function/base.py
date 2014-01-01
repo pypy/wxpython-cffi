@@ -250,8 +250,8 @@ class FunctionBase(CppObject):
             if isinstance(param, SelfParam) and not self.cppcode:
                 continue
             if param.default:
-                yield 'defaults_bitflags & %d ? %s : %s' % (
-                    default_count, param.default,
+                yield 'defaults_bitflags & %d ? (%s)(%s) : %s' % (
+                    default_count, param.type.cpp_type, param.default,
                     param.type.call_cpp_param_inline(param.name))
                 default_count <<= 1
             else:
