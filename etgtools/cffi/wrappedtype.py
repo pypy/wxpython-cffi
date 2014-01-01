@@ -386,7 +386,7 @@ class WrappedType(CppScope, CppType):
                 return '*' + name
             else:
                 return name
-        deref = not typeinfo.ptrcount and typeinfo.refcount
+        deref = not typeinfo.ptrcount
         return ('*' if deref else '') + name
 
     def call_cpp_param_cleanup(self, typeinfo, name):
