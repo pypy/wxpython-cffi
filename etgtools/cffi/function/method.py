@@ -137,10 +137,11 @@ class Method(FunctionBase):
         # Create a typedef that will be used to cast the pointer from the
         # vtable. A typedef is necessary because it is the only way to cast a
         # function pointer to be `extern "C"`.
+        const_stmt = ' const' if self.const else ''
         cppfile.write(nci("""\
         extern "C" typedef {0.type.c_virt_return_type} (*{0.cname}_funcptr){0.c_virt_args};
-        {0.type.cpp_type} {0.parent.cppname}::{0.name}{0.cpp_args}
-        {{""".format(self)))
+        {0.type.cpp_type} {0.parent.cppname}::{0.name}{0.cpp_args}{1}
+        {{""".format(self, const_stmt)))
 
         if not self.purevirtual:
             returns = not isinstance(self.type.type, VoidType)

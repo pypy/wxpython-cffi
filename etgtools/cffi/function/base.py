@@ -69,7 +69,10 @@ class SelfParam(Param):
         self.name = 'self'
         self.default = ''
         self.flags = method.parent.flags
-        self.type = TypeInfo(method.parent.parent, method.parent.name + '*', self.flags)
+
+        typename = (('const ' if method.const else '') +
+                    method.parent.unscopedname + '*')
+        self.type = TypeInfo(method.parent.parent, typename, self.flags)
 
         assert isinstance(self.type.type, WrappedType)
 
