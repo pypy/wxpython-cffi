@@ -464,8 +464,8 @@ class WrappedType(CppScope, CppType):
         # heap, with Python taking ownership of the new object.
         if typeinfo.ptrcount:
             return name
-        elif typeinfo.refcount and (not typeinfo.const or typeinfo.flags.nocopy or
-                             not self.uninstantiable):# or
+        elif (self.uninstantiable or typeinfo.refcount and
+              (not typeinfo.const or typeinfo.flags.nocopy)):
             return '&' + name
         else:
             return "new %s(%s)" % (self.cppname, name)

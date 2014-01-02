@@ -167,7 +167,7 @@ class MemberCppMethod_cffi(Method):
         cppfile.write(nci(self.user_c_code))
         cppfile.write("}\n")
 
-        if self.virtual:
+        if self.virtual and not self.parent.uninstantiable:
             self.print_virtual_cppcode(cppfile)
 
     def print_virtual_cppcode_body(self, cppfile):

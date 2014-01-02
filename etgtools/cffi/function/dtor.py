@@ -45,7 +45,7 @@ class DtorMethod(Method):
             delete self;
         }}""".format(self)))
 
-        if self.virtual:
+        if self.virtual and not self.parent.uninstantiable:
             self.print_virtual_cppcode(cppfile)
 
     def print_virtual_cppcode(self, cppfile):

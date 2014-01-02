@@ -118,7 +118,7 @@ class Method(FunctionBase):
             return
         super(Method, self).print_cppcode(cppfile)
 
-        if self.virtual:
+        if self.virtual and not self.parent.uninstantiable:
             self.print_virtual_cppcode(cppfile)
 
     def print_headercode(self, hfile):
