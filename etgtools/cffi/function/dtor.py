@@ -57,19 +57,11 @@ class DtorMethod(Method):
         }}""".format(self)))
 
     @staticmethod
-    def new_std_dtor(cls):
-        dtor = MethodDef(name='~' + cls.name, isDtor=True)
+    def new_std_dtor(cls, virtual=False, protection='public'):
+        dtor = MethodDef(type='void', name='~' + cls.name, isDtor=True,
+                         isVirtual=virtual, protection=protection)
         dtor.generate(cls).setup()
 
     def copy_onto_subclass(self, cls):
         if not any(isinstance(m, DtorMethod) for m in cls.objects):
-            InheritedVirtualDtorMethod(self, cls)
-
-class InheritedVirtualDtorMethod(InheritedVirtualMethodMixin, DtorMethod):
-    def print_pycode(self, pyfile, indent):
-        # Dtors have significantly simpler pycode than regular methods.
-        # Its safe to reuse the original __del__ code (and thus the original C
-        # code) because it is known for sure that the Dtor for the base class
-        # is virtual.
-        DtorMethod.print_pycode(self, pyfile, indent)
-
+            self.new_std_dtor(cls, self.virtual, self.protection)
