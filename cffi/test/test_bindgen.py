@@ -321,6 +321,10 @@ class TestBindGen(object):
         c = ClassDef(name='VDtorSubSubclass', bases=['VDtorSubclass'])
         module.addItem(c)
 
+        c = ClassDef(name='PDtorClass')
+        c.addDtor('private')
+        module.addItem(c)
+
         c = ClassDef(name='MemberVarClass')
         c.addItem(MethodDef(
             type='', argsString='(int i)',

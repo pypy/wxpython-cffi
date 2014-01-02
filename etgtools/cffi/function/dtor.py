@@ -39,11 +39,15 @@ class DtorMethod(Method):
             """.format(self), indent))
 
     def print_cppcode(self, cppfile):
+        del_stmt = "delete self"
+        if self.protection == 'private':
+            del_stmt = ''
+
         cppfile.write(nci("""\
         WL_C_INTERNAL void {0.cname}({0.parent.cppname} *self)
         {{
-            delete self;
-        }}""".format(self)))
+            {1};
+        }}""".format(self, del_stmt)))
 
         if self.virtual and not self.parent.uninstantiable:
             self.print_virtual_cppcode(cppfile)

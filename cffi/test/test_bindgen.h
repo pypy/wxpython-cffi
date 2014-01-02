@@ -105,6 +105,12 @@ class VDtorSubclass : public VDtorClass
 class VDtorSubSubclass : public VDtorSubclass
 {};
 
+class PDtorClass
+{
+private:
+    ~PDtorClass() { };
+};
+
 class PVMethClass
 {
 protected:
