@@ -464,11 +464,13 @@ class WrappedType(CppScope, CppType):
         # heap, with Python taking ownership of the new object.
         if typeinfo.ptrcount:
             return name
-        elif (self.uninstantiable or typeinfo.refcount and
-              (not typeinfo.const or typeinfo.flags.nocopy)):
-            return '&' + name
-        else:
+        elif (self.copy_ctor_visibility != 'private' and
+              not self.uninstantiable) and (
+              typeinfo.const and not typeinfo.flags.nocopy or
+             not typeinfo.refcount and not typeinfo.ptrcount):
             return "new %s(%s)" % (self.cppname, name)
+        else:
+            return '&' + name
 
 
     def virt_cpp_param_cleanup(self, typeinfo, name):
