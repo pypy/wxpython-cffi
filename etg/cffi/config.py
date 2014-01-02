@@ -18,9 +18,3 @@ def run(module):
 
     c.find('GetNextEntry.str').out = True
     c.find('GetNextEntry.index').inOut = True
-
-    # Fix these defaults so they can be computed from within Python
-    c = module.find('wxConfig')
-    c.find('wxConfig.style').default = "CONFIG_USE_LOCAL_FILE | CONFIG_USE_GLOBAL_FILE"
-    c = module.find('wxFileConfig')
-    c.find('wxFileConfig.style').default = "CONFIG_USE_LOCAL_FILE | CONFIG_USE_GLOBAL_FILE"
