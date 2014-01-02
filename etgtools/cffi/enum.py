@@ -68,7 +68,8 @@ class Enum(CppType):
         return self.type.virt_cpp_param_cleanup(typeinfo, name)
 
     def virt_cpp_return(self, typeinfo, name):
-        return self.type.virt_cpp_return(typeinfo, name)
+        cast = '(' + self.unscopedname + ')'
+        return cast + self.type.virt_cpp_return(typeinfo, name)
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         return self.type.convert_variable_cpp_to_c(typeinfo, name)

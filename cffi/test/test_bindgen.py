@@ -439,7 +439,8 @@ class TestBindGen(object):
             EnumValueDef(name='BOOL_FALSE')]))
         c.addItem(MethodDef(
             type='BOOLEAN', name='flip', argsString='(BOOLEAN b)',
-            items=[ParamDef(type='BOOLEAN', name='b')]))
+            isVirtual=True, items=[ParamDef(type='BOOLEAN', name='b')]))
+        c.addMethod('', '~ClassWithEnum', '', isDtor=True, isVirtual=True)
         module.addItem(c)
 
         c = ClassDef(name='PyIntClass')
