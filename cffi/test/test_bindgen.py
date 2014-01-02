@@ -403,6 +403,13 @@ class TestBindGen(object):
         )
         module.addItem(c)
 
+        c = ClassDef(name='InheritedDefaultsClass', bases=['DefaultsClass'])
+        c.addMethod(
+            'int', 'inherited_defaults_method', '(DefaultsEnum i = Defaults_A)',
+            items=ArgsString('(DefaultsEnum i = Defaults_A)'),
+        )
+        module.addItem(c)
+
         c = ClassDef(name='OperatorsClass')
         c.addItem(MethodDef(
             type='', argsString='(int x, int y)',

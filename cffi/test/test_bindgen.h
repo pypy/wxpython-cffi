@@ -287,6 +287,15 @@ public:
     }
 };
 
+class InheritedDefaultsClass : public DefaultsClass
+{
+public:
+    int inherited_defaults_method(DefaultsEnum f = Defaults_A)
+    {
+        return f;
+    }
+};
+
 class OperatorsClass
 {
 public:

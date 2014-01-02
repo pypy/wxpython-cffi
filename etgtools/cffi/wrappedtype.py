@@ -144,6 +144,38 @@ class WrappedType(CppScope, CppType):
                     for m in vmeth.overload_manager.functions:
                         m.copy_onto_subclass(self)
 
+    def getobject(self, name, search_parents=True):
+        obj = None
+
+        # Check if the object is declared in this scope directly
+        if name in self.objectscache:
+            return self.objectscache[name]
+
+        # Check if it is in one of the scopes nested in this one
+        if '::' in name and obj is None:
+            scope, splitname = name.split('::', 1)
+            if scope in self.subscopescache:
+                obj = self.subscopescache[scope].getobject(splitname)
+
+        # Search bases classes, but not their parent scopes
+        for base in self.bases:
+            obj = base.getobject(name, False)
+            if obj is not None:
+                return obj
+
+        # When looking up items in a base class we don't want items from that
+        # clases's parent scopes (the base maybe in a different namespace.)
+        if search_parents:
+            # Check if it is in the parent's scope
+            if self.parent is not None and obj is None:
+                obj = self.parent.getobject(name)
+
+        # Add the (full) name to this scope's list so future looks will be
+        # faster (most objects are referenced either many times or none)
+        self.objectscache[name] = obj
+
+        return obj
+
     def gettype(self, name):
         type = super(WrappedType, self).gettype(name)
         if type is not None:

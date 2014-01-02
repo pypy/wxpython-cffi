@@ -192,7 +192,7 @@ class CppScope(object):
 
         # Check if the object is declared in this scope directly
         if name in self.objectscache:
-            obj = self.objectscache[name]
+            return self.objectscache[name]
 
         # Check if it is in one of the scopes nested in this one
         if '::' in name and obj is None:
@@ -215,7 +215,7 @@ class CppScope(object):
 
         # Check if the type is declared in this scope directly
         if name in self.typescache:
-            type = self.typescache[name]
+            return self.typescache[name]
 
         # Check if it is in one of the scopes nested in this one
         if '::' in name and type is None:
