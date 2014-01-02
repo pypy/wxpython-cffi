@@ -83,8 +83,8 @@ class WrappedType(CppScope, CppType):
         self.pickup_base_virtuals()
         self.purevirtualabstract = any(m.purevirtual for m in self.virtualmethods)
 
-        if not self.uninstantiable and (len(self.virtualmethods) > 0 or
-                                        len(self.protectedmethods) > 0):
+        if len(self.protectedmethods) > 0 or (not self.uninstantiable and
+                                             len(self.virtualmethods) > 0):
             self.cppname = 'cfficlass' + self.cname
             self.hassubclass = True
         else:
@@ -289,7 +289,8 @@ class WrappedType(CppScope, CppType):
     def print_headercode(self, hfile):
         for inc in self.included_headers:
             hfile.write("#include <%s>\n" % inc)
-        if not self.hassubclass or self.uninstantiable:
+
+        if not self.hassubclass:
             return
 
         hfile.write(nci("""\
