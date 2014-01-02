@@ -293,9 +293,10 @@ public:
     int x, y;
 
     OperatorsClass(int x_, int y_) : x(x_), y(y_) {};
-    OperatorsClass& operator+=(const OperatorsClass &rhs);
-    OperatorsClass& operator-=(const OperatorsClass &rhs);
+    OperatorsClass& operator+=(OperatorsClass &rhs);
+    OperatorsClass operator-();
 };
+OperatorsClass& operator-=(OperatorsClass &lhs, OperatorsClass &rhs);
 
 class PyIntClass
 {

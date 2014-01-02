@@ -410,13 +410,14 @@ class TestBindGen(object):
                 ParamDef(type='int', name='x'),
                 ParamDef(type='int', name='y')]))
         c.addItem(MethodDef(
-            type='OperatorsClass &', argsString='(const OperatorsClass &rhs)',
+            type='OperatorsClass &', argsString='(OperatorsClass &rhs)',
             name='operator+=', items=[
-                ParamDef(type='const OperatorsClass &', name='rhs')]))
+                ParamDef(type='OperatorsClass &', name='rhs')]))
         c.addItem(MethodDef(
-            type='OperatorsClass &', argsString='(const OperatorsClass &rhs)',
+            type='OperatorsClass &', argsString='(OperatorsClass &rhs)',
             name='operator-=', items=[
-                ParamDef(type='const OperatorsClass &', name='rhs')]))
+                ParamDef(type='OperatorsClass &', name='rhs')]))
+        c.addMethod('OperatorsClass', 'operator-', '')
         c.addItem(MemberVarDef(name='x', type='int'))
         c.addItem(MemberVarDef(name='y', type='int'))
         module.addItem(c)
@@ -1519,6 +1520,10 @@ class TestBindGen(object):
         obj -= self.mod.OperatorsClass(20, 3)
         assert obj.x == -8
         assert obj.y == 8
+
+        obj = -self.mod.OperatorsClass(9, 8)
+        assert obj.x == -9
+        assert obj.y == -8
 
     def test_pyint(self):
         obj = self.mod.PyIntClass()

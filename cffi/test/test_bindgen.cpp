@@ -278,18 +278,23 @@ int NestedClassArgDependant::get(const NestedClassesOuter::NestedClassesInner &i
     return i.m_i;
 }
 
-OperatorsClass& OperatorsClass::operator+=(const OperatorsClass &rhs)
+OperatorsClass& OperatorsClass::operator+=(OperatorsClass &rhs)
 {
     x += rhs.x;
     y += rhs.y;
     return *this;
 }
 
-OperatorsClass& OperatorsClass::operator-=(const OperatorsClass &rhs)
+OperatorsClass OperatorsClass::operator-()
 {
-    x -= rhs.x;
-    y -= rhs.y;
-    return *this;
+    return OperatorsClass(-x, -y);
+}
+
+OperatorsClass& operator-=(OperatorsClass &lhs, OperatorsClass &rhs)
+{
+    lhs.x -= rhs.x;
+    lhs.y -= rhs.y;
+    return lhs;
 }
 
 int ArrayClass::sum(ArrayClass *objs, int len)

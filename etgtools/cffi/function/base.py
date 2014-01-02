@@ -70,9 +70,12 @@ class SelfParam(Param):
         self.default = ''
         self.flags = method.parent.flags
 
-        typename = (('const ' if method.const else '') +
-                    method.parent.unscopedname + '*')
-        self.type = TypeInfo(method.parent.parent, typename, self.flags)
+        self.method = method
+
+    def setup(self):
+        typename = (('const ' if self.method.const else '') +
+                    self.method.parent.unscopedname + '*')
+        self.type = TypeInfo(self.method.parent.parent, typename, self.flags)
 
         assert isinstance(self.type.type, WrappedType)
 
@@ -151,6 +154,8 @@ class FunctionBase(CppObject):
         self.func = func
         self.cname = self.PREFIX + self.cname
 
+        self.params = [Param(p, self.parent) for p in self.item.items]
+
         try:
             self.cppcode = func.cppCode[0]
             self.original_wrapper_types = func.cppCode[1] == 'original_types'
@@ -172,7 +177,6 @@ class FunctionBase(CppObject):
             o.generate(parent)
 
     def setup(self):
-        self.params = [Param(p, self.parent) for p in self.item.items]
         self.type = TypeInfo(self.parent, self.item.type, self.flags)
 
         self.overload_manager = OverloadManager(self)

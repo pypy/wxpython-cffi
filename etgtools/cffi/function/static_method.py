@@ -1,4 +1,4 @@
-from .method import utils, nci, VoidType, Method, FunctionBase
+from .method import utils, nci, VoidType, Method, SelfParam
 
 class StaticMethod(Method):
     def __init__(self, meth, parent):
@@ -12,10 +12,7 @@ class StaticMethod(Method):
             self.ownership_transfer_name = 'creturnval'
             self.keepref_on_object = True
 
-    @utils.call_once
-    def setup(self):
-        # Override Method.setup since it adds a SelfParam, which we don't want
-        FunctionBase.setup(self)
+        self.params = [p for p in self.params if not isinstance(p, SelfParam)]
 
     @property
     def call_cpp_code(self):

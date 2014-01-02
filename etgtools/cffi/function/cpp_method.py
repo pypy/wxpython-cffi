@@ -17,20 +17,14 @@ def cpp_method(cls):
         for p in extractors.ArgsString(self.func.argsString):
             param = Param(p, self.parent)
             self.params.append(param)
-            param.setup()
     cls.extract_params = extract_params
 
     def __init__(self, meth, parent):
         original__init__(self, meth, parent)
         self.cppcode = meth.body
+        self.extract_params()
     original__init__ = cls.__init__
     cls.__init__ = __init__
-
-    def setup(self):
-        original_setup(self)
-        self.extract_params()
-    original_setup = cls.setup
-    cls.setup = setup
 
     return cls
 
@@ -43,7 +37,7 @@ class MemberCppMethod(Method):
     def copy_onto_subclass(self, cls):
         # It doesn't really make sense to have a MemberCppMethod be virtual;
         # there is no way for a user to override the method from Python and be
-        # able to expect to behave correctly.
+        # able to expect it to behave correctly.
         raise NotImplementedError()
 
 @cpp_method

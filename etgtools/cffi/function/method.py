@@ -1,25 +1,28 @@
 from .base import (
     utils, nci, args_string, FunctionBase, Param, SelfParam, VoidType,
     TypeInfo, OverloadManager)
+from .operators import get_operator
 
 # Originally copied from tweaker_tools:
 CPP_OPERATORS = {
-    'operator!='    : '__ne__',
-    'operator=='    : '__eq__',
-    'operator<'     : '__lt__',
-    'operator<='    : '__le__',
-    'operator>'     : '__gt__',
-    'operator>='    : '__ge__',
-    'operator+'     : '__add__',
-    'operator-'     : '__sub__',
-    'operator*'     : '__mul__',
-    'operator/'     : '__div__',
-    'operator+='    : '__iadd__',
-    'operator-='    : '__isub__',
-    'operator*='    : '__imul__',
-    'operator/='    : '__idiv__',
-    'operator bool' : '__int__',  # Why not __nonzero__?
-    'operator()'   : '__call__',
+    'operator!='    : ('__ne__', '%s != %s'),
+    'operator=='    : ('__eq__', '%s == %s'),
+    'operator<'     : ('__lt__', '%s < %s'),
+    'operator<='    : ('__le__', '%s <= %s'),
+    'operator>'     : ('__gt__', '%s > %s'),
+    'operator>='    : ('__ge__', '%s >= %s'),
+    'operator+'     : ('__add__', '%s + %s'),
+    'operator-'     : ('__sub__', '%s - %s'),
+    'operator*'     : ('__mul__', '%s * %s'),
+    'operator/'     : ('__div__', '%s / %s'),
+    'operator+='    : ('__iadd__', '%s += %s'),
+    'operator-='    : ('__isub__', '%s -= %s'),
+    'operator*='    : ('__imul__', '%s *= %s'),
+    'operator/='    : ('__idiv__', '%s /= %s'),
+    # TODO: Add support for operator bool. It won't have a return type...
+    #'operator bool' : '__int__',  # Why not __nonzero__?
+    # TODO: Add support for operator(). Probably needs special handling?
+    #'operator()'   : '__call__',
 }
 
 
@@ -38,8 +41,11 @@ class Method(FunctionBase):
         self.const = meth.isConst
         self.protection = meth.protection
 
-        if self.name in CPP_OPERATORS:
-            self.pyname = CPP_OPERATORS[self.name]
+        self.params = [SelfParam(self)] + self.params
+
+        self.operator = get_operator(self)
+        if self.operator is not None:
+            self.pyname = self.operator.pyname
             self.cname = self.cname[:-len(self.name)] + self.pyname
 
         if self.protection == 'protected':
@@ -52,11 +58,6 @@ class Method(FunctionBase):
             # Non-factory methods transfer ownership to the method's instance
             self.ownership_transfer_name = "self"
             self.keepref_on_object = True
-
-    @utils.call_once
-    def setup(self):
-        super(Method, self).setup()
-        self.params = [SelfParam(self)] + self.params
 
     @args_string
     def call_virtual_cpp_args(self):
@@ -100,6 +101,10 @@ class Method(FunctionBase):
         if self.cppcode:
             # If we have custom C++ code, call the wrapper for it
             return code + ('{0.wrapper_call_code};\n'.format(self))
+
+        if self.operator is not None:
+            return (code + self.operator.cpp_code(
+                            '(*self)', *type(self).call_cpp_args(self)) + ';')
 
         if self.protection != 'protected':
             code += 'self->'
