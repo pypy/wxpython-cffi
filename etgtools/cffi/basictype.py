@@ -309,12 +309,14 @@ class VoidPtrType(CppType):
         self.unscopedname = 'void *'
 
     def build_typeinfo(self, typeinfo):
-        typeinfo.c_type = typeinfo.cdef_type = 'void *'
+        const = 'const ' if typeinfo.const else ''
+
+        typeinfo.c_type = typeinfo.cdef_type = const + 'void *'
 
         if not (typeinfo.flags.out or typeinfo.flags.inout):
-            typeinfo.c_virt_type = typeinfo.cdef_virt_type = 'void *'
+            typeinfo.c_virt_type = typeinfo.cdef_virt_type = const + 'void *'
         else:
-            typeinfo.c_virt_type = typeinfo.cdef_virt_type = 'void **'
+            typeinfo.c_virt_type = typeinfo.cdef_virt_type = const + 'void **'
 
         typeinfo.c_virt_return_type = typeinfo.c_type
         typeinfo.cdef_virt_return_type = typeinfo.cdef_type
@@ -325,7 +327,7 @@ class VoidPtrType(CppType):
         # This simplifies some code in other places.
         typeinfo.ptrcount = 0
 
-        typeinfo.wrapper_type = 'void*'
+        typeinfo.wrapper_type = const + 'void*'
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         return name
