@@ -15,7 +15,7 @@ def cpp_method(cls):
         this method will disassemble their args string into a list of Params.
         """
         for p in extractors.ArgsString(self.func.argsString):
-            param = Param(p, self.parent)
+            param = Param(p, self)
             self.params.append(param)
     cls.extract_params = extract_params
 
@@ -109,12 +109,12 @@ class MemberCppMethod_cffi(Method):
     def setup(self):
         super(MemberCppMethod_cffi, self).setup()
 
-        self.py_params = [Param(i, self.parent) for i in self.user_py_args_list]
+        self.py_params = [Param(i, self) for i in self.user_py_args_list]
         for p in self.py_params:
             p.setup()
 
         if self.virtual_handler is not None:
-            self.params = [Param(i, self.parent)
+            self.params = [Param(i, self)
                            for i in self.virtual_handler.originalCppArgs]
             for p in self.params:
                 p.setup()

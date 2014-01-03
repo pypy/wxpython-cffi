@@ -291,6 +291,16 @@ public:
     {
         return f;
     }
+
+    int defaults_array(int len, IntWrapper *a)
+    {
+        if(a == NULL)
+            return -1;
+        int sum = 0;
+        for(int i = 0; i < len ; i++)
+            sum += a[i].i;
+        return sum;
+    }
 };
 
 class InheritedDefaultsClass : public DefaultsClass

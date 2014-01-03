@@ -15,16 +15,22 @@ class Param(object):
     # class hierarchy instead of for a whole module, but this is simplier.
     current_keepref_index = -2
 
-    def __init__(self, param, scope):
+    def __init__(self, param, func):
         self.name = param.name
         self.item = param
         self.default = param.default
         self.flags = ItemFlags(param)
-        self.scope = scope
+
+        self.func = func
+        self.scope = func.parent
 
         if self.flags.keepref:
             self.keepref_index = Param.current_keepref_index
             Param.current_keepref_index -= 1
+
+        if self.default:
+            self.default_bit_index = func.current_default_bit_index
+            func.current_default_bit_index <<= 1
 
         if self.flags.arraysize:
             self.name = TypeInfo.ARRAY_SIZE_PARAM
@@ -44,15 +50,22 @@ class Param(object):
         if default_obj is not None:
             self.default = default_obj.unscopedname
 
-    def print_call_cdef_setup(self, pyfile, indent, default_index):
+        if self.flags.arraysize:
+            array_param = [p for p in self.func.params if p.flags.array][0]
+            self.array_param_name = array_param.name
+
+    def print_call_cdef_setup(self, pyfile, indent):
         conversion = self.type.call_cdef_param_setup(self.name)
 
         if self.default:
+            name = self.name
+            if self.flags.arraysize:
+                name = self.array_param_name
             pyfile.write(nci("""\
-            if {0.name} is wrapper_lib.default_arg_indicator:
-                defaults_bitflags |= {1}
+            if {1} is wrapper_lib.default_arg_indicator:
+                defaults_bitflags |= {0.default_bit_index}
                 {0.name} = {0.type.default_placeholder}
-            """.format(self, default_index), indent + 4))
+            """.format(self, name), indent + 4))
 
         if conversion is not None and self.default:
             pyfile.write(nci('else:', indent + 4))
@@ -79,7 +92,7 @@ class SelfParam(Param):
 
         assert isinstance(self.type.type, WrappedType)
 
-    def print_call_cdef_setup(self, pyfile, indent, default_index):
+    def print_call_cdef_setup(self, pyfile, indent):
         conversion = self.type.call_cdef_param_setup(self.name)
         if conversion is not None:
             pyfile.write(nci(conversion, indent + 4))
@@ -154,7 +167,8 @@ class FunctionBase(CppObject):
         self.func = func
         self.cname = self.PREFIX + self.cname
 
-        self.params = [Param(p, self.parent) for p in self.item.items]
+        self.current_default_bit_index = 1
+        self.params = [Param(p, self) for p in self.item.items]
 
         try:
             self.cppcode = func.cppCode[0]
@@ -318,10 +332,8 @@ class FunctionBase(CppObject):
         if self.has_default_args():
             pyfile.write(nci('defaults_bitflags = 0', indent + 4))
 
-        default_index = 1
         for param in self.params:
-            param.print_call_cdef_setup(pyfile, indent, default_index)
-            default_index <<= 1
+            param.print_call_cdef_setup(pyfile, indent)
 
     def print_pycode_call(self, pyfile, indent):
         pyfile.write(' ' * (indent + 4));

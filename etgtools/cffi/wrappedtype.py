@@ -34,6 +34,7 @@ class WrappedType(CppScope, CppType):
         self.docstring = utils.fix_docstring(cls.briefDoc)
 
         self.included_headers = self.item.includes
+        self.included_cppcode = self.item.cppCode
 
         for klass in cls.innerclasses:
             klass.generate(self)
@@ -348,6 +349,8 @@ class WrappedType(CppScope, CppType):
             type.print_headercode(hfile)
 
     def print_cppcode(self, cppfile):
+        cppfile.write('\n'.join(self.included_cppcode))
+
         if len(self.virtualmethods) > 0 and not self.uninstantiable:
             cppfile.write(nci("""\
             WL_C_INTERNAL void(*{0.cname}_vtable[{1}])();

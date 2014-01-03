@@ -405,6 +405,11 @@ class TestBindGen(object):
             'int', 'defaults_method', '(DefaultsEnum i = Defaults_A)',
             items=ArgsString('(DefaultsEnum i = Defaults_A)'),
         )
+        c.addMethod(
+            'int', 'defaults_array', '',
+            items=ArgsString('(int len=0, IntWrapper *a=NULL)')
+                  .annt(0, 'arraySize').annt(1, 'array')
+        )
         module.addItem(c)
 
         c = ClassDef(name='InheritedDefaultsClass', bases=['DefaultsClass'])
@@ -1244,6 +1249,7 @@ class TestBindGen(object):
     def test_method_with_default(self):
         obj = self.mod.DefaultsClass()
         assert obj.defaults_method() == self.mod.DefaultsClass.Defaults_A
+        assert obj.defaults_array() == -1
 
     def test_custom_code_func(self):
         assert self.mod.custom_code_global_func() == 1

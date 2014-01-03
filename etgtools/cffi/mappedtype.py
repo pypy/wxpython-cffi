@@ -63,6 +63,8 @@ class MappedType(CppType):
         typeinfo.wrapper_type = typeinfo.cpp_type.strip('*&') + '*'
 
         typeinfo.default_placeholder = self.default_placeholder
+        if typeinfo.flags.array:
+            typeinfo.default_placeholder = 'ffi.NULL'
 
     def print_pycode(self, pyfile, indent=0):
         pyfile.write(nci("""\
@@ -130,7 +132,6 @@ class MappedType(CppType):
 
     def call_cpp_param_setup(self, typeinfo, name):
         if typeinfo.flags.hasdefault:
-            # XXX raise Exception()
             return '{0} *{1}_converted = NULL;'.format(self.name, name)
 
         if typeinfo.flags.out:
@@ -148,6 +149,9 @@ class MappedType(CppType):
 
     def call_cpp_param_inline(self, typeinfo, name):
         if typeinfo.flags.hasdefault:
+            if typeinfo.flags.array:
+                return "{1}_converted = {0.to_cpp_array_name}({1}, {2})".format(
+                        self, name, typeinfo.ARRAY_SIZE_PARAM)
             deref = '*' if not typeinfo.ptrcount else ''
             return '{2}({0}_converted = {1.to_cpp_name}({0}))'.format(
                 name, self, deref)
