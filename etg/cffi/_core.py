@@ -5,7 +5,10 @@ def run(module):
 
     module.addItem(TypedefDef(name='wxCoord', type='int'))
 
-    module.addPyCode('from ._core import *', order=0)
+    module.addPyCode('''\
+    from ._core import *
+    from . import _core
+    ''', order=0)
 
     module.addItem(FunctionDef(
         type='void', argsString='()', name='_wxPyCleanup'))

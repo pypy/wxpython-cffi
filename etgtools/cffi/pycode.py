@@ -27,7 +27,7 @@ class PyClass(PyObject):
         self.pyclass = pyclass
 
         self.name = pyclass.name
-        self.bases = pyclass.bases or ('object')
+        self.bases = ', '.join(pyclass.bases) or 'object'
 
         for pyobj in pyclass.items:
             pyobj.generate(self)
@@ -89,8 +89,11 @@ class PyClassPyProperty(PyObject):
         self.pyprop = pyprop
 
     def print_pycode(self, pyfile, indent=0):
-        pyfile.write(nci("{0.name} = property({0.getter}, {0.setter})"
-                         .format(self.pyprop), indent))
+        setter = ''
+        if self.pyprop.setter:
+            setter = self.pyprop.setter
+        pyfile.write(nci("{0.name} = property({0.getter}, {1})"
+                         .format(self.pyprop, setter), indent))
 
 class CppClassPyProperty(PyObject):
     def __init__(self, pyprop, parent):
@@ -99,11 +102,13 @@ class CppClassPyProperty(PyObject):
         self.name = pyprop.name
 
     def print_pycode(self, pyfile, indent=0):
+        setter = ''
+        if self.pyprop.setter:
+            setter = self.parent.unscopedpyname + '.' + self.pyprop.setter
         pyfile.write(nci("""\
         {0.parent.unscopedpyname}.{0.name} = property(
-            {0.parent.unscopedpyname}.{1.getter},
-            {0.parent.unscopedpyname}.{1.setter})
-        """.format(self, self.pyprop), indent))
+            {0.parent.unscopedpyname}.{1.getter}, {2})
+        """.format(self, self.pyprop, setter), indent))
 
 
 
