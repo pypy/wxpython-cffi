@@ -16,6 +16,10 @@ class Property(CppObject):
         self.name = prop.name
 
     def print_pycode(self, pyfile, indent=0):
+        setter = ''
+        if self.prop.setter:
+            setter = 'lambda self, x: self.%s(x)' % self.prop.setter
+
         pyfile.write(nci("""\
-        {0.name} = property({1.getter}, {1.setter})
-        """.format(self, self.prop), indent))
+        {0.name} = property(lambda self: self.{0.prop.getter}(), {1})
+        """.format(self, setter), indent))
