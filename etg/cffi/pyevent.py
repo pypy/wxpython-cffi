@@ -15,12 +15,13 @@ def setupPyEvent(cls):
         with wrapper_lib.get_refcounted_handle(d) as handle:
             ptr = call(int(id), int(eventType), handle)
 
-        wrapper_lib.CppWrapper.__init__(self, ptr)
+        wrapper_lib.init_wrapper(self, ptr, wrapper_lib.hassubclass(self))
         self._dict = d
         """,
         cReturnType='void*',
         cArgsString='(int id, int eventType, void *handle)',
-        cBody="return new cfficlass_%s(id, eventType, handle);" % cls.name,
+        cBody="return new WL_CLASS_NAME(id, eventType, handle);",
+        originalCppArgs=etgtools.ArgsString('(int id, int eventType, void *handle)'),
     ))
 
     cls.addItem(CppMethodDef_cffi(

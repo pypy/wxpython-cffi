@@ -634,7 +634,11 @@ public:
 class CustomCppMethodsClass
 {
 public:
+    CustomCppMethodsClass() : m_i(0) { }
+    CustomCppMethodsClass(int i) : m_i(i) { }
+
     virtual ~CustomCppMethodsClass() { }
+
     int basic_method() { return -42; }
 
     void custom_pycode_only(int *data)
@@ -651,6 +655,13 @@ public:
     {
         return this->custom_pycode_and_cppcode(cb);
     }
+
+    int get()
+    {
+        return m_i;
+    }
+
+    int m_i;
 };
 
 typedef char CharTypedef;

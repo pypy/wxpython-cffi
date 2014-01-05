@@ -1235,17 +1235,23 @@ class CppMethodDef_cffi(MethodDef):
     Like a CppMethodDef, but with the calling Python also provided by the user
     instead of generated automatically. This allows, among other things, custom
     conversion of arbitrary Python types into arbitrary C++ types.
+
+    Note about parameter naming: *Args parameters expect a list while
+    *ArgsString parameters expect a string.
     """
-    def __init__(self, name, pyArgs, pyBody,
-                 cReturnType=None, cArgsString=None, cBody=None,
-                 virtualHandler=None, *args, **kwargs):
+    def __init__(self,
+        name, pyArgs, pyBody,
+        cReturnType=None, cArgsString=None, cBody=None,
+        originalCppType=None, originalCppArgs=None,
+        virtualCReturnType=None, virtualCArgsString=None, virtualCCBody=None,
+        virtualPyArgs=None, virtualPyBody=None,
+        *args, **kwargs):
 
         kwargs['name'] = name
         kwargs['type'] = 'void'
         super(CppMethodDef_cffi, self).__init__(*args, **kwargs)
 
-
-        # Args string and body for the code Python that will be called by users
+        # Args list and body for the code Python that will be called by users
         # and is expected to call the corresponding C code. pyArgs should be a
         # list of ParamDef objects, where the `type` is a C++ type the binding
         # generator is aware of or 'WL_Object'. In the latter case, no type
@@ -1264,20 +1270,10 @@ class CppMethodDef_cffi(MethodDef):
         self.cArgsString = cArgsString
         self.cBody = cBody
 
-        # If virtualHandler is left None, automatic generation of virtual
-        # handler attempted.
-        self.virtualHandler = virtualHandler
-
-class VirtualHandler_cffi(object):
-    def __init__(self, originalCppType, originalCppArgs, cBody,
-                 funcPtrReturnType, funcPtrArgsString, pyArgs, pyBody):
-
-        self.funcPtrReturnType = funcPtrReturnType
-        self.funcPtrArgsString = funcPtrArgsString
-        self.cBody = cBody
-
-        self.pyArgs = pyArgs
-        self.pyBody = pyBody
+        # The following attributes are necessary if the method is virtual. If
+        # the method is a Ctor, originalCppArgs is optional. If it is given
+        # and a subclass is being generated for the class, a Ctor with those
+        # args will be included in the class.
 
         # Note that the binding generator must be able to understand all type
         # names used in the arguments list. This basically means that you will
@@ -1285,6 +1281,16 @@ class VirtualHandler_cffi(object):
         self.originalCppType = originalCppType
         self.originalCppArgs = originalCppArgs
 
+        # The following attributes are only required if the method is virtual
+
+        # The return type and argument list specified here are passed to CFFI,
+        # so only types that CFFI can understand may be used.
+        self.virtualCReturnType = virtualCReturnType
+        self.virtualCArgsString = virtualCArgsString
+        self.virtualCCBody = virtualCCBody
+
+        self.virtualPyArgs = virtualPyArgs
+        self.virtualPyBody = virtualPyBody
 
 #---------------------------------------------------------------------------
 

@@ -333,7 +333,8 @@ class InheritedVirtualMethodMixin(object):
         pass
 
     def print_cppcode(self, cppfile):
-        self.print_virtual_cppcode(cppfile)
+        if not self.parent.uninstantiable:
+            self.print_virtual_cppcode(cppfile)
 
 class InheritedVirtualMethod(InheritedVirtualMethodMixin, Method):
     pass

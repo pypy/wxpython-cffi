@@ -212,6 +212,12 @@ class CppWrapper(object):
         return obj
 
 
+def init_wrapper(obj, ptr, is_subclass):
+    CppWrapper.__init__(obj, ptr, py_created=is_subclass)
+
+def hassubclass(cls):
+    return hasattr(cls, '_vdata')
+
 
 @ffi.callback('void(*)(void*)')
 def global_dtor(ptr):

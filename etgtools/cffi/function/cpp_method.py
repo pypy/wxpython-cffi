@@ -72,10 +72,6 @@ class MemberCppMethod_cffi(Method):
                 yield '("{0}", {1}, {0})'.format(p.name, type)
 
     def __init__(self, meth, parent):
-        if meth.isCtor:
-            meth.pyName = '__init__'
-            meth.type = parent.unscopedname + '*'
-
         self.user_py_args_list = meth.pyArgs
         self.user_py_code = meth.pyBody
 
@@ -89,38 +85,31 @@ class MemberCppMethod_cffi(Method):
 
         super(MemberCppMethod_cffi, self).__init__(meth, parent)
 
-        self.virtual_handler = meth.virtualHandler
-        if self.virtual_handler is not None:
-            self.c_virt_args = self.virtual_handler.funcPtrArgsString
+        if meth.virtualPyArgs is not None:
+            self.c_virt_args = meth.virtualCArgsString
             self.cdef_virt_args = self.c_virt_args
 
-            self.cpp_code = self.virtual_handler.cBody
+            self.cpp_code = meth.virtualCBody
 
-            self.py_virt_args = self.virtual_handler.pyArgs
-            self.py_code = self.virtual_handler.pyBody
+            self.py_virt_args = meth.virtualPyArgs
+            self.py_code = meth.virtualPyBody
 
-            if self.virtual_handler.originalCppType is not None:
-                self.cpp_type = self.virtual_handler.originalCppType
+        if meth.originalCppArgs is not None:
+            self.call_original_cpp_args = ('(' +
+                ', '.join([i.name for i in meth.originalCppArgs]) + ')')
+            self.params += [Param(i, self) for i in self.item.originalCppArgs]
 
-            if self.virtual_handler.originalCppArgs is not None:
-                self.call_original_cpp_args = ('(' +
-                    ', '.join([i.name for i in self.virtual_handler.originalCppArgs]) + ')')
+        self.py_params = [Param(i, self) for i in self.user_py_args_list]
 
     def setup(self):
         super(MemberCppMethod_cffi, self).setup()
 
-        self.py_params = [Param(i, self) for i in self.user_py_args_list]
         for p in self.py_params:
             p.setup()
 
-        if self.virtual_handler is not None:
-            self.params = [Param(i, self)
-                           for i in self.virtual_handler.originalCppArgs]
-            for p in self.params:
-                p.setup()
-
-            assert self.virtual_handler.originalCppType is not None
-            self.type = FakeTypeInfo(self.virtual_handler)
+        if self.item.originalCppType is not None:
+            self.type = FakeTypeInfo(self.item.originalCppType,
+                                     self.item.virtualCReturnType)
 
 
     def print_pycode(self, pyfile, indent=0):
@@ -162,10 +151,13 @@ class MemberCppMethod_cffi(Method):
             return
 
         cppfile.write(nci("""\
+        #define WL_CLASS_NAME {0.parent.cppname}
         WL_C_INTERNAL {0.user_c_type} {0.cname}{0.user_c_args}
         {{""".format(self)))
-        cppfile.write(nci(self.user_c_code))
-        cppfile.write("}\n")
+        cppfile.write(nci(self.user_c_code, 4))
+        cppfile.write(nci("""\
+        }
+        #undef WL_CLASS_NAME"""))
 
         if self.virtual and not self.parent.uninstantiable:
             self.print_virtual_cppcode(cppfile)
@@ -178,19 +170,23 @@ class MemberCppMethod_cffi(Method):
     def copy_onto_subclass(self, cls):
         InheritedVirtualCppMethod_cffi(self, cls)
 
+class CppCtorMethod_cffi(MemberCppMethod_cffi, CtorMethod):
+    def print_headercode(self, hfile):
+        hfile.write('    {0.parent.cppname}{0.cpp_args} : {0.parent.unscopedname}{0.call_original_cpp_args} {{ }}\n'.format(self))
+
 class FakeTypeInfo(object):
     """
     A fake TypeInfo for CppMethod_cffi's which have a custom virtual return
     type. It fakes the necessary fields so the method prints correctly.
     """
-    def __init__(self, virtual_handler):
-        self.original = virtual_handler.originalCppType
+    def __init__(self, c_type, cpp_type):
+        self.original = cpp_type
         self.cpp_type = self.original
 
-        self.c_virt_return_type = virtual_handler.funcPtrReturnType
+        self.c_virt_return_type = c_type
         self.cdef_virt_return_type = self.c_virt_return_type
 
-        if virtual_handler.originalCppType.strip() == 'void':
+        if self.original == 'void':
             self.type = VoidType()
         else:
             self.type = None

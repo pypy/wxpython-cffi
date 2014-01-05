@@ -15,9 +15,9 @@ from etgtools import extractors
 from etgtools.generators import nci
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
-    CppMethodDef, CppMethodDef_cffi, VirtualHandler_cffi, MemberVarDef,
-    GlobalVarDef, PyPropertyDef, PyFunctionDef, PyClassDef, PyCodeDef, EnumDef,
-    EnumValueDef, TypedefDef, MappedTypeDef_cffi, ArgsString)
+    CppMethodDef, CppMethodDef_cffi, MemberVarDef, GlobalVarDef, PyPropertyDef,
+    PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef, TypedefDef,
+    MappedTypeDef_cffi, ArgsString)
 
 from etgtools.cffi_generator import CffiWrapperGenerator
 from etgtools.cffi.bindgen import BindingGenerator, LiteralVerifyArg
@@ -130,23 +130,23 @@ class TestBindGen(object):
             'unoverridden_cppvmeth', isVirtual=True,
             pyArgs=ArgsString('WL_Self self, char somechar'),
             pyBody='return call(wrapper_lib.get_ptr(self), somechar)',
+
             cReturnType='char', cArgsString='(void *self, char i)',
             cBody='return \'a\' + static_cast<VMethClass*>(self)->unoverridden_cppvmeth(i - \'a\');',
-            virtualHandler=VirtualHandler_cffi(
-                funcPtrReturnType='int',
-                funcPtrArgsString='(void *self, int i)',
-                cBody='return call(this, i);',
 
-                pyArgs='(self, i)',
-                pyBody="""\
-                c = chr(ord('a') + i)
-                res = wrapper_lib.obj_from_ptr(self).unoverridden_cppvmeth(c)
-                return ord(res) - ord('a')
-                """,
+            originalCppType='int',
+            originalCppArgs=ArgsString('(int i)'),
 
-                originalCppType='int',
-                originalCppArgs=ArgsString('(int i)'),
-            )
+            virtualCReturnType='int',
+            virtualCArgsString='(void *self, int i)',
+            virtualCBody='return call(this, i);',
+
+            virtualPyArgs='(self, i)',
+            virtualPyBody="""\
+            c = chr(ord('a') + i)
+            res = wrapper_lib.obj_from_ptr(self).unoverridden_cppvmeth(c)
+            return ord(res) - ord('a')
+            """,
         ))
         c.addItem(CppMethodDef_cffi(
             'call_unoverridden_cppvmeth',
@@ -802,23 +802,23 @@ class TestBindGen(object):
         c = ClassDef(name='VirtualParametersOwnershipClass')
         c.addMethod(
             'void', 'by_value', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(CtorsClass i)')) 
+            items=ArgsString('(CtorsClass i)'))
         c.addMethod(
             'void', 'by_ptr', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(CtorsClass *i)')) 
+            items=ArgsString('(CtorsClass *i)'))
         c.addMethod(
             'void', 'by_ref', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(CtorsClass &i)')) 
+            items=ArgsString('(CtorsClass &i)'))
         c.addMethod(
             'void', 'by_cref', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(const CtorsClass &i)')) 
+            items=ArgsString('(const CtorsClass &i)'))
         c.addMethod(
             'void', 'by_cref_private_cctor', '', isVirtual=True,
-            items=ArgsString('(const PrivateCopyCtorClass &i)')) 
-        c.addMethod('void', 'call_by_value', '', items=ArgsString('()')) 
-        c.addMethod('void', 'call_by_ptr', '', items=ArgsString('()')) 
-        c.addMethod('void', 'call_by_ref', '', items=ArgsString('()')) 
-        c.addMethod('void', 'call_by_cref', '', items=ArgsString('()')) 
+            items=ArgsString('(const PrivateCopyCtorClass &i)'))
+        c.addMethod('void', 'call_by_value', '', items=ArgsString('()'))
+        c.addMethod('void', 'call_by_ptr', '', items=ArgsString('()'))
+        c.addMethod('void', 'call_by_ref', '', items=ArgsString('()'))
+        c.addMethod('void', 'call_by_cref', '', items=ArgsString('()'))
         c.addMethod('void', 'call_by_cref_private_cctor', '')
         module.addItem(c)
 
@@ -1079,6 +1079,19 @@ class TestBindGen(object):
 
         c = ClassDef(name='CustomCppMethodsClass')
         c.addItem(CppMethodDef_cffi(
+            'CustomCppMethodsClass', isCtor=True,
+            pyArgs=ArgsString("(WL_Self self, int i)"),
+            pyBody="""\
+            ptr = call(i)
+            wrapper_lib.init_wrapper(self, ptr, wrapper_lib.hassubclass(self))
+            """,
+
+            cReturnType='void*', cArgsString='(int i)',
+            cBody="return new WL_CLASS_NAME(i);",
+            originalCppArgs=ArgsString('(int i)'))
+        )
+        c.addMethod('int', 'get', '')
+        c.addItem(CppMethodDef_cffi(
             'custom_pycode_only',
             pyArgs=ArgsString("(WL_Self self, int i)"),
             pyBody="""\
@@ -1097,19 +1110,22 @@ class TestBindGen(object):
             return call(cb)
             """,
             cReturnType='int', cArgsString='(int(*cb)(int))',
-            cBody="return cb(10);",
-            virtualHandler=VirtualHandler_cffi(
-                'int', ArgsString('(intcallback cb)'),
-                """\
-                return call(this, cb);
-                """,
 
-                'int', '(void *self, int(*)(int))',
-                "(self, func_ptr)",
-                """\
-                return wrapper_lib.obj_from_ptr(self).custom_pycode_and_cppcode(func_ptr)
-                """,
-            )
+            cBody="return cb(10);",
+
+            originalCppType='int',
+            originalCppArgs=ArgsString('(intcallback cb)'),
+
+            virtualCReturnType='int',
+            virtualCArgsString='(void *self, int(*)(int))',
+            virtualCBody="""\
+            return call(this, cb);
+            """,
+
+            virtualPyArgs="(self, func_ptr)",
+            virtualPyBody="""\
+            return wrapper_lib.obj_from_ptr(self).custom_pycode_and_cppcode(func_ptr)
+            """,
         ))
         c.addItem(CppMethodDef_cffi(
             'call_custom_pycode_and_cppcode',
@@ -1401,7 +1417,7 @@ class TestBindGen(object):
         obj = self.mod.VDtorClass()
         obj.delete_self()
 
-        # This is a really indirect way of testing that the virtual dtor was 
+        # This is a really indirect way of testing that the virtual dtor was
         # called: the object's internal pointer being change to NULL is a side
         # effect of it being deleted.
         assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
@@ -2151,7 +2167,8 @@ class TestBindGen(object):
             someint[0] = i
             return -15
 
-        obj = self.mod.CustomCppMethodsClass()
+        obj = self.mod.CustomCppMethodsClass(10)
+        assert obj.get() == 10
 
         assert obj.custom_pycode_only(12) == 22
 
@@ -2162,10 +2179,12 @@ class TestBindGen(object):
         with pytest.raises(TypeError):
             obj.custom_pycode_only("10")
 
+        with pytest.raises(TypeError):
+            self.mod.CustomCppMethodsClass()
+
     def test_override_virtual_cppmethod_cffi(self):
         someint = [-111]
         def set_someint(i):
-            assert i == 42
             someint[0] = i
             return -1
 
@@ -2173,12 +2192,12 @@ class TestBindGen(object):
             def custom_pycode_and_cppcode(self, callback):
                 return callback(42)
 
-        obj = CustomCppMethodsSubclass()
+        obj = CustomCppMethodsSubclass(10)
         assert obj.call_custom_pycode_and_cppcode(set_someint) == -1
         assert someint[0] == 42
 
     def test_overloaded_cppmethod_cffi(self):
-        obj = self.mod.CustomCppMethodsClass()
+        obj = self.mod.CustomCppMethodsClass(10)
         assert obj.overloaded() is obj
         assert obj.overloaded(10) == (obj, 10)
 
