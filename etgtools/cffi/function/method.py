@@ -132,11 +132,12 @@ class Method(FunctionBase):
         if self.protection == 'protected':
             ret_stmt = "return " if not isinstance(self.type.type, VoidType) else ''
             const_stmt = ' const' if self.const else ''
+            scoping =  '' if self.purevirtual else (self.parent.unscopedname + '::')
             hfile.write(nci("""\
             {0.type.cpp_type} unprotected_{0.name}{0.cpp_args}{1}
             {{
-                {2}this->{0.parent.unscopedname}::{0.name}{0.call_original_cpp_args};
-            }}""".format(self, const_stmt, ret_stmt), 4))
+                {2}this->{3}{0.name}{0.call_original_cpp_args};
+            }}""".format(self, const_stmt, ret_stmt, scoping), 4))
 
     def print_virtual_cppcode(self, cppfile):
         # Create a typedef that will be used to cast the pointer from the
