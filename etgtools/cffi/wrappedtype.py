@@ -300,6 +300,9 @@ class WrappedType(CppScope, CppType):
                             .format(PYNAME=self.unscopedpyname), indent + 12))
 
         # Print nested items
+        for obj in self.print_order:
+            obj.print_pycode(pyfile, indent + 4)
+
         for obj in self.objects:
             obj.print_pycode(pyfile, indent + 4)
         for type in self.types:

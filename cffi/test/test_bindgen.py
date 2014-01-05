@@ -191,6 +191,8 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        module.addItem(TypedefDef(type='CtorsClass', name='CtorsAlias'))
+
         c = ClassDef(name='CtorsClass')
         c.addItem(MethodDef(
             type='', argsString='()', isOverloaded=True,
@@ -1066,8 +1068,6 @@ class TestBindGen(object):
                     items=[ParamDef(type='int', name='i')], briefDoc='Doc')
         c.addPyMethod('docstring_pymeth', '(self)', 'pass', 'PyDoc')
         module.addItem(c)
-
-        module.addItem(TypedefDef(type='CtorsClass', name='CtorsAlias'))
 
         c = ClassDef(name='TypedefClass')
         c.addMethod('CtorsAlias&', 'passthrough', '(CtorsAlias &obj)',

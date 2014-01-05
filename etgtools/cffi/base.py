@@ -146,6 +146,8 @@ class CppScope(object):
         self.cscopeprefix = ''
         self.pyscopeprefix = ''
 
+        self.print_order = []
+
         if parent is not None:
             self.module = parent.module
             parent.add_subscope(self)
@@ -234,7 +236,6 @@ class CppScope(object):
         return type
 
     def setup_types(self):
-        self.print_order = []
         for scope in self.subscopes:
             scope.setup_types()
         for type in self.types:

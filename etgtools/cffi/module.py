@@ -163,6 +163,9 @@ class Module(CppScope):
         wrapper_lib.populate_clib_ptrs(clib)
         clib.%s()""" % (self.build_verify_args(verify_args), initfunc)))
 
+        for obj in self.print_order:
+            obj.print_pycode(pyfile)
+
         for type in self.types:
             type.print_pycode(pyfile)
         for obj in self.objects:
