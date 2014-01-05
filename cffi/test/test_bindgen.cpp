@@ -579,6 +579,11 @@ void InOutClass::call_double_ptrptr(Vector **i)
     double_ptrptr(i);
 }
 
+AbstractClass* AbstractClass::get_instance()
+{
+    return new ConcreteSubclass();
+}
+
 SmartVector double_vector(SmartVector &vec)
 {
     return SmartVector(vec.x * 2, vec.y * 2);

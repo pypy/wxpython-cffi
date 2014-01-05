@@ -632,7 +632,12 @@ class TestBindGen(object):
             items=[ParamDef(type='AllowNoneSmartVector &', name='v')]))
         module.addItem(c)
 
-        module.addItem(ClassDef(name='AbstractClass', abstract=True))
+        c = ClassDef(name='AbstractClass', abstract=True)
+        c.addMethod('AbstractClass*', 'get_instance', '', isStatic=True,
+                    factory=True)
+        c.addMethod('void', 'virtual_meth', '', isVirtual=True)
+        module.addItem(c)
+
         module.addItem(ClassDef(name='ConcreteSubclass',
                                 bases=['AbstractClass']))
 
@@ -1819,7 +1824,9 @@ class TestBindGen(object):
     def test_abstract_class(self):
         with pytest.raises(TypeError):
             self.mod.AbstractClass()
+
         self.mod.ConcreteSubclass()
+        self.mod.AbstractClass.get_instance()
 
         class PyAbstractSubClass(self.mod.AbstractClass):
             pass

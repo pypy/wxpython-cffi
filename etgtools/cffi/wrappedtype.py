@@ -273,6 +273,14 @@ class WrappedType(CppScope, CppType):
             def _set_vflags(self, flags):
                 clib.{0}_set_flags(wrapper_lib.get_ptr(self), flags)
             """.format(self.cname), indent + 4))
+        elif len(self.virtualmethods) > 0:
+            # This is an abstract class. So that we (the wrapper) can subclass
+            # it, we need to generate some dummy values.
+            pyfile.write(nci("""\
+            _vtable = [None] * {0}
+            _set_vflag = lambda x : None
+            _set_vflags = lambda x : None
+            """.format(len(self.virtualmethods)), indent + 4))
 
         if self.convert_subclass_code is not None:
             pyfile.write(nci('_get_cpp_classname_ = clib.cffigetclassname_%s' %

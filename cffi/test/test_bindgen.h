@@ -449,7 +449,10 @@ class AbstractClass
 {
 public:
     virtual ~AbstractClass() { }
+    virtual void virtual_meth() { }
     virtual void purevirtual()=0;
+
+    static AbstractClass* get_instance();
 };
 
 class ConcreteSubclass : public AbstractClass
