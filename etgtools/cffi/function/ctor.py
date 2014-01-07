@@ -90,6 +90,15 @@ class CtorMethod(Method):
 
         hfile.write('    {0.parent.cppname}{0.cpp_args} : {0.parent.unscopedname}{0.call_original_cpp_args} {{ }}\n'.format(self))
 
+    def print_pycode_setup(self, pyfile, indent):
+        if self.has_default_args():
+            pyfile.write(nci('defaults_bitflags = 0', indent + 4))
+
+        for param in self.params:
+            if isinstance(param, SelfParam):
+                continue
+            param.print_call_cdef_setup(pyfile, indent)
+
     def print_pycode_call(self, pyfile, indent):
         pyfile.write(nci("""\
         creturnval = clib.{0.cname}{0.call_cdef_args}

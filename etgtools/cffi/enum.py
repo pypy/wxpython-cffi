@@ -28,9 +28,6 @@ class Enum(CppType):
     def call_cdef_param_setup(self, typeinfo, name):
         return self.type.call_cdef_param_setup(typeinfo, name)
 
-    def call_cdef_param_inline(self, typeinfo, name):
-        return self.type.call_cdef_param_inline(typeinfo, name)
-
     def call_cdef_param_cleanup(self, typeinfo, name):
         return self.type.call_cdef_param_cleanup(typeinfo, name)
 

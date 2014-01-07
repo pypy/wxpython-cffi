@@ -65,11 +65,6 @@ class TestBindGen(object):
             name='global_func_with_args', pyName='global_func_with_args',
             items=[ParamDef(type='int', name='i'),
                    ParamDef(type='double', name='j')]))
-        module.addItem(FunctionDef(
-            type='int', argsString='(const char *s)',
-            name='global_func_with_default', pyName='global_func_with_default',
-            items=ArgsString('(const char * s = other_global_str, '
-                              'const IntWrapper &i = IntWrapper(10))')))
 
         f = FunctionDef(
             type='double', argsString='()',
@@ -404,7 +399,7 @@ class TestBindGen(object):
             EnumValueDef(name='Defaults_A'),
             EnumValueDef(name='Defaults_B')]))
         c.addMethod(
-            'int', 'defaults_method', '(DefaultsEnum i = Defaults_A)',
+            'int', 'defaults_enum', '(DefaultsEnum i = Defaults_A)',
             items=ArgsString('(DefaultsEnum i = Defaults_A)'),
         )
         c.addMethod(
@@ -412,6 +407,11 @@ class TestBindGen(object):
             items=ArgsString('(int len=0, IntWrapper *a=NULL)')
                   .annt(0, 'arraySize').annt(1, 'array')
         )
+        c.addMethod(
+            'int', 'defaults_meth', '',
+            items=ArgsString('(const char * s = other_global_str, '
+                              'const IntWrapper &i = IntWrapper(4), '
+                              'const CtorsClass &c = CtorsClass(6))'))
         module.addItem(c)
 
         c = ClassDef(name='InheritedDefaultsClass', bases=['DefaultsClass'])
@@ -1261,16 +1261,17 @@ class TestBindGen(object):
         assert self.mod.global_func_with_args(12, .25) == 3
         assert self.mod.global_func_with_args(14, .25) == (14 * .25)
 
-    def test_global_func_with_default(self):
-        assert self.mod.global_func_with_default() == 15
-        assert self.mod.global_func_with_default('test') == 14
-        assert self.mod.global_func_with_default('test', 9) == 13
-        assert self.mod.global_func_with_default(i=9) == 14
-
     def test_method_with_default(self):
         obj = self.mod.DefaultsClass()
-        assert obj.defaults_method() == self.mod.DefaultsClass.Defaults_A
+        assert obj.defaults_enum() == self.mod.DefaultsClass.Defaults_A
         assert obj.defaults_array() == -1
+
+        assert obj.defaults_meth() == 15
+        assert obj.defaults_meth('test') == 14
+        assert obj.defaults_meth('test', 9) == 19
+        assert obj.defaults_meth('test', 9, self.mod.CtorsClass(10)) == 23
+        assert obj.defaults_meth(i=9) == 20
+        assert obj.defaults_meth(c=self.mod.CtorsClass(10)) == 19
 
     def test_custom_code_func(self):
         assert self.mod.custom_code_global_func() == 1

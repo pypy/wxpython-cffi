@@ -385,32 +385,30 @@ class WrappedType(CppScope, CppType):
 
     def call_cdef_param_setup(self, typeinfo, name):
         if typeinfo.flags.out:
-            return ("{0}{1.OUT_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')"
+            return ("{0}{1.CFFI_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')"
                      .format(name, typeinfo))
 
         conversion = ''
         if self.convert_pyobj_code is not None:
-            conversion = "{0} = {1}._pyobject_mapping_.convert({0})".format(
-                name, self.unscopedpyname)
+            # Keep the original object alive just in case.
+            conversion = nci("""\
+                {0}_preserve_original = {0}
+                {0} = {1}._pyobject_mapping_.convert({0})
+                """.format(name, self.unscopedpyname))
 
         if typeinfo.flags.inout:
-            return conversion + """\
-            {0} = wrapper_lib.get_ptr({0})
-            {0}{1.OUT_PARAM_SUFFIX} = ffi.new('{1.cdef_type}', {0})
-            """.format(name, typeinfo)
+            return conversion + (
+            "{0}{1.CFFI_PARAM_SUFFIX} = ffi.new('{1.cdef_type}', wrapper_lib.get_ptr({0}))"
+            .format(name, typeinfo))
 
         if typeinfo.flags.array:
-            return ("{0}, {1.ARRAY_SIZE_PARAM}, {0}_keepalive = "
+            return ("{0}{1.CFFI_PARAM_SUFFIX}, {1.ARRAY_SIZE_PARAM}, {0}_keepalive = "
                     "wrapper_lib.create_array_type({2}).to_c({0})"
                     .format(name, typeinfo, self.unscopedpyname))
-        return conversion if conversion != '' else None
 
-    def call_cdef_param_inline(self, typeinfo, name):
-        if typeinfo.flags.out or typeinfo.flags.inout:
-            return name + typeinfo.OUT_PARAM_SUFFIX
-        if typeinfo.flags.array:
-            return name
-        return 'wrapper_lib.get_ptr(%s)' % name
+        return conversion + (
+            "{0}{1.CFFI_PARAM_SUFFIX} = wrapper_lib.get_ptr({0})"
+            .format(name, typeinfo))
 
     def call_cpp_param_setup(self, typeinfo, name):
         if (typeinfo.flags.out and typeinfo.ptrcount != 2 and
@@ -551,7 +549,7 @@ class WrappedType(CppScope, CppType):
     def convert_variable_c_to_py(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
             return 'wrapper_lib.obj_from_ptr(%s%s[0], %s)' % (
-                    name, typeinfo.OUT_PARAM_SUFFIX, self.unscopedpyname)
+                    name, typeinfo.CFFI_PARAM_SUFFIX, self.unscopedpyname)
         if (self.copy_ctor_visibility != 'private' and
             not self.uninstantiable) and (
              typeinfo.const and not typeinfo.flags.nocopy or

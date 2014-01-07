@@ -50,8 +50,6 @@ struct IntWrapper
     int i;
 };
 
-int global_func_with_default(const char *str, const IntWrapper &i);
-
 class VMethClass
 {
 public:
@@ -128,7 +126,7 @@ public:
     CtorsClass(const CtorsClass &other) : m_i(other.m_i) {};
     CtorsClass(int i) : m_i(i) {};
 
-    int get();
+    int get() const;
 
 protected:
     void set(int i);
@@ -287,7 +285,7 @@ public:
         Defaults_A,
         Defaults_B,
     };
-    int defaults_method(DefaultsEnum f = Defaults_A)
+    int defaults_enum(DefaultsEnum f = Defaults_A)
     {
         return f;
     }
@@ -300,6 +298,11 @@ public:
         for(int i = 0; i < len ; i++)
             sum += a[i].i;
         return sum;
+    }
+
+    int defaults_meth(const char *str, const IntWrapper &i, const CtorsClass &c)
+    {
+        return strlen(str) + i.i + c.get();
     }
 };
 

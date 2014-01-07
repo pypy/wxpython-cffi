@@ -112,23 +112,22 @@ class MappedType(CppType):
 
     def call_cdef_param_setup(self, typeinfo, name):
         if typeinfo.flags.out:
-            return "{0}{1.OUT_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')".format(
+            return "{0}{1.CFFI_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')".format(
                     name, typeinfo)
+
         if typeinfo.flags.inout:
             return """\
-            {0} = {1.unscopedpyname}.to_c({0})
-            {0}{2.OUT_PARAM_SUFFIX} = ffi.new('{2.cdef_type}', {0})
+            {0}_cdata = {1.unscopedpyname}.to_c({0})
+            {0}{2.CFFI_PARAM_SUFFIX} = ffi.new('{2.cdef_type}', {0}_cdata)
             """.format(name, self, typeinfo)
+
         if typeinfo.flags.array:
-            return ("{0}, {1.ARRAY_SIZE_PARAM}, {0}_keepalive = "
+            return ("{0}{1.CFFI_PARAM_SUFFIX}, {1.ARRAY_SIZE_PARAM}, {0}_keepalive = "
                     "wrapper_lib.create_array_type({2.unscopedpyname}, ctype='{1.cdef_type}').to_c({0})"
                     .format(name, typeinfo, self))
-        return "{0} = {1}.to_c({0})".format(name, self.unscopedpyname)
 
-    def call_cdef_param_inline(self, typeinfo, name):
-        if typeinfo.flags.out or typeinfo.flags.inout:
-            return name + typeinfo.OUT_PARAM_SUFFIX
-        return name
+        return ("{0}{1.CFFI_PARAM_SUFFIX} = {2}.to_c({0})"
+                .format(name, typeinfo, self.unscopedpyname))
 
     def call_cpp_param_setup(self, typeinfo, name):
         if typeinfo.flags.hasdefault:
@@ -258,7 +257,7 @@ class MappedType(CppType):
 
     def convert_variable_c_to_py(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
-            name = name + typeinfo.OUT_PARAM_SUFFIX + '[0]'
+            name = name + typeinfo.CFFI_PARAM_SUFFIX + '[0]'
         return '%s.to_py(%s)' % (self.unscopedpyname, name)
 
     def user_cpp_param_inline(self, typeinfo, name):

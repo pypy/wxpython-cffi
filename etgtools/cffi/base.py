@@ -34,8 +34,9 @@ class ItemFlags(dict):
 #       Rename this to QualifiedType? It would make its purpose clearer
 class TypeInfo(object):
     ARRAY_SIZE_PARAM = '_array_size_'
-    OUT_PARAM_SUFFIX = '_ptr'
     PY_RETURN_SUFFIX = '_pyreturnval'
+    CFFI_PARAM_SUFFIX = '_param_value'
+
     # Fields that will be setup by CppType.build_typeinfo
     c_type = ""
     c_virt_type = ""
@@ -315,7 +316,7 @@ class CppType(object):
         pass
 
     def call_cdef_param_inline(self, typeinfo, name):
-        return name
+        return name + typeinfo.CFFI_PARAM_SUFFIX
 
     def call_cdef_param_cleanup(self, typeinfo, name):
         pass

@@ -122,33 +122,31 @@ class BasicType(CppType):
 
     def call_cdef_param_setup(self, typeinfo, name):
         if typeinfo.flags.out:
-            return ("{0}{1.OUT_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')"
+            return ("{0}{1.CFFI_PARAM_SUFFIX} = ffi.new('{1.cdef_type}')"
                     .format(name, typeinfo))
+
         if typeinfo.flags.inout:
             return """\
-            {0} = {1}({0})
-            {0}{2.OUT_PARAM_SUFFIX} = ffi.new('{2.cdef_type}', {0})
+            {0}{2.CFFI_PARAM_SUFFIX} = ffi.new('{2.cdef_type}', {1}({0}))
             """.format(name, BASIC_CTYPES[self.stripped_name], typeinfo)
 
-    def call_cdef_param_inline(self, typeinfo, name):
-        if typeinfo.flags.out or typeinfo.flags.inout:
-            return name + typeinfo.OUT_PARAM_SUFFIX
+        assign = name + typeinfo.CFFI_PARAM_SUFFIX + ' = '
 
         if self.is_char:
             if 'signed ' in self.name:
                 # CFFI expects an int
                 if typeinfo.flags.pyint:
-                    return '__builtin__.int(%s)' % name
+                    return assign + '__builtin__.int(%s)' % name
                 else:
-                    return '__builtin__.ord(%s)' % name
+                    return assign + '__builtin__.ord(%s)' % name
             else:
                 # CFFI expects a length-1 string
                 if typeinfo.flags.pyint:
-                    return '__builtin__.chr(%s)' % name
+                    return assign + '__builtin__.chr(%s)' % name
                 else:
-                    return '__builtin__.str(%s)' % name
+                    return assign + '__builtin__.str(%s)' % name
 
-        return "__builtin__.%s(%s)" % (BASIC_CTYPES[self.stripped_name], name)
+        return assign + "__builtin__.%s(%s)" % (BASIC_CTYPES[self.stripped_name], name)
 
     def virt_py_param_inline(self, typeinfo, name):
         if typeinfo.flags.inout:
@@ -185,7 +183,7 @@ class BasicType(CppType):
 
     def convert_variable_c_to_py(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
-            return '%s%s[0]' % (name, typeinfo.OUT_PARAM_SUFFIX)
+            return '%s%s[0]' % (name, typeinfo.CFFI_PARAM_SUFFIX)
 
         if self.is_char:
             if 'signed ' in self.name:
@@ -266,12 +264,13 @@ class StringType(CppType):
 
         typeinfo.default_placeholder = 'ffi.NULL'
 
-    def call_cdef_param_inline(self, typeinfo, name):
+    def call_cdef_param_setup(self, typeinfo, name):
         if not self.unicode:
             conversion = '__builtin__.str'
         else:
             conversion = '__builtin__.unicode'
-        return '%s(%s)' % (conversion, name)
+        return '{0}{1.CFFI_PARAM_SUFFIX} = {2}({0})'.format(name, typeinfo,
+                                                            conversion)
 
     def virt_py_return(self, typeinfo, name):
         if not self.unicode:
@@ -328,6 +327,9 @@ class VoidPtrType(CppType):
         typeinfo.ptrcount = 0
 
         typeinfo.wrapper_type = const + 'void*'
+
+    def call_cdef_param_setup(self, typeinfo, name):
+        return name + typeinfo.CFFI_PARAM_SUFFIX + ' = ' + name
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         return name

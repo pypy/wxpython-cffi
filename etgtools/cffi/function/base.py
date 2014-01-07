@@ -64,8 +64,8 @@ class Param(object):
             pyfile.write(nci("""\
             if {1} is wrapper_lib.default_arg_indicator:
                 defaults_bitflags |= {0.default_bit_index}
-                {0.name} = {0.type.default_placeholder}
-            """.format(self, name), indent + 4))
+                {0.name}{2.CFFI_PARAM_SUFFIX} = {0.type.default_placeholder}
+            """.format(self, name, TypeInfo), indent + 4))
 
         if conversion is not None and self.default:
             pyfile.write(nci('else:', indent + 4))

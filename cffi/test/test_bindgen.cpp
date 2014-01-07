@@ -17,11 +17,6 @@ float global_func_with_args(int i, double j)
     return i * j;
 }
 
-int global_func_with_default(const char *str, const IntWrapper &i)
-{
-    return strlen(str) + i.i;
-}
-
 double custom_code_global_func()
 {
     return 2.0;
@@ -148,7 +143,7 @@ int PVMethClass::call_method(int i)
     return this->protected_virtual_method(i);
 }
 
-int CtorsClass::get()
+int CtorsClass::get() const
 {
     return m_i;
 }
