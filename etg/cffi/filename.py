@@ -24,7 +24,7 @@ def run():
         """,
         c2cpp="""\
         wxFileName *ret = new wxFileName(wxString(cdata));
-        free(cdata);
+        free((void*)cdata);
         return ret;
         """,
 

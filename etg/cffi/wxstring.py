@@ -22,7 +22,7 @@ def run():
         return cdata;""",
         c2cpp="""\
         wxString *ret = new wxString(cdata);
-        free(cdata);
+        free((void*)cdata);
         return ret;
         """,
         c2py="""\
