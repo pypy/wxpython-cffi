@@ -209,6 +209,8 @@ class TestBindGen(object):
         m.setCppCode('return self->get() * f;')
         c.addCppCtor('(char a)', 'return new CtorsClass((int)a);')
         c.addCppMethod('double', 'cppmethod', '()', 'return self->get() * 2;')
+        c.addCppMethod('double', 'static_cppmethod', '()', 'return 1.0;',
+                       isStatic=True)
         c.addPyMethod('double_i', '(self)', 'return self.get() * 2')
         c.addItem(m)
 
@@ -1411,6 +1413,9 @@ class TestBindGen(object):
     def test_cpp_method(self):
         obj = self.mod.CtorsClass(4)
         assert obj.cppmethod() == 8
+
+        assert obj.static_cppmethod() == 1.0
+        assert self.mod.CtorsClass.static_cppmethod() == 1.0
 
         obj = self.mod.CtorsClass('a')
         assert obj.get() == ord('a')

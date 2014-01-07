@@ -1,6 +1,7 @@
 from .function import Function
 from .method import nci, Param, SelfParam, Method, args_string, InheritedVirtualMethodMixin
 from .ctor import CtorMethod
+from .static_method import StaticMethod
 from ..basictype import VoidType
 
 from ..base import CppType
@@ -39,6 +40,10 @@ class MemberCppMethod(Method):
         # there is no way for a user to override the method from Python and be
         # able to expect it to behave correctly.
         raise NotImplementedError()
+
+@cpp_method
+class StaticMemberCppMethod(StaticMethod):
+    pass
 
 @cpp_method
 class CppCtorMethod(CtorMethod):

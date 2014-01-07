@@ -27,6 +27,8 @@ def create_cppmethod(meth, parent):
     if isinstance(parent, WrappedType):
         if meth.isCtor:
             return CppCtorMethod(meth, parent)
+        elif meth.isStatic:
+            return StaticMemberCppMethod(meth, parent)
         return MemberCppMethod(meth, parent)
     else:
         return GlobalCppMethod(meth, parent)
