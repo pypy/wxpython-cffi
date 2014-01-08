@@ -12,7 +12,7 @@ def run(module):
     # it is time to handle the event.
     c.addItem(etgtools.CppMethodDef_cffi(
         'Connect',
-        pyArgs=etgtools.ArgsString('(WL_Object self, int id, int lastId, int eventType, WL_Object func)'),
+        pyArgs=etgtools.ArgsString('(WL_Self self, int id, int lastId, int eventType, WL_Object func)'),
         pyBody="""\
             if func is None:
                 call(wrapper_lib.get_ptr(self), int(id), int(lastId),
@@ -45,11 +45,8 @@ def run(module):
 
     c.addItem(etgtools.CppMethodDef_cffi(
         'Disconnect',
-        pyArgs=etgtools.ArgsString('(WL_Object self, int id, int lastId=-1, int eventType=wrapper_lib.LD("wxEVT_NULL"), WL_Object func=None)'),
+        pyArgs=etgtools.ArgsString('(WL_Self self, int id, int lastId=-1, int eventType=wrapper_lib.LD("wxEVT_NULL"), WL_Object func=None)'),
         pyBody="""\
-            wrapper_lib.check_args_types(numbers.Number, id, "id",
-                                         numbers.Number, lastId, "lastId",
-                                         numbers.Number, eventType, "eventType")
             if func is None:
                 return bool(call(wrapper_lib.get_ptr(self), int(id),
                                  int(lastId), int(eventType), ffi.NULL))
@@ -130,7 +127,7 @@ def run(module):
     m.ignore()
     c.addItem(etgtools.CppMethodDef_cffi(
         'GetFiles',
-        pyArgs=etgtools.ArgsString('(WL_Object self)'),
+        pyArgs=etgtools.ArgsString('(WL_Self self)'),
         pyBody="""\
         cdata = call(wrapper_lib.get_ptr(self))
 

@@ -15,7 +15,7 @@ def run(module):
     c.find('_BootstrapApp').ignore()
     c.addItem(etgtools.CppMethodDef_cffi(
         '_BootstrapApp',
-        pyArgs=etgtools.ArgsString('(WL_Object self)'),
+        pyArgs=etgtools.ArgsString('(WL_Self self)'),
         pyBody="""\
         # wxEntryStart (which is called by _BootstrapApp) expects to take
         # ownership of the array passed to it, so allocate with malloc instead

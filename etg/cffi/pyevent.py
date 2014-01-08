@@ -8,9 +8,6 @@ def setupPyEvent(cls):
         cls.name, isCtor=True,
         pyArgs=etgtools.ArgsString('(WL_Self self, int id=0, int eventType=wrapper_lib.LD("wxEVT_NULL"))'),
         pyBody="""\
-        wrapper_lib.check_args_types(numbers.Number, id, "id",
-                                     numbers.Number, eventType, "eventType")
-
         d = dict()
         with wrapper_lib.get_refcounted_handle(d) as handle:
             ptr = call(int(id), int(eventType), handle)

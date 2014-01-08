@@ -17,7 +17,7 @@ def run():
         cdata = clib.malloc(ffi.sizeof('wchar_t') * len(py_obj) + 1)
         cdata = ffi.cast('wchar_t*', cdata)
         cdata[0:len(py_obj)] = unicode(py_obj)
-        cdata[len(py_obj)] = u'\0'
+        cdata[len(py_obj)] = u'\\0'
 
         return cdata;""",
         c2cpp="""\
