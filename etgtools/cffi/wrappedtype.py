@@ -33,6 +33,7 @@ class WrappedType(CppScope, CppType):
 
         self.docstring = utils.fix_docstring(cls.briefDoc)
 
+        self.extra_pycode = self.item.pyCode_cffi
         self.included_headers = self.item.includes
         self.included_cppcode = self.item.cppCode
 
@@ -317,6 +318,9 @@ class WrappedType(CppScope, CppType):
             type.print_pycode(pyfile, indent + 4)
         for scope in self.subscopes:
             scope.print_pycode(pyfile, indent + 4)
+
+        if self.extra_pycode:
+            pyfile.write(nci(self.extra_pycode, indent + 4))
 
     def print_finalize_pycode(self, pyfile):
         pyfile.write("wrapper_lib.eval_class_attrs(%s)\n" % self.unscopedpyname)
