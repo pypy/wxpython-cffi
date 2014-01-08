@@ -108,6 +108,8 @@ class Method(FunctionBase):
 
         if self.protection != 'protected':
             code += 'self->'
+            if self.virtual and not self.purevirtual:
+                code +=  self.parent.unscopedname + '::'
         else:
             # Cast to the generated subclass for protected methods
             code += '(({0.parent.cppname}*)self)->unprotected_'.format(self)
