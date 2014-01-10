@@ -977,27 +977,6 @@ def cmd_cffi_gen(options, args):
         gen.write_files(mod_name, pyfile, userpyfile, cppfile, hfile,
                         verify_args)
 
-    '''
-    generators = {}
-    for mod_path in glob.iglob(def_glob):
-        mod_name = os.path.splitext(os.path.basename(mod_path))[0]
-        gen = CffiModuleGenerator(mod_name, def_path_pattern)
-        generators[gen.name] = gen
-
-    for gen in generators.values():
-        gen.init(generators)
-
-        cppfilepath = opj(CFFI_DIR, 'cpp_gen', gen.name + '.cpp')
-
-        hfile = open(opj(CFFI_DIR, 'cpp_gen', gen.name + '.h'), 'w')
-        cppfile = open(cppfilepath, 'w')
-        pyfile = open(opj(CFFI_DIR, 'wx', gen.name + '.py'), 'w')
-        userPyfile = open(opj(CFFI_DIR, 'wx', gen.name.strip('_') + '.py'), 'w')
-        verifyArgs = dict(sources=[cppfilepath], **globalVerifyArgs)
-        gen.writeFiles(pyfile, cppfile, hfile, userPyfile, verifyArgs)
-    '''
-
-
     # Copy src/__init__.py
     copyFile(opj(cfg.ROOT_DIR, 'src', '__init__.py'),
              opj(cfg.ROOT_DIR, 'cffi', 'wx', '__init__.py'))
@@ -1010,8 +989,7 @@ def cmd_cffi_gen(options, args):
         "MAJOR_VERSION     = %(VER_MAJOR)s\n"
         "MINOR_VERSION     = %(VER_MINOR)s\n"
         "RELEASE_NUMBER    = %(VER_RELEASE)s\n"
-        "SUBRELEASE_NUMBER = %(VER_SUBREL)s\n\n"
-        "VERSION = (MAJOR_VERSION, MINOR_VERSION, RELEASE_NUMBER, SUBRELEASE_NUMBER, '%(VER_FLAGS)s')\n"
+        "VERSION = (MAJOR_VERSION, MINOR_VERSION, RELEASE_NUMBER, '%(VER_FLAGS)s')\n"
         % cfg.__dict__)
 
     # Copy these directories from wx/ to cffi/wx/, but only if they don't exist
