@@ -1,31 +1,29 @@
+import etgtools
 import etgtools.tweaker_tools as tools
 
 from etgtools.extractors import ClassDef, CppMethodDef_cffi, ParamDef
 
 def setupPyEvent(cls):
     cls.addItem(CppMethodDef_cffi(
-        'void*', cls.name,
-        '(int id, int eventType, void *handle)',
-        #'(self, id=0, eventType=wrapper_lib.LD("wxEVT_NULL"))', isCtor=True,
-        '(self, id=0, eventType=wrapper_lib.LD("wxEVT_NULL"))', isCtor=True,
-        pyArgs=[ParamDef(name='id', type='numbers.Number'),
-                ParamDef(name='eventType', type='numbers.Number')],
-        callArgs='(id, eventType, handle)',
-        body="return new cfficlass_%s(id, eventType, handle);" % cls.name,
+        cls.name, isCtor=True,
+        pyArgs=etgtools.ArgsString('(WL_Self self, int id=0, int eventType=wrapper_lib.LD("wxEVT_NULL"))'),
         pyBody="""\
-        wrapper_lib.check_args_types(numbers.Number, id, "id",
-                                     numbers.Number, eventType, "eventType")
-
         d = dict()
         with wrapper_lib.get_refcounted_handle(d) as handle:
             ptr = call(int(id), int(eventType), handle)
 
-        wrapper_lib.CppWrapper.__init__(self, ptr)
+        wrapper_lib.init_wrapper(self, ptr, wrapper_lib.hassubclass(self))
         self._dict = d
-        """))
+        """,
+        cReturnType='void*',
+        cArgsString='(int id, int eventType, void *handle)',
+        cBody="return new WL_CLASS_NAME(id, eventType, handle);",
+        originalCppArgs=etgtools.ArgsString('(int id, int eventType, void *handle)'),
+    ))
 
     cls.addItem(CppMethodDef_cffi(
-        'void', '__getattr__', '()', '(self, attr)', body="",
+        '__getattr__', 
+        pyArgs=etgtools.ArgsString('(WL_Self self, WL_Self attr)'),
         pyBody="""\
         if attr == '_dict':
             # The only way __getattr__ can be called for '_dict' is if an
@@ -39,7 +37,8 @@ def setupPyEvent(cls):
         """))
 
     cls.addItem(CppMethodDef_cffi(
-        'void', '__delattr__', '()', '(self, attr)', body="",
+        '__delattr__',
+        pyArgs=etgtools.ArgsString('(WL_Self self, WL_Self attr)'),
         pyBody="""\
         if not attr in _dict:
             raise AttributeError(attr)
@@ -47,7 +46,8 @@ def setupPyEvent(cls):
         """))
 
     cls.addItem(CppMethodDef_cffi(
-        'void', '__setattr__', '()', '(self, attr, value)', body="",
+        '__setattr__',
+        pyArgs=etgtools.ArgsString('(WL_Self self, WL_Object attr, WL_Object value)'),
         pyBody="""\
         # Until the custom dict is set, store attributes directly on the object
         # Additionally, if the attribute is already stored on the object, store
@@ -63,13 +63,17 @@ def setupPyEvent(cls):
         'wxEvent*', 'Clone', '()', isVirtual=True, isConst=True, factory=True)
 
     cls.addItem(CppMethodDef_cffi(
-        'void*', '_getAttrDict', '(void *self)', '(self)',
-        body="""\
-        return ((%s*)self)->m_dict_ref.get_handle();
-        """ % cls.name,
+        '_getAttrDict',
+        pyArgs=etgtools.ArgsString('(WL_Self self)'),
         pyBody="""\
         return ffi.from_handle(call(wrapper_lib.get_ptr(self)))
-        """))
+        """,
+        cReturnType='void*',
+        cArgsString='(void *self)',
+        cBody="""\
+        return ((%s*)self)->m_dict_ref.get_handle();
+        """ % cls.name,
+    ))
 
     # Retrieve the attribute dictionary so that attributes will persist even
     # after an event has been copied by C++

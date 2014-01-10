@@ -151,6 +151,21 @@ class VirtualMethod(object):
             return self
         return closure
 
+    def __repr__(self):
+        return '<VirtualMethod%s: %s>' % (self.indices,
+                                            repr(getattr(self, 'func', None)))
+
+class VirtualMethodStub(VirtualMethod):
+    """
+    A way to inherit virtual methods without duplicating the code for them.
+    This necessary because the vtable index of a virtual method may be
+    different on the super- and sub-classes. (And infact must be different in
+    the case of multiple inheritance.)
+    """
+    def __init__(self, vmeth, *args):
+        super(VirtualMethodStub, self).__init__(*args)
+        self.func = getattr(vmeth, '__func__')
+
 class VirtualDispatcher(object):
     def __init__(self, index):
         self.index = index
@@ -160,6 +175,9 @@ class VirtualDispatcher(object):
             func = global_dtor
         self.func = func
         return self
+
+    def __repr__(self):
+        return '<VirtualDispatcher: %s>' % repr(getattr(self, 'func', None))
 
 class CppWrapper(object):
     __metaclass__ = WrapperType
@@ -194,14 +212,20 @@ class CppWrapper(object):
         return obj
 
 
+def init_wrapper(obj, ptr, is_subclass):
+    CppWrapper.__init__(obj, ptr, py_created=is_subclass)
+
+def hassubclass(cls):
+    return hasattr(cls, '_vdata')
+
 
 @ffi.callback('void(*)(void*)')
 def global_dtor(ptr):
     # TODO: set the wrapper object's ptr to NULL and add checks to prevent
     #       calls to objects that have been deleted.
     if not ptr in object_map:
-        #TODO: raise an exception? This is called via a cffi callback, so the
-        #      exception wouldn't propagate to regular python code
+        # TODO: raise an exception? This is called via a cffi callback, so the
+        #       exception wouldn't propagate to regular python code
         return
     else:
         # Clear the wrapper object's pointer so it we don't try calling methods

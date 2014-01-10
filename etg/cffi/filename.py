@@ -14,15 +14,27 @@ def run():
 
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxFileName', cType='const wchar_t *',
-        py2c="return (ffi.new('wchar_t[]', py_obj), None)",
-        c2py="""
+        py2c="""\
+        cdata = clib.malloc(ffi.sizeof('wchar_t') * (len(py_obj) + 1))
+        cdata = ffi.cast('wchar_t*', cdata)
+        cdata[0:len(py_obj)] = unicode(py_obj)
+        cdata[len(py_obj)] = u'\\0'
+
+        return cdata
+        """,
+        c2cpp="""\
+        wxFileName *ret = new wxFileName(wxString(cdata));
+        free((void*)cdata);
+        return ret;
+        """,
+
+        c2py="""\
         ret = ffi.string(cdata)
         clib.free(cdata)
         return ret
         """,
-        c2cpp="return new wxFileName(wxString(cdata));",
         cpp2c="return wxStrdup(cpp_obj->GetFullPath().wc_str());",
-        instancecheck='return isinstance(py_obj, (str, unicode))',))
+        instanceCheck='return isinstance(py_obj, (str, unicode))',))
 
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

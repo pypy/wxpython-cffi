@@ -19,8 +19,6 @@ DOCSTRING = ""
 # this script. 
 ITEMS  = [ 'wxStandardPaths' ]
 
-OTHERDEPS = [ "etg/cffi/stdpaths.py" ]
-    
 #---------------------------------------------------------------------------
 
 def run():

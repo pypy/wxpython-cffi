@@ -48,11 +48,3 @@ def run(module):
         doc="Insert a spacer using a :class:`Size` object.",
         cppCode=("return self->Insert(index, size->x, size->y, proportion, flag, border, userData);",
                  'function'))
-
-    c = module.find('wxGridSizer')
-    m = c.find('wxGridSizer').findOverload('int cols, const wxSize &')
-    m.find('gap').default = '(0, 0)'
-
-    c = module.find('wxFlexGridSizer')
-    m = c.find('wxFlexGridSizer').findOverload('int cols, const wxSize &')
-    m.find('gap').default = '(0, 0)'

@@ -26,21 +26,31 @@ def run():
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxArrayString', cType='wchar_t **',
         py2c="""\
+        array = clib.malloc(ffi.sizeof('wchar_t*') * (len(py_obj) + 1))
+        array = ffi.cast('wchar_t **', array)
         # The array's last item will be NULL pointer to mark the end
-        cdata = ffi.new('wchar_t *[]', len(py_obj) + 1)
+        array[len(py_obj)] = ffi.NULL
 
-        keepalive = [cdata]
         for i, obj in enumerate(py_obj):
-            charp = ffi.new('wchar_t[]', obj)
-            keepalive.append(charp)
-            cdata[i] = charp
+            array_item = clib.malloc(ffi.sizeof('wchar_t*') * len(obj) + 1)
+            array_item = ffi.cast('wchar_t*', array_item)
+            array[i] = array_item
 
-        return (cdata, keepalive)
+            array_item[0:len(py_obj)] = unicode(py_obj)
+            array_item[len(py_obj)] = u'\\0'
+
+        return array
         """,
         c2cpp="""\
         int i;
         for(i = 0; cdata[i] != NULL; i++) ;
-        return new wxArrayString(i, (const wchar_t**)cdata);
+        wxArrayString *ret = new wxArrayString(i, (const wchar_t**)cdata);
+
+        for(i = 0; cdata[i] != NULL; i++)
+            free(cdata[i]);
+        free(cdata);
+
+        return ret;
         """,
 
         cpp2c="""\
@@ -67,7 +77,7 @@ def run():
         """,
 
 
-        instancecheck="""\
+        instanceCheck="""\
         if (not isinstance(py_obj, collections.Sequence) or
             isinstance(py_obj, (str, unicode))):
             return False
@@ -78,15 +88,16 @@ def run():
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxArrayInt', cType='wxPyArrayHelper',
         py2c="""\
-        array = ffi.new('int []', len(py_obj) + 1)
+        array = clib.malloc(ffi.sizeof('int') * len(py_obj))
+        array = ffi.cast('int*', array)
         for i, obj in enumerate(py_obj):
-            cdata[i] = int(obj)
+            array[i] = int(obj)
 
-        cdata = ffi.new('wxPyArrayHelper')
+        cdata = ffi.new('wxPyArrayHelper*')
         cdata.length = len(py_obj)
         cdata.array = array
 
-        return (cdata, array)
+        return cdata
         """,
         c2cpp="""\
         int *carray = (int*)cdata.array;
@@ -94,6 +105,8 @@ def run():
         wxArrayInt *array = new wxArrayInt;
         for(int i = 0; i < cdata.length; i++)
             array->Add(carray[i]);
+
+        free(cdata.array);
         return array;
         """,
 
@@ -116,11 +129,10 @@ def run():
             ret.append(array[i])
 
         clib.free(cdata.array)
-        clib.free(cdata)
         return ret
         """,
 
-        instancecheck="""\
+        instanceCheck="""\
         if (not isinstance(py_obj, collections.Sequence) or
             isinstance(py_obj, (str, unicode))):
             return False
@@ -131,15 +143,16 @@ def run():
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxArrayDouble', cType='wxPyArrayHelper',
         py2c="""\
-        array = ffi.new('double []', len(py_obj) + 1)
+        array = clib.malloc(ffi.sizeof('double') * len(py_obj))
+        array = ffi.cast('double*', array)
         for i, obj in enumerate(py_obj):
-            cdata[i] = float(obj)
+            array[i] = float(obj)
 
-        cdata = ffi.new('wxPyArrayHelper')
+        cdata = ffi.new('wxPyArrayHelper*')
         cdata.length = len(py_obj)
         cdata.array = array
 
-        return (cdata, array)
+        return cdata
         """,
         c2cpp="""\
         double *carray = (double*)cdata.array;
@@ -169,11 +182,10 @@ def run():
             ret.append(array[i])
 
         clib.free(cdata.array)
-        clib.free(cdata)
         return ret
         """,
 
-        instancecheck="""\
+        instanceCheck="""\
         if (not isinstance(py_obj, collections.Sequence) or
             isinstance(py_obj, (str, unicode))):
             return False

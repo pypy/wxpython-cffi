@@ -120,6 +120,7 @@ def run():
 
     c.includeCppCode('src/bitmap_ex.cpp')
     module.addHeaderCode('#include "bitmap_ex.h"')
+    module.addHeaderCode('#include <wx/rawbmp.h>')
 
 
     c.addCppMethod('void', 'CopyFromBuffer', 

@@ -20,45 +20,53 @@ extern "C"
 #define WL_CHECK_EXCEPTION()\
     (*WL_EXCEPTION_NAME != NULL)
 
+#ifdef __GNUC__
+#    define WL_INTERNAL extern __attribute__((visibility ("internal")))
+#    define WL_C_INTERNAL extern "C" __attribute__((visibility ("internal")))
+#else
+#    define WL_INTERNAL extern
+#    define WL_C_INTERNAL extern "C"
+#endif
+
 template<typename T, typename CType>
-struct cfficonvert_mappedtype
+struct WL_mappedtype
 {
-    static CType cpp2c(T *cpp_obj);
-    static CType cpp2c(const T *cpp_obj)
+    static CType to_c(T *cpp_obj);
+    static CType to_c(const T *cpp_obj)
     {
-        return cpp2c(const_cast<T *>(cpp_obj));
+        return to_c(const_cast<T *>(cpp_obj));
     }
-    static inline CType cpp2c(const T &cpp_obj)
+    static inline CType to_c(const T &cpp_obj)
     {
-        return cpp2c(&cpp_obj);
+        return to_c(&cpp_obj);
     }
 
-    static T* c2cpp(CType cdata);
+    static T* to_cpp(CType cdata);
 
-    static T* c2cpp_array(CType *cdata, int count)
+    static T* to_cpp_array(CType *cdata, int count)
     {
         T * array = new T[count];
         for(int i = 0; i < count; i++)
         {
-            T *tmp = c2cpp(cdata[i]);
+            T *tmp = to_cpp(cdata[i]);
             array[i] = *tmp;
             delete tmp;
         }
         return array;
     }
 
-    static CType* cpp2c_array(T *objs, int count)
+    static CType* to_c_array(T *objs, int count)
     {
         CType * array = (CType*)malloc(sizeof(CType) * count);
         for(int i = 0; i < count; i++)
-            array[i] = cpp2c(objs[i]);
+            array[i] = to_c(objs[i]);
         return array;
     }
 };
 
 
 template<typename T>
-T* cfficonvert_wrappedtype_c2cpp_array(T **objs, int count)
+T* WL_wrappedtype_array_to_cpp(T **objs, int count)
 {
     T * array = new T[count];
     for(int i = 0; i < count; i++)
@@ -67,7 +75,7 @@ T* cfficonvert_wrappedtype_c2cpp_array(T **objs, int count)
 }
 
 template<typename T>
-T** cfficonvert_wrappedtype_cpp2c_array(T *objs, int count)
+T** WL_wrappedtype_array_to_c(T *objs, int count)
 {
     T **array = (T**)malloc(sizeof(T*) * count);
     for(int i = 0; i < count; i++)
@@ -76,22 +84,22 @@ T** cfficonvert_wrappedtype_cpp2c_array(T *objs, int count)
 }
 
 template<typename T>
-class cffiRefCountedPyObjBase : public T
+class WL_RefCountedPyObjBase : public T
 {
 public:
-    cffiRefCountedPyObjBase(void *handle)
+    WL_RefCountedPyObjBase(void *handle)
       : m_handle(handle)
     {
         WL_ADJUST_REFCOUNT(handle, 1);
     }
-
-    cffiRefCountedPyObjBase(const cffiRefCountedPyObjBase &other)
+#
+    WL_RefCountedPyObjBase(const WL_RefCountedPyObjBase &other)
       : m_handle(other.m_handle)
     {
         WL_ADJUST_REFCOUNT(other.m_handle, 1);
     }
 
-    ~cffiRefCountedPyObjBase()
+    ~WL_RefCountedPyObjBase()
     {
         WL_ADJUST_REFCOUNT(m_handle, -1);
     }
@@ -104,3 +112,33 @@ public:
 protected:
     void *m_handle;
 };
+
+template<typename T>
+class WL_AutoDelPtr
+{
+public:
+    T *ptr;
+
+    WL_AutoDelPtr(T *ptr_) : ptr(ptr_) { }
+    ~WL_AutoDelPtr()
+    {
+        delete ptr;
+    }
+
+    T& operator *()
+    {
+        return *ptr;
+    }
+};
+
+// TODO: If I decide that I'm not taking this path, remove these
+#define WL_CALL_ORIGINAL_BUILDER_RETURN(METHOD, VINDEX, ...)\
+    if(this->vflags[VINDEX])\
+        return this::METHOD(__VA_ARGS__);
+
+#define WL_CALL_ORIGINAL_BUILDER_VOID(METHOD, VINDEX, ...)\
+    if(this->vflags[VINDEX])\
+    {\
+        this::METHOD(__VA_ARGS__);\
+        return;\
+    }

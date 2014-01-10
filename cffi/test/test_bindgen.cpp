@@ -17,11 +17,6 @@ float global_func_with_args(int i, double j)
     return i * j;
 }
 
-int global_func_with_default(const char *str)
-{
-    return strlen(str);
-}
-
 double custom_code_global_func()
 {
     return 2.0;
@@ -75,6 +70,64 @@ int VMethClass::call_virtual(int i)
     return this->virtual_method(i);
 }
 
+
+int VMethClass::overridden_vmeth1()
+{
+    return 12;
+}
+
+int VMethClass::call_overridden_vmeth1()
+{
+    return overridden_vmeth1();
+}
+
+
+VMethClass* VMethClass::overridden_vmeth2()
+{
+    return NULL;
+}
+
+VMethClass* VMethClass::call_overridden_vmeth2()
+{
+    return overridden_vmeth2();
+}
+
+
+IntWrapper VMethClass::overridden_vmeth3(int i)
+{
+    return IntWrapper(i / 2);
+}
+
+IntWrapper VMethClass::call_overridden_vmeth3(int i)
+{
+    return overridden_vmeth3(i);
+}
+
+int VMethClass::call_unoverridden_cppvmeth(int i)
+{
+    return this->unoverridden_cppvmeth(i);
+}
+
+int VMethClass::unoverridden_cppvmeth(int i)
+{
+    return 25 - i;
+}
+
+int VMethSubclass::overridden_vmeth1()
+{
+    return 15;
+}
+
+VMethSubclass* VMethSubclass::overridden_vmeth2()
+{
+    return this;
+}
+
+IntWrapper VMethSubclass::overridden_vmeth3(int i)
+{
+    return IntWrapper(i * 2);
+}
+
 char PMethClass::protected_method(char c)
 {
     return toupper(c);
@@ -90,7 +143,7 @@ int PVMethClass::call_method(int i)
     return this->protected_virtual_method(i);
 }
 
-int CtorsClass::get()
+int CtorsClass::get() const
 {
     return m_i;
 }
@@ -155,6 +208,16 @@ const ReturnWrapperClass& ReturnWrapperClass::self_by_nocopy_cref()
     return *this;
 }
 
+const PrivateCCtorReturnWrapperClass& PrivateCCtorReturnWrapperClass::new_by_cref(int i)
+{
+    return *(new PrivateCCtorReturnWrapperClass(i));
+}
+
+const PrivateCCtorReturnWrapperClass& PrivateCCtorReturnWrapperClass::self_by_cref()
+{
+    return *this;
+}
+
 int ReturnWrapperClass::get()
 {
     return m_i;
@@ -210,18 +273,23 @@ int NestedClassArgDependant::get(const NestedClassesOuter::NestedClassesInner &i
     return i.m_i;
 }
 
-OperatorsClass& OperatorsClass::operator+=(const OperatorsClass &rhs)
+OperatorsClass& OperatorsClass::operator+=(OperatorsClass &rhs)
 {
     x += rhs.x;
     y += rhs.y;
     return *this;
 }
 
-OperatorsClass& OperatorsClass::operator-=(const OperatorsClass &rhs)
+OperatorsClass OperatorsClass::operator-()
 {
-    x -= rhs.x;
-    y -= rhs.y;
-    return *this;
+    return OperatorsClass(-x, -y);
+}
+
+OperatorsClass& operator-=(OperatorsClass &lhs, OperatorsClass &rhs)
+{
+    lhs.x -= rhs.x;
+    lhs.y -= rhs.y;
+    return lhs;
 }
 
 int ArrayClass::sum(ArrayClass *objs, int len)
@@ -422,6 +490,16 @@ void InOutClass::double_ref(CtorsClass &i)
     i = CtorsClass(i.get() * 2);
 }
 
+void InOutClass::double_refptr(CtorsClass *&i)
+{
+    *i = CtorsClass(i->get() * 2);
+}
+
+void InOutClass::double_ptrptr(CtorsClass **i)
+{
+    *i = new CtorsClass((*i)->get() * 2);
+}
+
 void InOutClass::double_ptr(Vector *i)
 {
     i->i *= 2;
@@ -432,6 +510,18 @@ void InOutClass::double_ref(Vector &i)
 {
     i.i *= 2;
     i.j *= 2;
+}
+
+void InOutClass::double_refptr(Vector *&i)
+{
+    i->i *= 2;
+    i->j *= 2;
+}
+
+void InOutClass::double_ptrptr(Vector **i)
+{
+    (*i)->i *= 2;
+    (*i)->j *= 2;
 }
 
 void InOutClass::call_double_ptr(int *i)
@@ -454,6 +544,16 @@ void InOutClass::call_double_ref(CtorsClass &i)
     double_ref(i);
 }
 
+void InOutClass::call_double_refptr(CtorsClass *&i)
+{
+    double_refptr(i);
+}
+
+void InOutClass::call_double_ptrptr(CtorsClass **i)
+{
+    double_ptrptr(i);
+}
+
 void InOutClass::call_double_ptr(Vector *i)
 {
     double_ptr(i);
@@ -462,6 +562,21 @@ void InOutClass::call_double_ptr(Vector *i)
 void InOutClass::call_double_ref(Vector &i)
 {
     double_ref(i);
+}
+
+void InOutClass::call_double_refptr(Vector *&i)
+{
+    double_refptr(i);
+}
+
+void InOutClass::call_double_ptrptr(Vector **i)
+{
+    double_ptrptr(i);
+}
+
+AbstractClass* AbstractClass::get_instance()
+{
+    return new ConcreteSubclass();
 }
 
 SmartVector double_vector(SmartVector &vec)
@@ -523,6 +638,39 @@ FactoryClass * FactoryClass::call_make()
 {
     return make();
 }
+
+void VirtualParametersOwnershipClass::call_by_value()
+{
+    by_value(CtorsClass(1));
+}
+
+void VirtualParametersOwnershipClass::call_by_ptr()
+{
+    by_ptr(new CtorsClass(2));
+}
+
+void VirtualParametersOwnershipClass::call_by_ref()
+{
+    by_ref(*(new CtorsClass(3)));
+}
+
+void VirtualParametersOwnershipClass::call_by_cref()
+{
+    by_cref(CtorsClass(4));
+}
+
+#ifdef __GNUC__
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wbind-to-temporary-copy"
+#endif
+void VirtualParametersOwnershipClass::call_by_cref_private_cctor()
+{
+    by_cref_private_cctor(PrivateCopyCtorClass());
+}
+#ifdef __GNUC__
+#  pragma GCC diagnostic pop
+#endif
+
 
 void deprecated_func() { }
 

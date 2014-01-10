@@ -23,8 +23,6 @@ ITEMS  = [ 'wxTextAttr',
            'wxTextUrlEvent',
            ]
 
-OTHERDEPS = [ 'etg/cffi/textctrl.py' ]
-    
 #---------------------------------------------------------------------------
 
 def parseAndTweakModule():

@@ -26,25 +26,26 @@ def run():
         name='wxPyBuffer', cType='wxPyBuffer *',
         py2c="""\
         memview = memoryview(py_obj)
-        chardata = ffi.new('char[]', len(memview))
+        chardata = clib.malloc(ffi.sizeof('char') * len(memview))
+        chardata = ffi.cast('char*', chardata)
         for i in range(len(memview)):
             chardata[i] = memview[i]
 
-        cdata = ffi.new('wxPyBuffer *')
+        cdata = ffi.cast('wxPyBuffer *', clib.malloc(ffi.sizeof('wxPyBuffer')))
         cdata.m_len = len(memview)
         cdata.m_ptr = chardata
-        return (cdata, (cdata, chardata))
+        return cdata
         """,
-        c2py="""
+        c2cpp="return cdata;",
+        c2py="""\
         ba = bytearray(ffi.buffer(cdata.m_ptr, cdata.m_len))
         ret = memoryview(ba)
         clib.free(cdata.m_ptr)
         clib.free(cdata)
         return ret
         """,
-        c2cpp="return new wxPyBuffer(*cdata);",
         cpp2c="return cpp_obj;",
-        instancecheck="""\
+        instanceCheck="""\
         try:
             memoryview(py_obj)
             return True
@@ -81,7 +82,7 @@ def run():
         clib.free(cdata)
         return ret
         """,
-        instancecheck="""
+        instanceCheck="""
         try:
             memoryview(py_obj)
             return True
@@ -105,7 +106,7 @@ def run():
         clib.free(cdata)
         return ret
         """,
-        instancecheck="return isinstance(py_obj, str)"))
+        instanceCheck="return isinstance(py_obj, str)"))
     '''
 
     #-----------------------------------------------------------------

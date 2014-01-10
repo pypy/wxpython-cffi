@@ -13,15 +13,25 @@ def run():
 
     module.addItem(MappedTypeDef_cffi(
         name='wxString', cType='const wchar_t *',
-        py2c="return (ffi.new('wchar_t[]', unicode(py_obj)), None)",
-        c2py="""
+        py2c="""\
+        cdata = clib.malloc(ffi.sizeof('wchar_t') * len(py_obj) + 1)
+        cdata = ffi.cast('wchar_t*', cdata)
+        cdata[0:len(py_obj)] = unicode(py_obj)
+        cdata[len(py_obj)] = u'\\0'
+
+        return cdata;""",
+        c2cpp="""\
+        wxString *ret = new wxString(cdata);
+        free((void*)cdata);
+        return ret;
+        """,
+        c2py="""\
         ret = ffi.string(cdata)
         clib.free(cdata)
         return ret
         """,
-        c2cpp="return new wxString(cdata);",
         cpp2c="return wxStrdup(cpp_obj->wc_str());",
-        instancecheck='return isinstance(py_obj, (str, unicode))',))
+        instanceCheck='return isinstance(py_obj, (str, unicode))',))
 
     # Used just for testing the MappedType code, it can be removed later
     module.addItem(FunctionDef(

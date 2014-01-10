@@ -15,6 +15,18 @@ recompile. It is also recommended that you read the original wxPython Phoenix
 README, though its not required.
 
 
+---------------
+Important TODOs
+---------------
+
+Review the usage of the ``addDefaultCtor``, ``addDtor``,
+``addPrivateAssignOp``, ``addPrivateCopyCtor``, ``addCopyCtor``. These affect
+the visibility of items that follow them in the sip backend but don't in the
+cffi backend. This may or may not be a problem. Each usage of these methods
+should be investigated to make sure that they aren't causing problems/
+incompatibilities.
+
+
 
 Converting scripts
 -----------------------

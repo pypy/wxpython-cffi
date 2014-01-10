@@ -4,12 +4,14 @@ using std::string;
 
 #define prefixedSOME_INT 15
 
+typedef int IntAlias;
+
 extern const char *global_str;
 extern const char *other_global_str;
 
+
 int simple_global_func();
 float global_func_with_args(int i, double j);
-int global_func_with_default(const char *str);
 double custom_code_global_func();
 
 int overloaded_func();
@@ -42,15 +44,40 @@ public:
 class SimpleSubclass : public SimpleClass
 { };
 
+struct IntWrapper
+{
+    IntWrapper(int i_=0) : i(i_) { }
+    int i;
+};
+
 class VMethClass
 {
 public:
+    virtual ~VMethClass() { }
     virtual int virtual_method(int i);
     int call_virtual(int i);
+
+    virtual int overridden_vmeth1();
+    int call_overridden_vmeth1();
+
+    virtual VMethClass* overridden_vmeth2();
+    VMethClass* call_overridden_vmeth2();
+
+    virtual IntWrapper overridden_vmeth3(int i);
+    IntWrapper call_overridden_vmeth3(int i);
+
+    virtual int unoverridden_cppvmeth(int i);
+    int call_unoverridden_cppvmeth(int i);
+
 };
 
 class VMethSubclass : public VMethClass
-{ };
+{
+public:
+    virtual int overridden_vmeth1();
+    virtual VMethSubclass* overridden_vmeth2();
+    virtual IntWrapper overridden_vmeth3(int i);
+};
 
 class PMethClass
 {
@@ -63,6 +90,23 @@ class VDtorClass
 {
 public:
     virtual ~VDtorClass() { };
+
+    void delete_self()
+    {
+        delete this;
+    }
+};
+
+class VDtorSubclass : public VDtorClass
+{};
+
+class VDtorSubSubclass : public VDtorSubclass
+{};
+
+class PDtorClass
+{
+private:
+    ~PDtorClass() { };
 };
 
 class PVMethClass
@@ -71,6 +115,7 @@ protected:
     virtual int protected_virtual_method(int i);
 
 public:
+    virtual ~PVMethClass() { }
     int call_method(int i);
 };
 
@@ -81,7 +126,7 @@ public:
     CtorsClass(const CtorsClass &other) : m_i(other.m_i) {};
     CtorsClass(int i) : m_i(i) {};
 
-    int get();
+    int get() const;
 
 protected:
     void set(int i);
@@ -94,6 +139,18 @@ extern CtorsClass global_wrapped_obj;
 
 void get_wrappedtype(CtorsClass *x, CtorsClass **y);
 void get_wrappedtype_ref(CtorsClass &x, CtorsClass *&y);
+
+class PrivateCopyCtorClass
+{
+public:
+    PrivateCopyCtorClass() { }
+
+private:
+    PrivateCopyCtorClass(const PrivateCopyCtorClass&) { }
+};
+
+class PrivateCopyCtorSubclass : public PrivateCopyCtorClass
+{ };
 
 class PCtorClass
 {
@@ -130,6 +187,26 @@ private:
 
 };
 
+class PrivateCCtorReturnWrapperClass
+{
+public:
+    PrivateCCtorReturnWrapperClass(int i) : m_i(i) {};
+
+    static const PrivateCCtorReturnWrapperClass& new_by_cref(int i);
+
+    const PrivateCCtorReturnWrapperClass& self_by_cref();
+
+    int get()
+    {
+        return m_i;
+    }
+
+private:
+    PrivateCCtorReturnWrapperClass(const ReturnWrapperClass&);
+
+    int m_i;
+};
+
 class MemberVarClass
 {
 public:
@@ -148,6 +225,7 @@ public:
     class NestedClassesInner
     {
     public:
+        virtual ~NestedClassesInner() { }
         virtual int vmeth();
         int call_vmeth();
 
@@ -162,6 +240,7 @@ public:
     class NestedClassesInnerVirtual
     {
     public:
+        virtual ~NestedClassesInnerVirtual() { }
         NestedClassesInnerVirtual* make()
         {
             return new NestedClassesInnerVirtual();
@@ -198,15 +277,54 @@ public:
     }
 };
 
+class DefaultsClass
+{
+public:
+    enum DefaultsEnum
+    {
+        Defaults_A,
+        Defaults_B,
+    };
+    int defaults_enum(DefaultsEnum f = Defaults_A)
+    {
+        return f;
+    }
+
+    int defaults_array(int len, IntWrapper *a)
+    {
+        if(a == NULL)
+            return -1;
+        int sum = 0;
+        for(int i = 0; i < len ; i++)
+            sum += a[i].i;
+        return sum;
+    }
+
+    int defaults_meth(const char *str, const IntWrapper &i, const CtorsClass &c)
+    {
+        return strlen(str) + i.i + c.get();
+    }
+};
+
+class InheritedDefaultsClass : public DefaultsClass
+{
+public:
+    int inherited_defaults_method(DefaultsEnum f = Defaults_A)
+    {
+        return f;
+    }
+};
+
 class OperatorsClass
 {
 public:
     int x, y;
 
     OperatorsClass(int x_, int y_) : x(x_), y(y_) {};
-    OperatorsClass& operator+=(const OperatorsClass &rhs);
-    OperatorsClass& operator-=(const OperatorsClass &rhs);
+    OperatorsClass& operator+=(OperatorsClass &rhs);
+    OperatorsClass operator-();
 };
+OperatorsClass& operator-=(OperatorsClass &lhs, OperatorsClass &rhs);
 
 class PyIntClass
 {
@@ -224,6 +342,7 @@ struct Vector;
 class ArrayClass
 {
 public:
+    virtual ~ArrayClass() { }
     ArrayClass() : m_i(0) {}
     ArrayClass(int i) : m_i(i) {}
     int m_i;
@@ -237,6 +356,7 @@ public:
 class MappedTypeClass
 {
 public:
+    virtual ~MappedTypeClass() { }
     string m_name;
     virtual string get_name();
     string call_get_name();
@@ -248,6 +368,7 @@ public:
 class WrappedTypeClass
 {
 public:
+    virtual ~WrappedTypeClass() { }
     virtual CtorsClass & get_ref();
     CtorsClass & call_get_ref();
 
@@ -266,15 +387,10 @@ struct Vector
     int j;
 };
 
-struct IntWrapper
-{
-    IntWrapper(int i_=0) : i(i_) { }
-    int i;
-};
-
 class IntWrapperClass
 {
 public:
+    virtual ~IntWrapperClass() { }
     virtual IntWrapper trivial_mappedtype(IntWrapper i, IntWrapper &k);
     IntWrapper call_trivial_mappedtype(IntWrapper i, IntWrapper &k);
 
@@ -285,6 +401,7 @@ public:
 class OutClass
 {
 public:
+    virtual ~OutClass() { }
     virtual int get_coords_ptr(int *x, int *y);
     virtual int get_coords_ref(int &x, int &y);
     virtual void get_mappedtype_ptr(string *x, string **y);
@@ -303,32 +420,45 @@ public:
 class InOutClass
 {
 public:
+    virtual ~InOutClass() { }
     virtual void double_ptr(int *i);
     virtual void double_ref(int &i);
 
     virtual void double_ptr(CtorsClass *i);
     virtual void double_ref(CtorsClass &i);
+    virtual void double_refptr(CtorsClass *&i);
+    virtual void double_ptrptr(CtorsClass **i);
 
     virtual void double_ptr(Vector *i);
     virtual void double_ref(Vector &i);
+    virtual void double_refptr(Vector *&i);
+    virtual void double_ptrptr(Vector **i);
 
     void call_double_ptr(int *i);
     void call_double_ref(int &i);
 
     void call_double_ptr(CtorsClass *i);
     void call_double_ref(CtorsClass &i);
+    void call_double_refptr(CtorsClass *&i);
+    void call_double_ptrptr(CtorsClass **i);
 
     void call_double_ptr(Vector *i);
     void call_double_ref(Vector &i);
+    void call_double_refptr(Vector *&i);
+    void call_double_ptrptr(Vector **i);
 };
 
 class AbstractClass
 {
 public:
+    virtual ~AbstractClass() { }
+    virtual void virtual_meth() { }
     virtual void purevirtual()=0;
+
+    static AbstractClass* get_instance();
 };
 
-class ConcreteSubclass
+class ConcreteSubclass : public AbstractClass
 {
 public:
     virtual void purevirtual() { }
@@ -337,6 +467,7 @@ public:
 class PureVirtualClass
 {
 public:
+    virtual ~PureVirtualClass() { }
     virtual int purevirtual()=0;
     int call_purevirtual() { return purevirtual(); }
 };
@@ -414,11 +545,30 @@ TransferClass * global_transferback_return(TransferClass *obj);
 class FactoryClass
 {
 public:
+    virtual ~FactoryClass() { }
     virtual FactoryClass * make();
     FactoryClass * make_keep_ref(FactoryClass *ref);
     FactoryClass * make_transfer_this(FactoryClass *ref);
 
     FactoryClass * call_make();
+};
+
+class VirtualParametersOwnershipClass
+{
+public:
+    virtual ~VirtualParametersOwnershipClass() { }
+    virtual void by_value(CtorsClass v) { }
+    virtual void by_ptr(CtorsClass *v) { }
+    virtual void by_ref(CtorsClass &v) { }
+    virtual void by_cref(const CtorsClass &v) { }
+    virtual void by_cref_private_cctor(const PrivateCopyCtorClass &v) { }
+
+    void call_by_value();
+    void call_by_ptr();
+    void call_by_ref();
+    void call_by_cref();
+    void call_by_cref_private_cctor();
+
 };
 
 class DeprecatedClass
@@ -436,6 +586,7 @@ class ExternalModuleSubclass : public SimpleClass
 class VirtualCatcherBase
 {
 public:
+    virtual ~VirtualCatcherBase() { }
     virtual const char *vmeth() { return ""; }
     const char *call_vmeth() { return vmeth(); }
 };
@@ -443,6 +594,7 @@ public:
 class DetectableBase
 {
 public:
+    virtual ~DetectableBase() { }
     virtual const char * get_class_name() { return "DetectableBase"; }
 };
 
@@ -457,6 +609,7 @@ DetectableBase * get_detectable_object(bool base);
 class VoidPtrClass
 {
 public:
+    virtual ~VoidPtrClass() { }
     virtual void* copy_data(void *data, int size);
     void* call_copy_data(void *data, int size);
 };
@@ -468,3 +621,131 @@ struct OpaqueType
 
 OpaqueType* make_opaque_object(int i);
 int take_opaque_object(OpaqueType*);
+
+class DocstringClass
+{
+public:
+    void docstring_meth() { }
+    void docstring_overloaded_meth() { }
+    void docstring_overloaded_meth(int i) { }
+};
+
+typedef CtorsClass CtorsAlias;
+class TypedefClass
+{
+public:
+    CtorsAlias& passthrough(CtorsAlias &obj) { return obj; }
+};
+
+class CustomCppMethodsClass
+{
+public:
+    CustomCppMethodsClass() : m_i(0) { }
+    CustomCppMethodsClass(int i) : m_i(i) { }
+
+    virtual ~CustomCppMethodsClass() { }
+
+    int basic_method() { return -42; }
+
+    void custom_pycode_only(int *data)
+    {
+        data[0] = data[0] + data[1];
+    }
+
+    virtual int custom_pycode_and_cppcode(int(*cb)(int))
+    {
+        return cb(11) * -2;
+    }
+
+    int call_custom_pycode_and_cppcode(int(*cb)(int))
+    {
+        return this->custom_pycode_and_cppcode(cb);
+    }
+
+    int get()
+    {
+        return m_i;
+    }
+
+    int m_i;
+};
+
+typedef char CharTypedef;
+
+class CharTypesClass
+{
+public:
+    int char_scalar(char c)
+    {
+        return c;
+    }
+
+    int schar_scalar(signed char c)
+    {
+        return c;
+    }
+
+    int uchar_scalar(unsigned char c)
+    {
+        return c;
+    }
+
+    int char_vector(char *c)
+    {
+        return c[0];
+    }
+
+    int schar_vector(signed char *c)
+    {
+        return c[0];
+    }
+
+    int uchar_vector(unsigned char *c)
+    {
+        return c[0];
+    }
+
+    wchar_t * wchar_string(wchar_t *c)
+    {
+        wchar_t *cpy = (wchar_t*)malloc(sizeof(wchar_t) * wcslen(c));
+        wcscpy(cpy, c);
+        return cpy;
+    }
+
+    CharTypedef * typedef_string(CharTypedef *c)
+    {
+        char *cpy = (char*)malloc(sizeof(char) * strlen(c));
+        strcpy(cpy, c);
+        return cpy;
+    }
+};
+
+class UnsignedTypesClass
+{
+public:
+    unsigned u(unsigned i)
+    {
+        return -i;
+    }
+
+    unsigned int ui(unsigned int i)
+    {
+        return -i;
+    }
+
+    unsigned long long ull(unsigned long long i)
+    {
+        return -i;
+    }
+};
+
+class NestedTypedefsClass
+{
+public:
+    typedef int int1;
+    typedef int1 int2;
+    int2 return_typedef(int2 i)
+    {
+        return i - 2;
+    }
+};

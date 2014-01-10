@@ -11,26 +11,9 @@ def run(module):
     # event handler function in the event table, so we can fetch it later when
     # it is time to handle the event.
     c.addItem(etgtools.CppMethodDef_cffi(
-        'void', 'Connect',
-        '(void *self_, int id, int lastId, int eventType, void* func)',
-        '(self, id, lastId, eventType, func)',
-        doc="Make an entry in the dynamic event table for an event binding.",
-        body="""\
-            wxEvtHandler *self = (wxEvtHandler *)self_;
-            if (func)
-                self->Connect(id, lastId, eventType,
-                              (wxObjectEventFunction)(wxEventFunction)
-                              &wxPyEventThunker::EventThunk,
-                              new wxPyCallback(func));
-            else
-                self->Disconnect(id, lastId, eventType,
-                                 (wxObjectEventFunction)(wxEventFunction)
-                                 &wxPyEventThunker::EventThunk);
-        """,
+        'Connect',
+        pyArgs=etgtools.ArgsString('(WL_Self self, int id, int lastId, int eventType, WL_Object func)'),
         pyBody="""\
-            wrapper_lib.check_args_types(numbers.Number, id, "id",
-                                         numbers.Number, lastId, "lastId",
-                                         numbers.Number, eventType, "eventType")
             if func is None:
                 call(wrapper_lib.get_ptr(self), int(id), int(lastId),
                      int(eventType), ffi.NULL)
@@ -42,14 +25,41 @@ def run(module):
             with wrapper_lib.get_refcounted_handle(func) as handle:
                 call(wrapper_lib.get_ptr(self), int(id), int(lastId),
                      int(eventType), handle)
-        """))
+        """,
+        cReturnType='void',
+        cArgsString='(void *self_, int id, int lastId, int eventType, void* func)',
+        cBody="""\
+            wxEvtHandler *self = (wxEvtHandler *)self_;
+            if (func)
+                self->Connect(id, lastId, eventType,
+                              (wxObjectEventFunction)(wxEventFunction)
+                              &wxPyEventThunker::EventThunk,
+                              new wxPyCallback(func));
+            else
+                self->Disconnect(id, lastId, eventType,
+                                 (wxObjectEventFunction)(wxEventFunction)
+                                 &wxPyEventThunker::EventThunk);
+        """,
+        doc="Make an entry in the dynamic event table for an event binding.",
+))
 
     c.addItem(etgtools.CppMethodDef_cffi(
-        'int', 'Disconnect',
-        '(void *self_, int id, int lastId, int eventType, void* func)', 
-        '(self, id, lastId=-1, eventType=wrapper_lib.LD("wxEVT_NULL"), func=None)',
-        doc="Remove an event binding by removing its entry in the dynamic event table.",
-        body="""\
+        'Disconnect',
+        pyArgs=etgtools.ArgsString('(WL_Self self, int id, int lastId=-1, int eventType=wrapper_lib.LD("wxEVT_NULL"), WL_Object func=None)'),
+        pyBody="""\
+            if func is None:
+                return bool(call(wrapper_lib.get_ptr(self), int(id),
+                                 int(lastId), int(eventType), ffi.NULL))
+
+            # Although the function we're calling won't be holding a reference,
+            # it does need the same handle that was passed to Connect
+            with wrapper_lib.get_refcounted_handle(func) as handle:
+                return bool(call(wrapper_lib.get_ptr(self), int(id),
+                                 int(lastId), int(eventType), handle))
+        """,
+        cReturnType='int',
+        cArgsString='(void *self_, int id, int lastId, int eventType, void* func)',
+        cBody="""\
             wxEvtHandler *self = (wxEvtHandler *)self_;
             if (func) {
                 // Find the current matching binder that has this function
@@ -73,7 +83,7 @@ def run(module):
                             self->GetDynamicEventTable()->Erase(node);
                             delete entry;
                             return true;
-                        }                        
+                        }
                     }
                     node = node->GetNext();
                 }
@@ -85,20 +95,8 @@ def run(module):
                                         &wxPyEventThunker::EventThunk);
             }
         """,
-        pyBody="""\
-            wrapper_lib.check_args_types(numbers.Number, id, "id",
-                                         numbers.Number, lastId, "lastId",
-                                         numbers.Number, eventType, "eventType")
-            if func is None:
-                return bool(call(wrapper_lib.get_ptr(self), int(id),
-                                 int(lastId), int(eventType), ffi.NULL))
-
-            # Although the function we're calling won't be holding a reference,
-            # it does need the same handle that was passed to Connect
-            with wrapper_lib.get_refcounted_handle(func) as handle:
-                return bool(call(wrapper_lib.get_ptr(self), int(id),
-                                 int(lastId), int(eventType), handle))
-        """))
+        doc="Remove an event binding by removing its entry in the dynamic event table.",
+    ))
 
     # Add the following code to the class body to initialize the callback
     c.pyCode_cffi = """\
@@ -122,15 +120,28 @@ def run(module):
     # leak the array for the time being. (Note that combining array and
     # transfer causes the array to not be automatically deleted.)
     c.find('wxDropFilesEvent.files').array = True
-    c.find('wxDropFilesEvent.files').transfer = True    
+    c.find('wxDropFilesEvent.files').transfer = True
     c.find('wxDropFilesEvent.noFiles').arraySize = True
 
     m = c.find('GetFiles')
     m.ignore()
     c.addItem(etgtools.CppMethodDef_cffi(
-        'wchar_t **', 'GetFiles', '(void *self)', '(self)',
-        briefDoc=m.briefDoc,
-        body="""\
+        'GetFiles',
+        pyArgs=etgtools.ArgsString('(WL_Self self)'),
+        pyBody="""\
+        cdata = call(wrapper_lib.get_ptr(self))
+
+        files = []
+        for i in range(self.GetNumberOfFiles()):
+            files.append(ffi.string(cdata[i]))
+            clib.free(cdata[i])
+
+        clib.free(cdata)
+        return files
+        """,
+        cReturnType='wchar_t **',
+        cArgsString='(void *self)',
+        cBody="""\
         wxDropFilesEvent *e = (wxDropFilesEvent *)self;
         wxString *files = e->GetFiles();
         int count = e->GetNumberOfFiles();
@@ -144,14 +155,5 @@ def run(module):
 
         return cdata;
         """,
-        pyBody="""\
-        cdata = call(wrapper_lib.get_ptr(self))
-
-        files = []
-        for i in range(self.GetNumberOfFiles()):
-            files.append(ffi.string(cdata[i]))
-            clib.free(cdata[i])
-
-        clib.free(cdata)
-        return files
-        """))
+        briefDoc=m.briefDoc,
+    ))

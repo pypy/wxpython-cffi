@@ -29,7 +29,8 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
         with open(outfile, 'wb') as f:
             pickle.dump(module, f, 2)
 
-    def stripIgnoredItems(self, items):
+    @classmethod
+    def stripIgnoredItems(cls, items):
         """
         Strip any ignored items; they aren't useful to the module generator and
         just waste space.
@@ -42,14 +43,14 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
                 if hasattr(e, 'overloads') and len(e.overloads) > 0:
                     # If a method is ignored, replace it with the first
                     # overload that isn't ignored
-                    self.stripIgnoredItems(e.overloads)
+                    cls.stripIgnoredItems(e.overloads)
                     if len(e.overloads) > 0:
                         e.overloads[0].overloads = e.overloads[1:]
                         items[i] = e.overloads[0]
 
             else:
-                self.stripIgnoredItems(e.items)
-                self.stripIgnoredItems(getattr(e, 'overloads', []))
+                cls.stripIgnoredItems(e.items)
+                cls.stripIgnoredItems(getattr(e, 'overloads', []))
 
         while True:
             try:
@@ -57,7 +58,8 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
             except ValueError:
                 break
 
-    def trimPrefixes(self, items):
+    @classmethod
+    def trimPrefixes(cls, items):
         for item in items:
             if not item.pyName:
                 if (isinstance(item, AUTO_PYNAME_TYPES) and
@@ -65,6 +67,6 @@ class CffiWrapperGenerator(generators.WrapperGeneratorBase):
                     item.pyName = item.name[2:]
                 else:
                     item.pyName = item.name
-            self.trimPrefixes(item.items)
-            self.trimPrefixes(getattr(item, 'innerclasses', []))
-            self.trimPrefixes(getattr(item, 'overloads', []))
+            cls.trimPrefixes(item.items)
+            cls.trimPrefixes(getattr(item, 'innerclasses', []))
+            cls.trimPrefixes(getattr(item, 'overloads', []))

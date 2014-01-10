@@ -11,15 +11,16 @@ import wrapper_lib
 # Manually add the top-level directory to our path so we can import etgtools
 # modules
 sys.path.append("../..")
-from etgtools import extractors, cffi_bindgen
+from etgtools import extractors
 from etgtools.generators import nci
 from etgtools.extractors import (
     ModuleDef, DefineDef, ClassDef, MethodDef, FunctionDef, ParamDef,
     CppMethodDef, CppMethodDef_cffi, MemberVarDef, GlobalVarDef, PyPropertyDef,
     PyFunctionDef, PyClassDef, PyCodeDef, EnumDef, EnumValueDef, TypedefDef,
-    MappedTypeDef_cffi)
+    MappedTypeDef_cffi, ArgsString)
 
-from etgtools.cffi_bindgen import LiteralVerifyArg
+from etgtools.cffi_generator import CffiWrapperGenerator
+from etgtools.cffi.bindgen import BindingGenerator, LiteralVerifyArg
 
 from buildtools.config import Config
 cfg = Config(noWxConfig=True).ROOT_DIR
@@ -29,12 +30,14 @@ class TestBindGen(object):
     @classmethod
     def setup_class(cls):
         cls.tmpdir = pytest.ensuretemp('build', dir=True)
-        cls.gens = cls.create_generators()
+        cls.gen = cls.create_generators()
         cls.mod = cls.build_module('_core')
         cls.mod2 = cls.build_module('_extra')
 
     @classmethod
     def create_generators(cls):
+        gen = BindingGenerator(str(cls.tmpdir.join('%s.def')))
+
         module = ModuleDef('bindgen_test', '_core', '_core')
         module.addHeaderCode('#include <test_bindgen.h>')
 
@@ -62,16 +65,20 @@ class TestBindGen(object):
             name='global_func_with_args', pyName='global_func_with_args',
             items=[ParamDef(type='int', name='i'),
                    ParamDef(type='double', name='j')]))
-        module.addItem(FunctionDef(
-            type='int', argsString='(const char *s)',
-            name='global_func_with_default', pyName='global_func_with_default',
-            items=[ParamDef(type='const char *', name='s',
-                           default='other_global_str')]))
+
         f = FunctionDef(
             type='double', argsString='()',
             name='custom_code_global_func', pyName='custom_code_global_func')
         f.setCppCode("return custom_code_global_func() - 1;")
         module.addItem(f)
+
+        f = FunctionDef(
+            type='double', argsString='(CtorsClass c, IntWrapper i)',
+            name='custom_code_global_func_wrappertypes', pyName='custom_code_global_func_wrappertypes',
+            items=ArgsString('(CtorsClass &c, IntWrapper i)'))
+        f.setCppCode("return c->get() + i->i;")
+        module.addItem(f)
+
         module.addItem(CppMethodDef(
             'short', 'global_cppmethod', '(short x, short y)',
             body="return (x * y)/(x + y);"))
@@ -105,10 +112,55 @@ class TestBindGen(object):
             type='int', argsString='(int i)',
             name='call_virtual', pyName='call_virtual',
             items=[ParamDef(type='int', name='i')]))
+        c.addMethod('int', 'overridden_vmeth1', '()', isVirtual=True)
+        c.addMethod('int', 'call_overridden_vmeth1', '()')
+        c.addMethod('VMethClass*', 'overridden_vmeth2', '()', isVirtual=True)
+        c.addMethod('VMethClass*', 'call_overridden_vmeth2', '()')
+        c.addMethod('IntWrapper', 'overridden_vmeth3', '(int i)',
+                    isVirtual=True,
+                    items=[ParamDef(type='int', name='i')])
+        c.addMethod('IntWrapper', 'call_overridden_vmeth3', '(int i)',
+                    items=[ParamDef(type='int', name='i')])
+        c.addItem(CppMethodDef_cffi(
+            'unoverridden_cppvmeth', isVirtual=True,
+            pyArgs=ArgsString('WL_Self self, char somechar'),
+            pyBody='return call(wrapper_lib.get_ptr(self), somechar)',
 
+            cReturnType='char', cArgsString='(void *self, char i)',
+            cBody='return \'a\' + static_cast<VMethClass*>(self)->unoverridden_cppvmeth(i - \'a\');',
+
+            originalCppType='int',
+            originalCppArgs=ArgsString('(int i)'),
+
+            virtualCReturnType='int',
+            virtualCArgsString='(void *self, int i)',
+            virtualCBody='return call(this, i);',
+
+            virtualPyArgs='(self, i)',
+            virtualPyBody="""\
+            c = chr(ord('a') + i)
+            res = wrapper_lib.obj_from_ptr(self).unoverridden_cppvmeth(c)
+            return ord(res) - ord('a')
+            """,
+        ))
+        c.addItem(CppMethodDef_cffi(
+            'call_unoverridden_cppvmeth',
+            pyArgs=ArgsString('WL_Self self, char somechar'),
+            pyBody='return call(wrapper_lib.get_ptr(self), somechar)',
+            cReturnType='char', cArgsString='(void *self, char i)',
+            cBody='return \'a\' + static_cast<VMethClass*>(self)->call_unoverridden_cppvmeth(i - \'a\');',
+        ))
         module.addItem(c)
 
-        module.addItem(ClassDef(name='VMethSubclass', bases=['VMethClass']))
+        module.addItem(TypedefDef(type='int', name='IntAlias'))
+
+        c = ClassDef(name='VMethSubclass', bases=['VMethClass'])
+        c.addMethod('int', 'overridden_vmeth1', '()', isVirtual=True)
+        c.addMethod('VMethSubclass*', 'overridden_vmeth2', '()', isVirtual=True)
+        c.addMethod('IntWrapper', 'overridden_vmeth3', '(time_t i)',
+                    isVirtual=True,
+                    items=[ParamDef(type='IntAlias', name='i')])
+        module.addItem(c)
 
         c = ClassDef(name='PVMethClass')
         c.addItem(MethodDef(
@@ -134,6 +186,8 @@ class TestBindGen(object):
 
         module.addItem(c)
 
+        module.addItem(TypedefDef(type='CtorsClass', name='CtorsAlias'))
+
         c = ClassDef(name='CtorsClass')
         c.addItem(MethodDef(
             type='', argsString='()', isOverloaded=True,
@@ -155,6 +209,8 @@ class TestBindGen(object):
         m.setCppCode('return self->get() * f;')
         c.addCppCtor('(char a)', 'return new CtorsClass((int)a);')
         c.addCppMethod('double', 'cppmethod', '()', 'return self->get() * 2;')
+        c.addCppMethod('double', 'static_cppmethod', '()', 'return 1.0;',
+                       isStatic=True)
         c.addPyMethod('double_i', '(self)', 'return self.get() * 2')
         c.addItem(m)
 
@@ -168,6 +224,14 @@ class TestBindGen(object):
         c.addItem(MethodDef(
             type='int', argsString='()',
             name='get', pyName='get'))
+        module.addItem(c)
+
+        c = ClassDef(name='PrivateCopyCtorClass')
+        c.addPrivateCopyCtor()
+        module.addItem(c)
+
+        c = ClassDef(name='PrivateCopyCtorSubclass',
+                     bases=['PrivateCopyCtorClass'])
         module.addItem(c)
 
         c = ClassDef(name='ReturnWrapperClass')
@@ -218,14 +282,46 @@ class TestBindGen(object):
             type='const ReturnWrapperClass &',
             argsString='()', noCopy=True,
             name='self_by_nocopy_cref', pyName='self_by_nocopy_cref'))
+        module.addItem(c)
 
+        c = ClassDef(name='PrivateCCtorReturnWrapperClass')
+        c.addMethod(
+            type='', argsString='(int i)',
+            name='PrivateCCtorReturnWrapperClass', isCtor=True,
+            items=ArgsString('(int i)'))
+        c.addPrivateCopyCtor()
+        c.addItem(MethodDef(
+            type='const PrivateCCtorReturnWrapperClass &',
+            argsString='()',
+            name='self_by_cref', pyName='self_by_cref'))
+        c.addMethod(
+            type='const PrivateCCtorReturnWrapperClass &', argsString='(int i)',
+            name='new_by_cref', pyName='new_by_cref', isStatic=True,
+            items=ArgsString('(int i)'))
+        c.addMethod(
+            type='int', argsString='()',
+            name='get', pyName='get')
         module.addItem(c)
 
         c = ClassDef(name='VDtorClass')
         c.addItem(MethodDef(
             type='', argsString='()',
             name='~VDtorClass', isVirtual=True, isDtor=True))
+        c.addMethod('void', 'delete_self', '()')
 
+        module.addItem(c)
+
+        c = ClassDef(name='VDtorSubclass', bases=['VDtorClass'])
+        c.addItem(MethodDef(
+            type='', argsString='()',
+            name='~VDtorSubclass', isVirtual=True, isDtor=True))
+        module.addItem(c)
+
+        c = ClassDef(name='VDtorSubSubclass', bases=['VDtorSubclass'])
+        module.addItem(c)
+
+        c = ClassDef(name='PDtorClass')
+        c.addDtor('private')
         module.addItem(c)
 
         c = ClassDef(name='MemberVarClass')
@@ -300,6 +396,33 @@ class TestBindGen(object):
             'NestedClassesInnerVirtual *', 'make', '()', isVirtual=True)
         module.addItem(c)
 
+        c = ClassDef(name='DefaultsClass')
+        c.addItem(EnumDef(name='DefaultsEnum', items=[
+            EnumValueDef(name='Defaults_A'),
+            EnumValueDef(name='Defaults_B')]))
+        c.addMethod(
+            'int', 'defaults_enum', '(DefaultsEnum i = Defaults_A)',
+            items=ArgsString('(DefaultsEnum i = Defaults_A)'),
+        )
+        c.addMethod(
+            'int', 'defaults_array', '',
+            items=ArgsString('(int len=0, IntWrapper *a=NULL)')
+                  .annt(0, 'arraySize').annt(1, 'array')
+        )
+        c.addMethod(
+            'int', 'defaults_meth', '',
+            items=ArgsString('(const char * s = other_global_str, '
+                              'const IntWrapper &i = IntWrapper(4), '
+                              'const CtorsClass &c = CtorsClass(6))'))
+        module.addItem(c)
+
+        c = ClassDef(name='InheritedDefaultsClass', bases=['DefaultsClass'])
+        c.addMethod(
+            'int', 'inherited_defaults_method', '(DefaultsEnum i = Defaults_A)',
+            items=ArgsString('(DefaultsEnum i = Defaults_A)'),
+        )
+        module.addItem(c)
+
         c = ClassDef(name='OperatorsClass')
         c.addItem(MethodDef(
             type='', argsString='(int x, int y)',
@@ -307,13 +430,14 @@ class TestBindGen(object):
                 ParamDef(type='int', name='x'),
                 ParamDef(type='int', name='y')]))
         c.addItem(MethodDef(
-            type='OperatorsClass &', argsString='(const OperatorsClass &rhs)',
+            type='OperatorsClass &', argsString='(OperatorsClass &rhs)',
             name='operator+=', items=[
-                ParamDef(type='const OperatorsClass &', name='rhs')]))
+                ParamDef(type='OperatorsClass &', name='rhs')]))
         c.addItem(MethodDef(
-            type='OperatorsClass &', argsString='(const OperatorsClass &rhs)',
+            type='OperatorsClass &', argsString='(OperatorsClass &rhs)',
             name='operator-=', items=[
-                ParamDef(type='const OperatorsClass &', name='rhs')]))
+                ParamDef(type='OperatorsClass &', name='rhs')]))
+        c.addMethod('OperatorsClass', 'operator-', '')
         c.addItem(MemberVarDef(name='x', type='int'))
         c.addItem(MemberVarDef(name='y', type='int'))
         module.addItem(c)
@@ -324,7 +448,8 @@ class TestBindGen(object):
             EnumValueDef(name='BOOL_FALSE')]))
         c.addItem(MethodDef(
             type='BOOLEAN', name='flip', argsString='(BOOLEAN b)',
-            items=[ParamDef(type='BOOLEAN', name='b')]))
+            isVirtual=True, items=[ParamDef(type='BOOLEAN', name='b')]))
+        c.addMethod('', '~ClassWithEnum', '', isDtor=True, isVirtual=True)
         module.addItem(c)
 
         c = ClassDef(name='PyIntClass')
@@ -347,6 +472,40 @@ class TestBindGen(object):
                     type='char', argsString='(char c)', name='overloaded',
                     pyInt=True,
                     items=[ParamDef(type='char', name='c', pyInt=True)])]))
+        module.addItem(c)
+
+        module.addItem(TypedefDef(type='char', name='CharTypedef'))
+
+        c = ClassDef(name='CharTypesClass')
+        c.addMethod('int', 'char_scalar', '', items=ArgsString('(char i)'))
+        c.addMethod('int', 'schar_scalar', '',
+                    items=ArgsString('(signed char iii)'))
+        c.addMethod('int', 'uchar_scalar', '',
+                    items=ArgsString('(unsigned char i)'))
+        c.addMethod('int', 'char_vector', '', items=ArgsString('(char *i)'))
+        c.addMethod('int', 'schar_vector', '',
+                    items=ArgsString('(signed char *i)'))
+        c.addMethod('int', 'uchar_vector', '',
+                    items=ArgsString('(unsigned char *i)'))
+        c.addMethod('wchar_t *', 'wchar_string', '',
+                    items=ArgsString('(wchar_t *i)'))
+        c.addMethod('CharTypedef *', 'typedef_string', '',
+                    items=ArgsString('(CharTypedef *i)'))
+        module.addItem(c)
+
+        c = ClassDef(name='NestedTypedefsClass')
+        c.addItem(TypedefDef(type='int', name='int1'))
+        c.addItem(TypedefDef(type='int1', name='int2'))
+        c.addMethod('int2', 'return_typedef', '', items=ArgsString('(int2 i)'))
+        module.addItem(c)
+
+        c = ClassDef(name='UnsignedTypesClass')
+        c.addMethod('unsigned', 'u', '(unsigned i)',
+                    items=ArgsString('(unsigned i)'))
+        c.addMethod('unsigned int', 'ui', '(unsigned int i)',
+                    items=ArgsString('(unsigned int i)'))
+        c.addMethod('unsigned long long', 'ull', '(unsigned long long i)',
+                    items=ArgsString('(unsigned long long i)'))
         module.addItem(c)
 
         c = ClassDef(name='ArrayClass')
@@ -378,56 +537,84 @@ class TestBindGen(object):
         module.addItem(c)
 
         c = ClassDef(name='InOutClass')
-        c.addItem(MethodDef(
+        c.addMethod(
             type='void', argsString='(int *num)', name='double_ptr',
-            isVirtual=True,
-            items=[ParamDef(type='int *', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                    type='void', argsString='(CtorsClass *num)',
-                    name='double_ptr', isVirtual=True, items=[
-                    ParamDef(type='CtorsClass *', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector *vec)', isVirtual=True,
-                name='double_ptr', items=[
-                    ParamDef(type='Vector *', name='vec', inOut=True)])]))
-        c.addItem(MethodDef(
+            isVirtual=True, items=ArgsString('(int *num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *num)',
+            name='double_ptr', isVirtual=True,
+            items=ArgsString('(CtorsClass * num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector *vec)', isVirtual=True,
+            name='double_ptr',
+            items=ArgsString('(Vector * vec)').annt(0, 'inOut'))
+        c.addMethod(
             type='void', argsString='(int &num)', name='double_ref',
             isVirtual=True,
-            items=[ParamDef(type='int &', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                type='void', argsString='(CtorsClass *num)', isVirtual=True,
-                name='double_ref', items=[
-                    ParamDef(type='CtorsClass &', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector &vec)',
-                name='double_ref', isVirtual=True, items=[
-                    ParamDef(type='Vector &', name='vec', inOut=True)])]))
-        c.addItem(MethodDef(
+            items=ArgsString('(int & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass &num)', isVirtual=True,
+            name='double_ref',
+            items=ArgsString('(CtorsClass & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector &vec)',
+            name='double_ref', isVirtual=True,
+            items=ArgsString('(Vector & vec)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *&num)', isVirtual=True,
+            name='double_refptr', items=[
+                ParamDef(type='CtorsClass *&', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector *&vec)',
+            name='double_refptr', isVirtual=True, items=[
+                ParamDef(type='Vector *&', name='vec', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(CtorsClass **num)', isVirtual=True,
+            name='double_ptrptr', items=[
+                ParamDef(type='CtorsClass **', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector **vec)',
+            name='double_ptrptr', isVirtual=True, items=[
+                ParamDef(type='Vector **', name='vec', inOut=True)])
+
+        c.addMethod(
             type='void', argsString='(int *num)', name='call_double_ptr',
-            items=[ParamDef(type='int *', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                    type='void', argsString='(CtorsClass *num)',
-                    name='call_double_ptr', items=[
-                    ParamDef(type='CtorsClass *', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector *vec)',
-                name='call_double_ptr', items=[
-                    ParamDef(type='Vector *', name='vec', inOut=True)])]))
-        c.addItem(MethodDef(
+            items=ArgsString('(int * num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *num)',
+            name='call_double_ptr',
+            items=ArgsString('(CtorsClass * num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector *vec)',
+            name='call_double_ptr',
+            items=ArgsString('(Vector * vec)').annt(0, 'inOut'))
+        c.addMethod(
             type='void', argsString='(int &num)', name='call_double_ref',
-            items=[ParamDef(type='int &', name='num', inOut=True)],
-            overloads=[
-                MethodDef(
-                type='void', argsString='(CtorsClass *num)',
-                name='call_double_ref', items=[
-                    ParamDef(type='CtorsClass &', name='num', inOut=True)]),
-                MethodDef(
-                type='void', argsString='(Vector &vec)',
-                name='call_double_ref', items=[
-                    ParamDef(type='Vector &', name='vec', inOut=True)])]))
+            items=ArgsString('(int & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *num)',
+            name='call_double_ref',
+            items=ArgsString('(CtorsClass & num)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(Vector &vec)',
+            name='call_double_ref',
+            items=ArgsString('(Vector & vec)').annt(0, 'inOut'))
+        c.addMethod(
+            type='void', argsString='(CtorsClass *&num)',
+            name='call_double_refptr', items=[
+                ParamDef(type='CtorsClass *&', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector *&vec)',
+            name='call_double_refptr', items=[
+                ParamDef(type='Vector *&', name='vec', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(CtorsClass **num)',
+            name='call_double_ptrptr', items=[
+                ParamDef(type='CtorsClass **', name='num', inOut=True)])
+        c.addMethod(
+            type='void', argsString='(Vector **vec)',
+            name='call_double_ptrptr', items=[
+                ParamDef(type='Vector **', name='vec', inOut=True)])
         module.addItem(c)
 
         c = ClassDef(name='AllowNoneClass')
@@ -447,7 +634,12 @@ class TestBindGen(object):
             items=[ParamDef(type='AllowNoneSmartVector &', name='v')]))
         module.addItem(c)
 
-        module.addItem(ClassDef(name='AbstractClass', abstract=True))
+        c = ClassDef(name='AbstractClass', abstract=True)
+        c.addMethod('AbstractClass*', 'get_instance', '', isStatic=True,
+                    factory=True)
+        c.addMethod('void', 'virtual_meth', '', isVirtual=True)
+        module.addItem(c)
+
         module.addItem(ClassDef(name='ConcreteSubclass',
                                 bases=['AbstractClass']))
 
@@ -464,7 +656,7 @@ class TestBindGen(object):
             convertFromPyObject_cffi="""\
             return SmartVector(py_obj[0], py_obj[1])
             """,
-            instancecheck="""\
+            instanceCheck_cffi="""\
             import collections
             return isinstance(py_obj, collections.Sequence) and len(py_obj) == 2
             """)
@@ -484,7 +676,7 @@ class TestBindGen(object):
                 return AllowNoneSmartVector(-1, -1)
             return AllowNoneSmartVector(py_obj[0], py_obj[1])
             """,
-            instancecheck="""\
+            instanceCheck_cffi="""\
             import collections
             return isinstance(py_obj, collections.Sequence) and len(py_obj) == 2
             """)
@@ -616,6 +808,29 @@ class TestBindGen(object):
             ]))
         module.addItem(c)
 
+        c = ClassDef(name='VirtualParametersOwnershipClass')
+        c.addMethod(
+            'void', 'by_value', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(CtorsClass i)'))
+        c.addMethod(
+            'void', 'by_ptr', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(CtorsClass *i)'))
+        c.addMethod(
+            'void', 'by_ref', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(CtorsClass &i)'))
+        c.addMethod(
+            'void', 'by_cref', '', isVirtual=True, isPureVirtual=True,
+            items=ArgsString('(const CtorsClass &i)'))
+        c.addMethod(
+            'void', 'by_cref_private_cctor', '', isVirtual=True,
+            items=ArgsString('(const PrivateCopyCtorClass &i)'))
+        c.addMethod('void', 'call_by_value', '', items=ArgsString('()'))
+        c.addMethod('void', 'call_by_ptr', '', items=ArgsString('()'))
+        c.addMethod('void', 'call_by_ref', '', items=ArgsString('()'))
+        c.addMethod('void', 'call_by_cref', '', items=ArgsString('()'))
+        c.addMethod('void', 'call_by_cref_private_cctor', '')
+        module.addItem(c)
+
         c = ClassDef(name="DeprecatedClass", deprecated=True)
         c.addItem(MethodDef(
             type='void', argsString='()', name='deprecated_method'))
@@ -642,8 +857,13 @@ class TestBindGen(object):
         module.addItem(MappedTypeDef_cffi(
             name='string', cType='char *',
             headerCode=["#include <string>\nusing std::string;"],
-            py2c="return (ffi.new('char[]', py_obj), None)",
-            c2py="""
+            py2c="""\
+            l = len(py_obj)
+            cdata = ffi.cast('char*', clib.malloc(l + 1))
+            cdata[0:l] = py_obj
+            cdata[l] = '\\0'
+            return cdata""",
+            c2py="""\
             ret = ffi.string(cdata)
             clib.free(cdata)
             return ret
@@ -653,13 +873,14 @@ class TestBindGen(object):
             char *cdata = (char*)malloc(cpp_obj->length() + 1);
             strcpy(cdata, cpp_obj->c_str());
             return cdata;""",
-            instancecheck='return isinstance(py_obj, (str, unicode))',))
+            instanceCheck='return isinstance(py_obj, (str, unicode))',))
 
         module.addItem(MappedTypeDef_cffi(
             name='Vector', cType='int *',
             py2c="""\
-            array = ffi.new('int []', [int(py_obj[0]), int(py_obj[1])])
-            return (array, array)""",
+            array = ffi.cast('int*', clib.malloc(ffi.sizeof('int') * 2))
+            array[0:2] = [int(py_obj[0]), int(py_obj[1])]
+            return array""",
             c2py="""\
             ret = (cdata[0], cdata[1])
             clib.free(cdata)
@@ -671,7 +892,7 @@ class TestBindGen(object):
             cdata[0] = cpp_obj->i;
             cdata[1] = cpp_obj->j;
             return cdata;""",
-            instancecheck="""\
+            instanceCheck="""\
             import collections
             return (isinstance(py_obj, collections.Sequence) and len(py_obj) >= 2 and
                     isinstance(py_obj[0], numbers.Number) and
@@ -680,13 +901,14 @@ class TestBindGen(object):
 
         module.addItem(MappedTypeDef_cffi(
             name='IntWrapper', cType='int',
-            py2c="return (int(py_obj), None)",
+            py2c="return int(py_obj)",
             c2py="return cdata",
             c2cpp="return new IntWrapper(cdata);",
             cpp2c="return cpp_obj->i;",
-            instancecheck="""\
+            instanceCheck="""\
             import numbers
-            return isinstance(py_obj, numbers.Number)"""))
+            return isinstance(py_obj, numbers.Number)""",
+            placeHolder='0'))
 
         module.addItem(FunctionDef(
             type='int', argsString='(string *str)', name='std_string_len',
@@ -835,15 +1057,6 @@ class TestBindGen(object):
             name='get_detectable_object', items=[
                 ParamDef(type='bool', name='base')]))
 
-        module.addItem(CppMethodDef_cffi(
-            type='int', name='custom_pycode_cppmethod',
-            argsString='(int (*obj)())', pyArgsString='(obj)',
-            body='return obj();',
-            pyBody="""\
-            func_ptr = ffi.callback('int (*)()', obj)
-            return call(func_ptr)
-            """))
-
         c = ClassDef(name='VoidPtrClass')
         c.addMethod(
             'void*', 'copy_data', '(void *data, int size)', isVirtual=True,
@@ -853,6 +1066,95 @@ class TestBindGen(object):
             'void*', 'call_copy_data', '(void *data, int size)',
             items=[ParamDef(type='void *', name='data'),
                    ParamDef(type='int', name='size')])
+        module.addItem(c)
+
+        c = ClassDef(name='DocstringClass', briefDoc='Doc')
+        c.addMethod('void', 'docstring_meth', '()', briefDoc='Doc')
+        c.addMethod('void', 'docstring_overloaded_meth', '()', briefDoc='Doc')
+        c.addMethod('void', 'docstring_overloaded_meth', '(int i)',
+                    items=[ParamDef(type='int', name='i')], briefDoc='Doc')
+        c.addPyMethod('docstring_pymeth', '(self)', 'pass', 'PyDoc')
+        module.addItem(c)
+
+        c = ClassDef(name='TypedefClass')
+        c.addMethod('CtorsAlias&', 'passthrough', '(CtorsAlias &obj)',
+                    items=[ParamDef(type='CtorsClass &', name='obj')])
+        module.addItem(c)
+
+        module.cdefs_cffi.append("typedef int(*intcallback)(int);")
+        module.headerCode.append("typedef int(*intcallback)(int);")
+
+        c = ClassDef(name='CustomCppMethodsClass')
+        c.addItem(CppMethodDef_cffi(
+            'CustomCppMethodsClass', isCtor=True,
+            pyArgs=ArgsString("(WL_Self self, int i)"),
+            pyBody="""\
+            ptr = call(i)
+            wrapper_lib.init_wrapper(self, ptr, wrapper_lib.hassubclass(self))
+            """,
+
+            cReturnType='void*', cArgsString='(int i)',
+            cBody="return new WL_CLASS_NAME(i);",
+            originalCppArgs=ArgsString('(int i)'))
+        )
+        c.addMethod('int', 'get', '')
+        c.addItem(CppMethodDef_cffi(
+            'custom_pycode_only',
+            pyArgs=ArgsString("(WL_Self self, int i)"),
+            pyBody="""\
+            data = ffi.new('int[]', [int(i), 10])
+            call(ffi.NULL, data)
+            return data[0]
+            """,
+            cReturnType='void', cArgsString='(void *self, int *data)',
+            cBody="static_cast<CustomCppMethodsClass*>(self)->custom_pycode_only(data);"))
+        c.addItem(CppMethodDef_cffi(
+            'custom_pycode_and_cppcode', isVirtual=True,
+            pyArgs=ArgsString("WL_Self self, WL_Object callback"),
+            pyBody="""\
+            assert callable(callback)
+            cb = ffi.callback('int(*)(int)', callback)
+            return call(cb)
+            """,
+            cReturnType='int', cArgsString='(int(*cb)(int))',
+
+            cBody="return cb(10);",
+
+            originalCppType='int',
+            originalCppArgs=ArgsString('(intcallback cb)'),
+
+            virtualCReturnType='int',
+            virtualCArgsString='(void *self, int(*)(int))',
+            virtualCBody="""\
+            return call(this, cb);
+            """,
+
+            virtualPyArgs="(self, func_ptr)",
+            virtualPyBody="""\
+            return wrapper_lib.obj_from_ptr(self).custom_pycode_and_cppcode(func_ptr)
+            """,
+        ))
+        c.addItem(CppMethodDef_cffi(
+            'call_custom_pycode_and_cppcode',
+            pyArgs=ArgsString("WL_Self self, WL_Object callback"),
+            pyBody="""\
+            assert callable(callback)
+            cb = ffi.callback('int(*)(int)', callback)
+            return call(wrapper_lib.get_ptr(self), cb)
+            """,
+            cReturnType='int', cArgsString='(void *self, intcallback cb)',
+            cBody="return static_cast<CustomCppMethodsClass*>(self)->call_custom_pycode_and_cppcode(cb);"""
+        ))
+        c.addItem(CppMethodDef_cffi(
+            'overloaded',
+            pyArgs=ArgsString('(WL_Self self, int i)'),
+            pyBody="return (self, i)"
+        ))
+        c.addItem(CppMethodDef_cffi(
+            'overloaded',
+            pyArgs=ArgsString('(WL_Self self)'),
+            pyBody="return self"
+        ))
         module.addItem(c)
 
         module.addItem(FunctionDef(
@@ -876,14 +1178,18 @@ class TestBindGen(object):
             PyFunctionDef('__init__', '(self, i)', 'self._i = i'),
             PyFunctionDef('geti', '(self)', 'return self._i'),
             PyFunctionDef('seti', '(self, i)', 'self._i = i'),
+            PyFunctionDef('docstring_pymeth', '(self)', 'pass',
+                           briefDoc='PyDoc'),
             PyPropertyDef(name='i', getter='geti', setter='seti')])
+
+        CffiWrapperGenerator.stripIgnoredItems(module.items)
+        CffiWrapperGenerator.trimPrefixes(module.items)
 
         mod_path = cls.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
             pickle.dump(module, f)
 
-        gen1 = cffi_bindgen.CffiModuleGenerator(module.name,
-                                                str(cls.tmpdir.join('%s.def')))
+        gen.generate(module.name)
 
         module = ModuleDef('bindgen_test', '_extra', '_extra')
         module.addImport('_core')
@@ -901,16 +1207,15 @@ class TestBindGen(object):
         c = ClassDef(name='ExternalModuleSubclass', bases=['SimpleClass'])
         module.addItem(c)
 
+        CffiWrapperGenerator.stripIgnoredItems(module.items)
+        CffiWrapperGenerator.trimPrefixes(module.items)
+
         mod_path = cls.tmpdir.join('%s.def' % module.name)
         with mod_path.open('w') as f:
             pickle.dump(module, f)
 
-        gen2 = cffi_bindgen.CffiModuleGenerator(module.name,
-                                                str(cls.tmpdir.join('%s.def')))
-        gens = {'_core': gen1, '_extra': gen2}
-        gen1.init(gens)
-        gen2.init(gens)
-        return gens
+        gen.generate(module.name)
+        return gen
 
     @classmethod
     def build_module(cls, name):
@@ -929,18 +1234,14 @@ class TestBindGen(object):
                                  ]
 
         link_args = []
-        if sys.platform != 'darwin':
-            for mod in cls.gens[name].imports:
-                link_args.append(LiteralVerifyArg(mod.name +
-                                               '.ffi.verifier.modulefilename'))
         verify_args['extra_link_args'] = link_args
         verify_args['extra_compile_args'] = ["-O0", '-g']
 
         with cpp_path.open('w') as cpp_file, py_path.open('w') as py_file,\
              user_py_path.open('w') as user_py_file, h_path.open('w') as h_file:
             # Use distutis via cffi to build the cpp code
-            cls.gens[name].writeFiles(
-                py_file, cpp_file, h_file, user_py_file, verify_args)
+            cls.gen.write_files(
+                name, py_file, user_py_file, cpp_file, h_file, verify_args)
 
         return user_py_path.pyimport()
 
@@ -962,12 +1263,22 @@ class TestBindGen(object):
         assert self.mod.global_func_with_args(12, .25) == 3
         assert self.mod.global_func_with_args(14, .25) == (14 * .25)
 
-    def test_global_func_with_default(self):
-        assert self.mod.global_func_with_default() == 5
-        assert self.mod.global_func_with_default('test') == 4
+    def test_method_with_default(self):
+        obj = self.mod.DefaultsClass()
+        assert obj.defaults_enum() == self.mod.DefaultsClass.Defaults_A
+        assert obj.defaults_array() == -1
+
+        assert obj.defaults_meth() == 15
+        assert obj.defaults_meth('test') == 14
+        assert obj.defaults_meth('test', 9) == 19
+        assert obj.defaults_meth('test', 9, self.mod.CtorsClass(10)) == 23
+        assert obj.defaults_meth(i=9) == 20
+        assert obj.defaults_meth(c=self.mod.CtorsClass(10)) == 19
 
     def test_custom_code_func(self):
         assert self.mod.custom_code_global_func() == 1
+        assert self.mod.custom_code_global_func_wrappertypes(
+                self.mod.CtorsClass(10), 15) == 25
 
     def test_global_cppmethod(self):
         assert self.mod.global_cppmethod(4, 4) == 2
@@ -1000,10 +1311,60 @@ class TestBindGen(object):
         assert c.virtual_method(5) == 10
         assert c.call_virtual(5) == 10
 
+    def test_inheritted_virtual_methods(self):
+        someobj = self.mod.VMethSubclass()
+        class VMethSubclassSubclass(self.mod.VMethSubclass):
+            def overridden_vmeth1(self):
+                return 9
+
+            def overridden_vmeth2(self):
+                return someobj
+
+            def overridden_vmeth3(self, i):
+                return 3 * i
+
+            def unoverridden_cppvmeth(self, c):
+                return c.swapcase()
+
+        obj = self.mod.VMethClass()
+        assert obj.overridden_vmeth1() == 12
+        assert obj.call_overridden_vmeth1() == 12
+        assert obj.overridden_vmeth2() is None
+        assert obj.call_overridden_vmeth2() is None
+        assert obj.overridden_vmeth3(6) == 3
+        assert obj.call_overridden_vmeth3(6) == 3
+        assert obj.unoverridden_cppvmeth('a') == 'z'
+        assert obj.call_unoverridden_cppvmeth('a') == 'z'
+
+        obj = self.mod.VMethSubclass()
+        assert obj.overridden_vmeth1() == 15
+        assert obj.call_overridden_vmeth1() == 15
+        assert obj.overridden_vmeth2() is obj
+        assert obj.call_overridden_vmeth2() is obj
+        assert obj.overridden_vmeth3(6) == 12
+        assert obj.call_overridden_vmeth3(6) == 12
+        assert obj.unoverridden_cppvmeth('a') == 'z'
+        assert obj.call_unoverridden_cppvmeth('a') == 'z'
+
+        obj = VMethSubclassSubclass()
+        assert obj.call_overridden_vmeth1() == 9
+        assert obj.call_overridden_vmeth2() is someobj
+        assert obj.call_overridden_vmeth3(6) == 18
+        assert obj.call_unoverridden_cppvmeth('a') == 'A'
+
     def test_subclass_virtual_method_direct_call(self):
         c = self.mod.VMethSubclass()
         assert c.virtual_method(5) == -5
         assert c.call_virtual(5) == -5
+
+    def test_override_subclass_virtual_method(self):
+        class VMethSubclassSubclass(self.mod.VMethSubclass):
+            def virtual_method(self, i):
+                return i * 2
+
+        c = VMethSubclassSubclass()
+        assert c.virtual_method(5) == 10
+        assert c.call_virtual(5) == 10
 
     def test_protected_method(self):
         obj = self.mod.PMethClass()
@@ -1053,12 +1414,29 @@ class TestBindGen(object):
         obj = self.mod.CtorsClass(4)
         assert obj.cppmethod() == 8
 
+        assert obj.static_cppmethod() == 1.0
+        assert self.mod.CtorsClass.static_cppmethod() == 1.0
+
         obj = self.mod.CtorsClass('a')
         assert obj.get() == ord('a')
 
     def test_overloaded_func(self):
         assert self.mod.overloaded_func() == 20
         assert self.mod.overloaded_func(12) == 6
+
+    def test_virtual_dtor(self):
+        obj = self.mod.VDtorClass()
+        obj.delete_self()
+
+        # This is a really indirect way of testing that the virtual dtor was
+        # called: the object's internal pointer being change to NULL is a side
+        # effect of it being deleted.
+        assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
+
+    def test_inherited_virtual_dtor(self):
+        obj = self.mod.VDtorSubSubclass()
+        obj.delete_self()
+        assert wrapper_lib.get_ptr(obj) == self.mod.ffi.NULL
 
     def test_pymethod(self):
         obj = self.mod.CtorsClass(100)
@@ -1108,6 +1486,17 @@ class TestBindGen(object):
         assert obj._py_owned
         assert from_value._py_owned
         assert from_cref._py_owned
+
+
+        from_cref = self.mod.PrivateCCtorReturnWrapperClass.new_by_cref(5)
+        assert from_cref.get() == 5
+        assert not from_cref._py_owned
+
+        obj = self.mod.PrivateCCtorReturnWrapperClass(5)
+        self.mod.wrapper_lib.give_ownership(obj)
+
+        from_cref = obj.self_by_cref()
+        assert obj is from_cref
 
     def test_membervar(self):
         obj = self.mod.MemberVarClass(5)
@@ -1177,6 +1566,10 @@ class TestBindGen(object):
         assert obj.x == -8
         assert obj.y == 8
 
+        obj = -self.mod.OperatorsClass(9, 8)
+        assert obj.x == -9
+        assert obj.y == -8
+
     def test_pyint(self):
         obj = self.mod.PyIntClass()
         assert obj.noPyInt('c') == 'c'
@@ -1186,6 +1579,28 @@ class TestBindGen(object):
 
         assert obj.overloaded() == ord('c')
         assert obj.overloaded(11) == 11
+
+    def test_char_types(self):
+        obj = self.mod.CharTypesClass()
+        assert obj.char_scalar(chr(255)) == -1
+        assert obj.uchar_scalar(chr(255)) == 255
+
+        assert obj.schar_scalar(chr(1)) == 1
+        with pytest.raises(OverflowError):
+            obj.schar_scalar(chr(255))
+
+        assert obj.wchar_string('string') == 'string'
+        assert obj.typedef_string('string') == 'string'
+
+    def test_nested_typedef(self):
+        obj = self.mod.NestedTypedefsClass()
+        assert obj.return_typedef(1) == -1
+
+    def test_unsigned_types(self):
+        obj = self.mod.UnsignedTypesClass()
+        assert obj.u(1) == 2 ** 32 - 1
+        assert obj.ui(1) == 2 ** 32 - 1
+        assert obj.ull(1) == 2 ** 64 - 1
 
     def test_array(self):
         AC = self.mod.ArrayClass
@@ -1282,12 +1697,14 @@ class TestBindGen(object):
 
         assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
         assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
-
-        assert obj.double_ptr(self.mod.CtorsClass(10.0)).get() == 20
-        assert obj.double_ref(self.mod.CtorsClass(11)).get() == 22
+        assert obj.double_refptr(self.mod.CtorsClass(12)).get() == 24
+        assert obj.double_ptrptr(self.mod.CtorsClass(13)).get() == 26
 
         assert obj.double_ptr((1, 2)) == (2, 4)
         assert obj.double_ref((4, 8)) == (8, 16)
+        assert obj.double_refptr((8, 7)) == (16, 14)
+        assert obj.double_ptrptr((9, 6)) == (18, 12)
+
 
     def test_virtual_ou(self):
         class OutSubclass(self.mod.OutClass):
@@ -1358,18 +1775,39 @@ class TestBindGen(object):
                     obj = self.mod.CtorsClass(-obj.get())
                     return obj
 
+            def double_refptr(self_, obj):
+                import numbers
+                if isinstance(obj, numbers.Number):
+                    return -obj
+                if isinstance(obj, tuple):
+                    return (-obj[0], -obj[1])
+                if isinstance(obj, self.mod.CtorsClass):
+                    obj = self.mod.CtorsClass(-obj.get())
+                    return obj
+
+            def double_ptrptr(self_, obj):
+                import numbers
+                if isinstance(obj, numbers.Number):
+                    return -obj
+                if isinstance(obj, tuple):
+                    return (-obj[0], -obj[1])
+                if isinstance(obj, self.mod.CtorsClass):
+                    obj = self.mod.CtorsClass(-obj.get())
+                    return obj
+
         obj = InOutSubclass()
         assert obj.call_double_ptr(10.0) == -10
         assert obj.call_double_ref(11) == -11
 
         assert obj.call_double_ptr(self.mod.CtorsClass(10.0)).get() == -10
         assert obj.call_double_ref(self.mod.CtorsClass(11)).get() == -11
-
-        assert obj.call_double_ptr(self.mod.CtorsClass(10.0)).get() == -10
-        assert obj.call_double_ref(self.mod.CtorsClass(11)).get() == -11
+        assert obj.call_double_refptr(self.mod.CtorsClass(12)).get() == -12
+        assert obj.call_double_ptrptr(self.mod.CtorsClass(13)).get() == -13
 
         assert obj.call_double_ptr((1, 2)) == (-1, -2)
         assert obj.call_double_ref((4, 8)) == (-4, -8)
+        assert obj.call_double_refptr((3, 7)) == (-3, -7)
+        assert obj.call_double_ptrptr((5, 9)) == (-5, -9)
 
     def test_trivial_mappedtype(self):
         class IntWrapperSubclass(self.mod.IntWrapperClass):
@@ -1392,7 +1830,9 @@ class TestBindGen(object):
     def test_abstract_class(self):
         with pytest.raises(TypeError):
             self.mod.AbstractClass()
+
         self.mod.ConcreteSubclass()
+        self.mod.AbstractClass.get_instance()
 
         class PyAbstractSubClass(self.mod.AbstractClass):
             pass
@@ -1662,6 +2102,41 @@ class TestBindGen(object):
         gc.collect()
         assert wr() is not None
 
+    def test_virtual_parameters_ownership(self):
+        obj_from_virtual = [None]
+        class Subclass(self.mod.VirtualParametersOwnershipClass):
+            def by_value(self, obj):
+                obj_from_virtual[0] = obj
+            def by_ptr(self, obj):
+                obj_from_virtual[0] = obj
+            def by_ref(self, obj):
+                obj_from_virtual[0] = obj
+            def by_cref(self, obj):
+                obj_from_virtual[0] = obj
+            def by_cref_private_cctor(self, obj):
+                obj_from_virtual[0] = obj
+
+        obj = Subclass()
+
+        obj.call_by_value()
+        assert obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_ptr()
+        assert not obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_ref()
+        assert not obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_cref()
+        assert obj_from_virtual[0]._py_owned
+        obj_from_virtual[0] = None
+
+        obj.call_by_cref_private_cctor()
+        assert not obj_from_virtual[0]._py_owned
+
     def test_deprecated(self):
         obj = pytest.deprecated_call(self.mod.DeprecatedClass)
         pytest.deprecated_call(obj.deprecated_method)
@@ -1677,14 +2152,6 @@ class TestBindGen(object):
 
         obj = self.mod2.ExternalModuleSubclass()
         assert obj.simple_method(1.1) == 1
-
-    def test_virtualcatchercode(self):
-        class VirtualCatcherClass(self.mod.VirtualCatcherBase):
-            def vmeth(self):
-                return 'test'
-
-        obj = VirtualCatcherClass()
-        assert obj.call_vmeth() == 'TEST'
 
     def test_exceptions_from_cpp(self):
         with pytest.raises(BufferError):
@@ -1706,10 +2173,46 @@ class TestBindGen(object):
         subclassobj = self.mod.get_detectable_object(False)
         assert isinstance(subclassobj, self.mod.DetectableSubclass)
 
-    def test_custom_pycode_cppmethod(self):
-        def get():
-            return 42
-        assert self.mod.custom_pycode_cppmethod(get) == 42
+    def test_cppmethod_cffi(self):
+        someint = [-111]
+        def set_someint(i):
+            # The C code should pass in a 10
+            someint[0] = i
+            return -15
+
+        obj = self.mod.CustomCppMethodsClass(10)
+        assert obj.get() == 10
+
+        assert obj.custom_pycode_only(12) == 22
+
+        # An assert happens inside the generated code for this call
+        assert obj.custom_pycode_and_cppcode(set_someint) == -15
+        assert someint[0] == 10
+
+        with pytest.raises(TypeError):
+            obj.custom_pycode_only("10")
+
+        with pytest.raises(TypeError):
+            self.mod.CustomCppMethodsClass()
+
+    def test_override_virtual_cppmethod_cffi(self):
+        someint = [-111]
+        def set_someint(i):
+            someint[0] = i
+            return -1
+
+        class CustomCppMethodsSubclass(self.mod.CustomCppMethodsClass):
+            def custom_pycode_and_cppcode(self, callback):
+                return callback(42)
+
+        obj = CustomCppMethodsSubclass(10)
+        assert obj.call_custom_pycode_and_cppcode(set_someint) == -1
+        assert someint[0] == 42
+
+    def test_overloaded_cppmethod_cffi(self):
+        obj = self.mod.CustomCppMethodsClass(10)
+        assert obj.overloaded() is obj
+        assert obj.overloaded(10) == (obj, 10)
 
     def test_voidptr(self):
         class VoidPtrSubclass(self.mod.VoidPtrClass):
@@ -1731,3 +2234,21 @@ class TestBindGen(object):
     def test_opaque_type(self):
         obj = self.mod.make_opaque_object(10)
         assert self.mod.take_opaque_object(obj) == 10
+
+    def test_docstrings(self):
+        assert self.mod.DocstringClass.__doc__.strip() == 'Doc'
+        assert (self.mod.DocstringClass.docstring_meth.__doc__.strip() ==
+                'Doc')
+
+        doc = self.mod.DocstringClass.docstring_overloaded_meth.__doc__.strip()
+        doc = '\n'.join([i.strip() for i in doc.splitlines()])
+        assert (doc == 'Doc\nDoc')
+
+        assert (self.mod.DocstringClass.docstring_pymeth.__doc__.strip() ==
+                'PyDoc')
+
+        assert self.mod.PyClass.__doc__.strip() == 'PyClass docstring'
+        assert self.mod.PyClass.docstring_pymeth.__doc__.strip() == 'PyDoc'
+
+    def test_typedefs(self):
+        obj = self.mod.CtorsAlias(10)

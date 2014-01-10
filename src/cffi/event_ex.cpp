@@ -1,4 +1,4 @@
-typedef cffiRefCountedPyObjBase<wxObject> wxPyCallback;
+typedef WL_RefCountedPyObjBase<wxObject> wxPyCallback;
 
 
 extern "C" void (*wxPyCallback_event_thunk)(void*, void*);
