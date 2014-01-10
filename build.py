@@ -114,7 +114,8 @@ Usage: ./build.py [command(s)] [options]
       bdist         Create a binary tarball release of wxPython Phoenix
       docs_bdist    Build a tarball containing the documentation
       bdist_egg     Build a Python egg.  Requires magic.
-
+      bdist_wheel   Build a Python wheel.  Requires magic.
+        
       test          Run the unit test suite
       test_*        Run just the one named test module
 
@@ -137,6 +138,7 @@ def main(args):
     os.environ['PYTHONUNBUFFERED'] = 'yes'
     os.environ['WXWIN'] = wxDir()
     cfg = Config(noWxConfig=True)
+    msg('cfg.VERSION: %s' % cfg.VERSION)
     msg('')
 
     wxpydir = os.path.join(phoenixDir(), "wx")
@@ -153,7 +155,9 @@ def main(args):
         # ensure that each command starts with the CWD being the phoenix dir.
         os.chdir(phoenixDir())
         cmd = commands.pop(0)
-        if cmd.startswith('test_'):
+        if not cmd:
+            continue # ignore empty command-line args (possible with the buildbot)
+        elif cmd.startswith('test_'):
             testOne(cmd, options, args)
         elif 'cmd_'+cmd in globals():
             function = globals()['cmd_'+cmd]
@@ -382,7 +386,7 @@ def makeOptionParser():
         ("unicode",        (True,  "Build wxPython with unicode support (always on for wx2.9+)")),
         ("verbose",        (False, "Print out more information.")),
         ("nodoc",          (False, "Do not run the default docs generator")),
-        ("upload_package", (False, "Upload bdist and/or sdist packages to snapshot server.")),
+        ("upload",         (False, "Upload bdist and/or sdist packages to snapshot server.")),
         ("cairo",          (False, "Allow Cairo use with wxGraphicsContext (Windows only)")),
         ("x64",            (False, "Use and build for the 64bit version of Python on Windows")),
         ("jom",            (False, "Use jom instead of nmake for the wxMSW build")),
@@ -552,13 +556,12 @@ class CommandTimer(object):
 
 
 
-def uploadPackage(fileName, matchString, keep=5):
+def uploadPackage(fileName, KEEP=50):
     """
-    Upload the given filename to the configured package server location.
-    Only the `keep` number of files containing `matchString` will be
-    kept, any others will be removed from the server. It is assumed that
-    if the files are in sorted order then the end of the list will be the
-    newest files.
+    Upload the given filename to the configured package server location. Only
+    the KEEP most recent files will be kept so the server spece is not overly
+    consumed. It is assumed that if the files are in sorted order then the
+    end of the list will be the newest files.
     """
     msg("Preparing to upload %s..." % fileName)
     configfile = os.path.join(os.getenv("HOME"), "phoenix_package_server.cfg")
@@ -581,11 +584,11 @@ def uploadPackage(fileName, matchString, keep=5):
     ftp.storbinary('STOR %s' % ftp_path, f)
     f.close()
 
-    allFiles = [name for name in ftp.nlst(ftp_dir) if matchString in name]
+    allFiles = ftp.nlst(ftp_dir)
     allFiles.sort()  # <== if an alpha sort is not the correct order, pass a cmp function!
 
-    # leave the last 5 builds, including this new one, on the server
-    for name in allFiles[:-keep]:
+    # leave the last KEEP builds, including this new one, on the server
+    for name in allFiles[:-KEEP]:
         msg("Deleting %s" % name)
         ftp.delete(name)
 
@@ -827,8 +830,8 @@ def cmd_docs_bdist(options, args):
                 filter=lambda info: None if '.svn' in info.name else info)
     tarball.close()
 
-    if options.upload_package:
-        uploadPackage(tarfilename, '-docs')
+    if options.upload:
+        uploadPackage(tarfilename)    
 
     msg('Documentation tarball built at %s' % tarfilename)
 
@@ -1339,9 +1342,32 @@ def _doSimpleSetupCmd(options, args, setupCmd):
 
 def cmd_bdist_egg(options, args):
     _doSimpleSetupCmd(options, args, 'bdist_egg')
+    cfg = Config()    
+    if options.upload:
+        filemask = "dist/%s-%s-*.egg" % (baseName, cfg.VERSION.replace('-', '_'))
+        filenames = glob.glob(filemask)
+        assert len(filenames) == 1
+        uploadPackage(filenames[0])
+        
 
+def cmd_bdist_wheel(options, args):
+    _doSimpleSetupCmd(options, args, 'bdist_wheel')
+    cfg = Config()    
+    if options.upload:
+        filemask = "dist/%s-%s-*.whl" % (baseName, cfg.VERSION.replace('-', '_'))
+        filenames = glob.glob(filemask)
+        assert len(filenames) == 1
+        uploadPackage(filenames[0])
+        
 def cmd_bdist_wininst(options, args):
     _doSimpleSetupCmd(options, args, 'bdist_wininst')
+    cfg = Config()    
+    if options.upload:
+        filemask = "dist/%s-%s-*.exe" % (baseName, cfg.VERSION.replace('-', '_'))
+        filenames = glob.glob(filemask)
+        assert len(filenames) == 1
+        uploadPackage(filenames[0])
+
 
 # bdist_msi requires the version number to be only 3 components, but we're
 # using 4.  TODO: Can we fix this?
@@ -1525,6 +1551,10 @@ def cmd_sdist(options, args):
     # Also add the waf executable
     copyFile('bin/waf-%s' % wafCurrentVersion, os.path.join(PDEST, 'bin'))
 
+    # and the REV.txt if there is one
+    if os.path.exists('REV.txt'):
+        copyFile('REV.txt', PDEST)
+
     # Add some extra stuff to the root folder
     copyFile('packaging/setup.py', ADEST)
     copyFile('packaging/README-sdist.txt', opj(ADEST, 'README.txt'))
@@ -1534,7 +1564,7 @@ def cmd_sdist(options, args):
 
     # build the tarball
     msg('Archiving Phoenix source...')
-    rootname = "%s-%s-src" % (baseName, cfg.VERSION)
+    rootname = "%s-%s" % (baseName, cfg.VERSION)
     tarfilename = "dist/%s.tar.gz" % rootname
     if os.path.exists(tarfilename):
         os.remove(tarfilename)
@@ -1547,8 +1577,8 @@ def cmd_sdist(options, args):
     del pwd
     shutil.rmtree(ADEST)
 
-    if options.upload_package:
-        uploadPackage(tarfilename, '-src')
+    if options.upload:
+        uploadPackage(tarfilename)
 
     msg("Source release built at %s" % tarfilename)
 
@@ -1598,8 +1628,8 @@ def cmd_bdist(options, args):
     tarball.add('packaging/README-bdist.txt', os.path.join(rootname, 'README.txt'))
     tarball.close()
 
-    if options.upload_package:
-        uploadPackage(tarfilename, '-%s-py%s' % (platform, PYVER))
+    if options.upload:
+        uploadPackage(tarfilename)
 
     msg("Binary release built at %s" % tarfilename)
 
@@ -1613,6 +1643,7 @@ def cmd_setrev(options, args):
 
     svnrev = getSvnRev()
     f = open('REV.txt', 'w')
+    svnrev = '.dev'+svnrev
     f.write(svnrev)
     f.close()
     cfg = Config()

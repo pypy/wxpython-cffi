@@ -37,8 +37,8 @@ def run():
     module.find('wxInt16').type = 'short'
     module.find('wxInt64').type = 'long long'
     module.find('wxUint64').type = 'unsigned long long'
-    module.find('wxIntPtr').type =  'long'           #'ssize_t'
-    module.find('wxUIntPtr').type = 'unsigned long'  #'size_t'
+    module.find('wxIntPtr').type =  'long long'           #'ssize_t'
+    module.find('wxUIntPtr').type = 'unsigned long long'  #'size_t'
     module.find('wxInt8').pyInt = True
     module.find('wxUint8').pyInt = True
     module.find('wxByte').pyInt = True
@@ -71,23 +71,17 @@ def run():
         class wxExecuteEnv;
         """))
     
-    
-    # TBD: I've always disliked the WXK_* names. Should I rename all the items
-    # in the wxKeyCode enum to be KEY_* names?
-
-    
+   
     # Add some code for getting the version numbers
     module.addCppCode("""
         #include <wx/version.h>
         const int MAJOR_VERSION = wxMAJOR_VERSION;
         const int MINOR_VERSION = wxMINOR_VERSION;           
         const int RELEASE_NUMBER = wxRELEASE_NUMBER;     
-        const int SUBRELEASE_NUMBER = wxSUBRELEASE_NUMBER;
         """)
     module.addItem(etgtools.GlobalVarDef(type='const int', name='MAJOR_VERSION'))
     module.addItem(etgtools.GlobalVarDef(type='const int', name='MINOR_VERSION'))
     module.addItem(etgtools.GlobalVarDef(type='const int', name='RELEASE_NUMBER'))
-    module.addItem(etgtools.GlobalVarDef(type='const int', name='SUBRELEASE_NUMBER'))
 
     module.addPyCode("BG_STYLE_CUSTOM = BG_STYLE_PAINT")
     module.addItem(etgtools.DefineDef(name='wxADJUST_MINSIZE', value='0'))

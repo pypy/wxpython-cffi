@@ -81,6 +81,7 @@ MODULENAME_REPLACE = {'_core'    : '',
                       '_xrc'     : 'xrc.',
                       '_grid'    : 'grid.',
                       '_richtext': 'richtext.',
+                      '_webkit'  : 'webkit.',
                       }
 
 NO_MODULE = {
@@ -144,6 +145,7 @@ NO_MODULE = {
              
              # -- wxXRC -- #
              # Widgets
+             'XmlSubclassFactory'      : 'xrc.',
              
              # Enums/constants
              'XmlResourceFlags'        : 'xrc.',

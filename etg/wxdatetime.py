@@ -151,12 +151,6 @@ def run():
     c.find('GetNumberOfDays').ignore()
     c.find('GetTmNow').ignore()
     c.find('GetTmNow').ignore()
-
-    # TODO: remove this, temporary work around
-    try:
-        c.find('IsGregorianDate').ignore()
-    except:
-        pass
     
     # output the am/pm parameter values
     c.find('GetAmPmStrings.am').out = True

@@ -73,6 +73,10 @@ def run():
     c.addPyMethod('PrependItem', '(self, menuItem)', deprecated='Use Prepend instead.',
                   body='return self.Prepend(menuItem)')
 
+    c.addPyMethod('RemoveMenu', '(self, id, item, subMenu, help="")', deprecated='Use Remove instead.',
+                  body='return self.Remove(id, item, subMenu, help)')
+    c.addPyMethod('RemoveItem', '(self, menuItem)', deprecated='Use Remove instead.',
+                  body='return self.Remove(menuItem)')
 
     # Don't hide the Destroy inherited from wxObject
     c.find('Destroy').findOverload('int').pyName = 'DestroyItem'
@@ -117,6 +121,15 @@ def run():
     mac_gcmb.setCppCode("""\
     #ifdef __WXMAC__
         return wxMenuBar::MacGetCommonMenuBar();
+    #else
+        return NULL;
+    #endif
+    """)
+
+    mac_gcmb = c.find('OSXGetAppleMenu')
+    mac_gcmb.setCppCode("""\
+    #ifdef __WXMAC__
+        return self->OSXGetAppleMenu();
     #else
         return NULL;
     #endif
