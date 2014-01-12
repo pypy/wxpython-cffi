@@ -72,12 +72,10 @@ def run():
     #    virtual bool ProcessIdle();        
     #    """))
     c.addMethod('int', 'Run', '()', isVirtual=True)
-    c.addMethod('void', 'Exit', '(int rc = 0)', isVirtual=True,
-                items=[etgtools.ParamDef(type='int', name='rc', default='0')])
+    c.addMethod('void', 'Exit', '(int rc = 0)', isVirtual=True)
     c.addMethod('bool', 'Pending', '() const', isVirtual=True, isConst=True)
     c.addMethod('bool', 'Dispatch', '()', isVirtual=True)
-    c.addMethod('int', 'DispatchTimeout', '(unsigned long timeout)', isVirtual=True,
-                items=[etgtools.ParamDef(type='unsigned long', name='timeout')])
+    c.addMethod('int', 'DispatchTimeout', '(unsigned long timeout)', isVirtual=True)
     c.addMethod('void', 'WakeUp', '()', isVirtual=True)
 
     c.addMethod('bool', 'ProcessIdle', '()', isVirtual=True)

@@ -81,14 +81,10 @@ def run():
     #    virtual bool GetDataHere(const wxDataFormat& format, void* buf) const;
     #    virtual bool SetData(const wxDataFormat& format, size_t len, const void* buf);
     #    """))
-    c.addMethod(
-        'size_t', 'GetFormatCount', '(Direction dir = Get)', isConst=True,
-        isVirtual=True, items=[
-            etgtools.ParamDef(type='Direction', name='dir', default='Get')])
-    c.addMethod(
-        'wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
-        isConst=True, isVirtual=True, items=[
-            etgtools.ParamDef(type='Direction', name='dir', default='Get')])
+    c.addMethod('size_t', 'GetFormatCount', '(Direction dir = Get)',
+                isConst=True, isVirtual=True)
+    c.addMethod('wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
+                isConst=True, isVirtual=True)
     
     #------------------------------------------------------------
     c = module.find('wxCustomDataObject')
@@ -114,14 +110,10 @@ def run():
     #    virtual bool GetDataHere(const wxDataFormat& format, void* buf) const;
     #    virtual bool SetData(const wxDataFormat& format, size_t len, const void* buf);
     #    """))
-    c.addMethod(
-        'size_t', 'GetFormatCount', '(Direction dir = Get)', isConst=True,
-        isVirtual=True, items=[
-            etgtools.ParamDef(type='Direction', name='dir', default='Get')])
-    c.addMethod(
-        'wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
-        isConst=True, isVirtual=True, items=[
-            etgtools.ParamDef(type='Direction', name='dir', default='Get')])
+    c.addMethod('size_t', 'GetFormatCount', '(Direction dir = Get)',
+                isConst=True, isVirtual=True)
+    c.addMethod('wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
+                isConst=True, isVirtual=True)
 
     
     
@@ -142,14 +134,10 @@ def run():
     #    virtual bool GetDataHere(const wxDataFormat& format, void* buf) const;
     #    virtual bool SetData(const wxDataFormat& format, size_t len, const void* buf);
     #    """))
-    c.addMethod(
-        'size_t', 'GetFormatCount', '(Direction dir = Get)', isConst=True,
-        isVirtual=True, items=[
-            etgtools.ParamDef(type='Direction', name='dir', default='Get')])
-    c.addMethod(
-        'wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
-        isConst=True, isVirtual=True, items=[
-            etgtools.ParamDef(type='Direction', name='dir', default='Get')])
+    c.addMethod('size_t', 'GetFormatCount', '(Direction dir = Get)',
+                isConst=True, isVirtual=True)
+    c.addMethod('wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
+                isConst=True, isVirtual=True)
 
     
 

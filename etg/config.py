@@ -146,59 +146,27 @@ def run():
         ' const wxString& localFilename = wxEmptyString,'
         ' const wxString& globalFilename = wxEmptyString,'
         ' long style = wxCONFIG_USE_LOCAL_FILE | wxCONFIG_USE_GLOBAL_FILE)',
-        isCtor=True, items=[
-            etgtools.ParamDef(type='const wxString&', name='appName',
-                              default='wxEmptyString'),
-            etgtools.ParamDef(type='const wxString&', name='vendorName',
-                              default='wxEmptyString'),
-            etgtools.ParamDef(type='const wxString&', name='localFilenam',
-                              default='wxEmptyString'),
-            etgtools.ParamDef(type='const wxString&', name='globalFilename',
-                              default='wxEmptyString'),
-            etgtools.ParamDef(type='long', name='style',
-                              default='wxCONFIG_USE_LOCAL_FILE | wxCONFIG_USE_GLOBAL_FILE')
-        ])
+        isCtor=True)
     c.addMethod('', '~wxConfig', '()', isDtor=True)
     c.addMethod('const wxString &', 'GetPath', '()', isConst=True)
-    c.addMethod(
-        'void', 'SetPath', '(const wxString & strPath)',
-        items=[etgtools.ParamDef(type='const wxString &', name='strPath')])
-    c.addMethod(
-        'size_t', 'GetNumberOfEntries', '(bool bRecursive = false)', isConst=True,
-        items=[etgtools.ParamDef(type='bool', name='bRecursive', default='false')])
-    c.addMethod(
-        'size_t', 'GetNumberOfGroups', '(bool bRecursive = false)', isConst=True,
-        items=[etgtools.ParamDef(type='bool', name='bRecursive', default='false')])
-    c.addMethod(
-        'bool', 'HasEntry', '(const wxString & strName)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxString &', name='strName')])
-    c.addMethod(
-        'bool', 'HasGroup', '(const wxString & strName)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxString &', name='strName')])
-    c.addMethod(
-        'bool', 'Flush', '(bool bCurrentOnly = false)',
-        items=[etgtools.ParamDef(type='bool', name='bCurrentOnly',
-                                 default='false')])
-    c.addMethod(
-        'bool', 'RenameEntry',
-        '(const wxString & oldName, const wxString & newName)',
-        items=[etgtools.ParamDef(type='const wxString &', name='oldName'),
-               etgtools.ParamDef(type='const wxString &', name='newName')])
-    c.addMethod(
-        'bool', 'RenameGroup',
-        '(const wxString & oldName, const wxString & newName)',
-        items=[etgtools.ParamDef(type='const wxString &', name='oldName'),
-               etgtools.ParamDef(type='const wxString &', name='newName')])
+    c.addMethod('void', 'SetPath', '(const wxString & strPath)')
+    c.addMethod('size_t', 'GetNumberOfEntries', '(bool bRecursive = false)',
+                isConst=True)
+    c.addMethod('size_t', 'GetNumberOfGroups', '(bool bRecursive = false)',
+                isConst=True)
+    c.addMethod('bool', 'HasEntry', '(const wxString & strName)',
+                isConst=True)
+    c.addMethod('bool', 'HasGroup', '(const wxString & strName)',
+                isConst=True)
+    c.addMethod('bool', 'Flush', '(bool bCurrentOnly = false)')
+    c.addMethod('bool', 'RenameEntry',
+                '(const wxString & oldName, const wxString & newName)')
+    c.addMethod('bool', 'RenameGroup',
+                '(const wxString & oldName, const wxString & newName)')
     c.addMethod('bool', 'DeleteAll', '()')
-    c.addMethod(
-        'bool', 'DeleteEntry',
-        '(const wxString & key, bool bDeleteGroupIfEmpty = true)',
-        items=[etgtools.ParamDef(type='const wxString &', name='key'),
-               etgtools.ParamDef(type='bool', name='bDeleteGroupIfEmpty',
-                                 default='true')])
-    c.addMethod(
-        'bool', 'DeleteGroup', '(const wxString & key)',
-        items=[etgtools.ParamDef(type='const wxString &', name='key')])
+    c.addMethod('bool', 'DeleteEntry',
+                '(const wxString & key, bool bDeleteGroupIfEmpty = true)')
+    c.addMethod('bool', 'DeleteGroup', '(const wxString & key)')
     c.addPrivateCopyCtor()
     module.addItem(c)
 

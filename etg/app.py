@@ -180,16 +180,12 @@ def run():
     c.addMethod('long', 'GetMacPreferencesMenuItemId', '()', isStatic=True)
     c.addMethod('long', 'GetMacExitMenuItemId', '()', isStatic=True)
     c.addMethod('wxString', 'GetMacHelpMenuTitleName', '()', isStatic=True)
-    c.addMethod('void', 'SetMacAboutMenuItemId', '(long val)', isStatic=True,
-                items=[etgtools.ParamDef(type='long', name='val')])
+    c.addMethod('void', 'SetMacAboutMenuItemId', '(long val)', isStatic=True)
     c.addMethod('void', 'SetMacPreferencesMenuItemId', '(long val)',
-                isStatic=True,
-                items=[etgtools.ParamDef(type='long', name='val')])
-    c.addMethod('void', 'SetMacExitMenuItemId', '(long val)', isStatic=True,
-                items=[etgtools.ParamDef(type='long', name='val')])
-    c.addMethod('void', 'SetMacHelpMenuTitleName', '(const wxString& val)',
-                isStatic=True,
-                items=[etgtools.ParamDef(type='const wxString&', name='val')])
+                isStatic=True)
+    c.addMethod('void', 'SetMacExitMenuItemId', '(long val)', isStatic=True)
+    c.addMethod('void', 'SetMacHelpMenuTitleName', '(const wxString & val)',
+                isStatic=True)
 
 
     # Add these methods by creating extractor objects so they can be tweaked

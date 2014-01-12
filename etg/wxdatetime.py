@@ -261,51 +261,21 @@ def run():
     #    wxDateTime operator-(const wxDateSpan& ds) const;
     #    wxTimeSpan operator-(const wxDateTime& dt2) const;
     #    """))
-    c.addMethod(
-        'bool', 'operator<', '(const wxDateTime& dt)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateTime&', name='dt')])
-    c.addMethod(
-        'bool', 'operator<=', '(const wxDateTime& dt)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateTime&', name='dt')])
-    c.addMethod(
-        'bool', 'operator>', '(const wxDateTime& dt)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateTime&', name='dt')])
-    c.addMethod(
-        'bool', 'operator>=', '(const wxDateTime& dt)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateTime&', name='dt')])
-    c.addMethod(
-        'bool', 'operator==', '(const wxDateTime& dt)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateTime&', name='dt')])
-    c.addMethod(
-        'bool', 'operator!=', '(const wxDateTime& dt)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateTime&', name='dt')])
-    c.addMethod(
-        'wxDateTime&', 'operator+=', '(const wxTimeSpan& diff)',
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='diff')])
-    c.addMethod(
-        'wxDateTime', 'operator+', '(const wxTimeSpan& ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'wxDateTime&', 'operator-=', '(const wxTimeSpan& diff)',
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='diff')])
-    c.addMethod(
-        'wxDateTime', 'operator-', '(const wxTimeSpan& ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'wxDateTime&', 'operator+=', '(const wxDateSpan& diff)',
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='diff')])
-    c.addMethod(
-        'wxDateTime', 'operator+', '(const wxDateSpan& ds)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='ds')])
-    c.addMethod(
-        'wxDateTime&', 'operator-=', '(const wxDateSpan& diff)',
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='diff')])
-    c.addMethod(
-        'wxDateTime', 'operator-', '(const wxDateSpan& ds)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='ds')])
-    c.addMethod(
-        'wxTimeSpan', 'operator-', '(const wxDateTime& dt2)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateTime&', name='dt2')])
+    c.addMethod('bool', 'operator<', '(const wxDateTime& dt)', isConst=True)
+    c.addMethod('bool', 'operator<=', '(const wxDateTime& dt)', isConst=True)
+    c.addMethod('bool', 'operator>', '(const wxDateTime& dt)', isConst=True)
+    c.addMethod('bool', 'operator>=', '(const wxDateTime& dt)', isConst=True)
+    c.addMethod('bool', 'operator==', '(const wxDateTime& dt)', isConst=True)
+    c.addMethod('bool', 'operator!=', '(const wxDateTime& dt)', isConst=True)
+    c.addMethod('wxDateTime&', 'operator+=', '(const wxTimeSpan& diff)')
+    c.addMethod('wxDateTime', 'operator+', '(const wxTimeSpan& ts)', isConst=True)
+    c.addMethod('wxDateTime&', 'operator-=', '(const wxTimeSpan& diff)')
+    c.addMethod('wxDateTime', 'operator-', '(const wxTimeSpan& ts)', isConst=True)
+    c.addMethod('wxDateTime&', 'operator+=', '(const wxDateSpan& diff)')
+    c.addMethod('wxDateTime', 'operator+', '(const wxDateSpan& ds)', isConst=True)
+    c.addMethod('wxDateTime&', 'operator-=', '(const wxDateSpan& diff)')
+    c.addMethod('wxDateTime', 'operator-', '(const wxDateSpan& ds)', isConst=True)
+    c.addMethod('wxTimeSpan', 'operator-', '(const wxDateTime& dt2)', isConst=True)
     
     # Add some code to automatically convert from a Python datetime.date or a
     # datetime.datetime object
@@ -369,31 +339,17 @@ def run():
     #    bool operator!=(const wxDateSpan& ds) const;
     #    """))
 
-    c.addMethod(
-        'wxDateSpan&', 'operator+=', '(const wxDateSpan& other)',
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='other')])
-    c.addMethod(
-        'wxDateSpan', 'operator+', '(const wxDateSpan& ds)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='ds')])
-    c.addMethod(
-        'wxDateSpan&', 'operator-=', '(const wxDateSpan& other)',
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='other')])
-    c.addMethod(
-        'wxDateSpan', 'operator-', '(const wxDateSpan& ds)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='ds')])
+    c.addMethod('wxDateSpan&', 'operator+=', '(const wxDateSpan& other)')
+    c.addMethod('wxDateSpan', 'operator+', '(const wxDateSpan& ds)', isConst=True)
+    c.addMethod('wxDateSpan&', 'operator-=', '(const wxDateSpan& other)')
+    c.addMethod('wxDateSpan', 'operator-', '(const wxDateSpan& ds)', isConst=True)
 
     c.addMethod('wxDateSpan&', 'operator-', '()')
 
-    c.addMethod('wxDateSpan&', 'operator*=', '(int factor)',
-        items=[etgtools.ParamDef(type='int', name='factor')])
-    c.addMethod('wxDateSpan', 'operator*', '(int n)', isConst=True,
-        items=[etgtools.ParamDef(type='int', name='n')])
-    c.addMethod(
-        'bool', 'operator==', '(const wxDateSpan& ds)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='ds')])
-    c.addMethod(
-        'bool', 'operator!=', '(const wxDateSpan& ds)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxDateSpan&', name='ds')])
+    c.addMethod('wxDateSpan&', 'operator*=', '(int factor)')
+    c.addMethod('wxDateSpan', 'operator*', '(int n)', isConst=True)
+    c.addMethod('bool', 'operator==', '(const wxDateSpan& ds)', isConst=True)
+    c.addMethod('bool', 'operator!=', '(const wxDateSpan& ds)', isConst=True)
 
 
 
@@ -423,45 +379,21 @@ def run():
     #    bool operator!=(const wxTimeSpan &ts) const;
     #    """))
 
-    c.addMethod(
-        'wxTimeSpan&', 'operator+=', '(const wxTimeSpan& diff)',
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='diff')])
-    c.addMethod(
-        'wxTimeSpan', 'operator+', '(const wxTimeSpan& ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'wxTimeSpan&', 'operator-=', '(const wxTimeSpan& diff)',
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='diff')])
-    c.addMethod(
-        'wxTimeSpan', 'operator-', '(const wxTimeSpan& ts)',
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'wxTimeSpan&', 'operator*=', '(int n)',
-        items=[etgtools.ParamDef(type='int', name='n')])
-    c.addMethod(
-        'wxTimeSpan', 'operator*', '(int n)', isConst=True,
-        items=[etgtools.ParamDef(type='int', name='n')])
+    c.addMethod('wxTimeSpan&', 'operator+=', '(const wxTimeSpan& diff)')
+    c.addMethod('wxTimeSpan', 'operator+', '(const wxTimeSpan& ts)', isConst=True)
+    c.addMethod('wxTimeSpan&', 'operator-=', '(const wxTimeSpan& diff)')
+    c.addMethod('wxTimeSpan', 'operator-', '(const wxTimeSpan& ts)')
+    c.addMethod('wxTimeSpan&', 'operator*=', '(int n)')
+    c.addMethod('wxTimeSpan', 'operator*', '(int n)', isConst=True)
 
     c.addMethod('wxTimeSpan&', 'operator-', '()')
 
-    c.addMethod(
-        'bool', 'operator<', '(const wxTimeSpan &ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'bool', 'operator<=', '(const wxTimeSpan &ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'bool', 'operator>', '(const wxTimeSpan &ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'bool', 'operator>=', '(const wxTimeSpan &ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'bool', 'operator==', '(const wxTimeSpan &ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
-    c.addMethod(
-        'bool', 'operator!=', '(const wxTimeSpan &ts)', isConst=True,
-        items=[etgtools.ParamDef(type='const wxTimeSpan&', name='ts')])
+    c.addMethod('bool', 'operator<', '(const wxTimeSpan &ts)', isConst=True)
+    c.addMethod('bool', 'operator<=', '(const wxTimeSpan &ts)', isConst=True)
+    c.addMethod('bool', 'operator>', '(const wxTimeSpan &ts)', isConst=True)
+    c.addMethod('bool', 'operator>=', '(const wxTimeSpan &ts)', isConst=True)
+    c.addMethod('bool', 'operator==', '(const wxTimeSpan &ts)', isConst=True)
+    c.addMethod('bool', 'operator!=', '(const wxTimeSpan &ts)', isConst=True)
     
 
     #---------------------------------------------

@@ -85,21 +85,13 @@ def run():
     
     c = module.find('wxTextDropTarget')
     #c.addItem(etgtools.WigCode("virtual wxDragResult OnData(wxCoord x, wxCoord y, wxDragResult def);"))
-    c.addMethod(
-        'wxDragResult', 'OnData', '(wxCoord x, wxCoord y, wxDragResult def)',
-        isVirtual=True, items=[
-            etgtools.ParamDef(type='wxCoord', name='x'),
-            etgtools.ParamDef(type='wxCoord', name='y'),
-            etgtools.ParamDef(type='wxDragResult', name='def_')])
+    c.addMethod('wxDragResult', 'OnData',
+                '(wxCoord x, wxCoord y, wxDragResult def_)', isVirtual=True)
 
     c = module.find('wxFileDropTarget')
     #c.addItem(etgtools.WigCode("virtual wxDragResult OnData(wxCoord x, wxCoord y, wxDragResult def);"))
-    c.addMethod(
-        'wxDragResult', 'OnData', '(wxCoord x, wxCoord y, wxDragResult def)',
-        isVirtual=True, items=[
-            etgtools.ParamDef(type='wxCoord', name='x'),
-            etgtools.ParamDef(type='wxCoord', name='y'),
-            etgtools.ParamDef(type='wxDragResult', name='def_')])
+    c.addMethod('wxDragResult', 'OnData',
+                '(wxCoord x, wxCoord y, wxDragResult def_)', isVirtual=True)
 
     
     #-----------------------------------------------------------------

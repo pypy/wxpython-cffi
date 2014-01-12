@@ -658,6 +658,9 @@ class ClassDef(BaseDef):
         self.isInner = False
 
         self.pyCode_cffi = None     # Extra code to include in the class body
+        self.convertFromPyObject_cffi = None
+        self.instanceCheck_cffi = None
+        self.detectSubclassCode_cffi = None
 
         # Stuff that needs to be generated after the class instead of within
         # it. Some back-end generators need to put stuff inside the class, and
@@ -942,7 +945,9 @@ class ClassDef(BaseDef):
             self.items.append(md)
 
     def addMethod(self, type, name, argsString, **kwargs):
-        self._addMethod(MethodDef(type=type, name=name, argsString=argsString,
+        if isinstance(argsString, str) or isinstance(argsString, basestring):
+            argsString = ArgsString(argsString)
+        self._addMethod(MethodDef(type=type, name=name, items=argsString,
                                   **kwargs))
 
     def addCppMethod(self, type, name, argsString, body, doc=None, isConst=False,
@@ -1062,7 +1067,6 @@ class ClassDef(BaseDef):
         #self.addItem(wig)
         self.addMethod(
             "", self.name, "(const %s & other)" % self.name,
-            items=ArgsString("(const %s & other)" % self.name),
             isCtor=True, protection=prot
         )
 
@@ -1077,7 +1081,6 @@ class ClassDef(BaseDef):
         #self.addItem(wig)
         self.addMethod(
             self.name + '&', 'operator=', '(const %s & other)' % self.name,
-            items=ArgsString('(const %s & other)' % self.name),
             protection='private'
         )
 
@@ -1253,10 +1256,11 @@ class CppMethodDef_cffi(MethodDef):
 
         # Args list and body for the code Python that will be called by users
         # and is expected to call the corresponding C code. pyArgs should be a
-        # list of ParamDef objects, where the `type` is a C++ type the binding
+        # list of ParamDef objects, where the type` is a C++ type the binding
         # generator is aware of or 'WL_Object'. In the latter case, no type
         # checking will be performed on the parameter and any Python object
-        # will be accepted.
+        # will be accepted. The 'WL_Self' type must be used for a self
+        # parameter.
         self.pyArgs = pyArgs
         self.pyBody = pyBody
 

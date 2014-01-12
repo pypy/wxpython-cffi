@@ -95,16 +95,18 @@ replaced with manual declarations. A simple example:
 ::
 
     c.addItem(etgtools.WigCode("""\
-        void SomeMethod(const SomeObject &obj) const;
+        void SomeMethod(const SomeObject *obj = NULL) const;
+        void SomeOutMethod(SomeObject /Out/ *obj) const;
     """)
 
 Can be replaced by:
 
 ::
 
-    c.addMethod(
-        'void', 'SomeMethod', '(const SomeObject &obj)', isConst=True,
-        items=[etgtools.ParamDef(type='const SomeObject &', name='obj')])
+    c.addMethod('void', 'SomeMethod', '(const SomeObject *obj = NULL)',
+                isConst=True)
+    c.addMethod('void', 'SomeOutMethod',
+                ArgsString('(SomeObject *obj)').annt(0, 'out'), isConst=True)
 
 
 Some things to keep in mind:
@@ -125,38 +127,23 @@ Replacing CPython specific functions
 ------------------------------------
 
 In a number places the existing ETG scripts use CPython or sip specific code.
-Some of these simply involve replace a ``CppMethoDef_sip`` with
-``CppMethodDef``. Any function that code that uses CPython's C-API directly or
-take a ``PyObject*`` parameters must be replaced with a ``CppMethoDef_cffi``.
-``CppMethoDef_cffi`` is a cffi backend specific declaration type. It differs
-from the regular ``CppMethodDef`` in the following ways:
+Some of these simply involve replacing a ``CppMethoDef_sip`` with a
+``CppMethodDef``. Any function that code that uses the CPython's C-API directly
+or takes a ``PyObject*`` parameters must be replaced with a
+``CppMethoDef_cffi``. ``CppMethoDef_cffi`` is a cffi backend specific
+declaration type. It allows custom Python body code to be specified in addition
+to C++ code.
 
- * No automatic conversion of types takes place.
-
- * Instead of generating a signature for the Python method from the types of
-   C++ signature, it has a ``pySignature`` attribute that is used directly.
-
- * It has a ``pyBody`` attribute that is used for the body of the Python
-   method. The ``call`` variable in the method body is assigned the cffi function
-   to call the C++ code specified by the ``body`` attribute, so you won't need to
-   worry about how the name is mangled.
-
- * It has an optional ``pyArgs`` attribute. This attribute can be used to
-   automate type-checking of parameters before they reach the code specified in
-   ``pyBody``. The attribute should be a list populated with ``ParamDefs``. The
-   generator will first try to look up a C++ type (wrapped or mapped) for ``type``
-   attribute of the ``ParamDef`` and if it isn't able to find one, it will use
-   value literally as a type. In this way, you may specify either a C++ type or a
-   Python type.
-
- * It has an optional ``callArgs`` attribute. This is only useful if the method
-   being added it a Ctor. It is used to specify the parameters to pass to the base
-   class's Ctor if a subclass is going to be generated for this class (ie it has a
-   virtual or a protected method.)
-
-By combining a custom Python body and a custom C++ body, you should be able to
-achieve the same effect as any ``CppMethodDef`` or ``CppMethodDef_sip``
-declaration.
+The attributes of a ``CppMethodDef_cffi`` are documented in the class
+defination in etgtools/extractors.py. Some additional notes: Inside the Python
+body, the variable ``call``, which is set before body code, aliases the C
+function cffi name so that knowing the mangled name for the method isn't
+necessary. Inside the body of a constructor, ``wrapper_lib.init_wrapper``
+should be used in place of ``super().__init__`` to initialize the wrapper
+object. Inside of C body code, the ``WL_CLASS_NAME`` macro can be used to get
+the name of the generated subclass. If one wasn't generate, then it will refer
+to the name of the original class. Inside of the virtual handler C code, the
+macro ``call`` aliases the callback to the Python virtual handler code.
 
 Note that code that only uses the exception part of the Python C-API doesn't
 need to be replaced. Since some way of setting exceptions from C++ is needed
@@ -164,16 +151,6 @@ need to be replaced. Since some way of setting exceptions from C++ is needed
 and decrease the amount of that needed to replaced, the Python exception API is
 (partially) copied. If you encounter some part of it that isn't implemented, it
 should be added to ``src/cffi/wxpy_api.h``.
-
-Replacing virtual catcher code is a done somewhat similarly. Virtual catcher
-code handles calling a Python re-implementation of a C++ virtual method. For
-the cffi backend, it is pure Python code that is called in place of the actual
-Python  in the usual virtual method handling process. It is also called with
-the same arguments that the actual Python method would be. All C++ types are
-automatically converted/wrapped (this may change in the future because it
-inflexible and inconsistent with the above.) Virtual catcher code for cffi is
-placed in the ``virtualCatcheCode_cffi`` attribute of a method declaration
-(``MethodDef``, ``CppMethodDef``, etc.)
 
 
 Adding mapped types
@@ -190,15 +167,18 @@ They are defined by five attributes:
   be a type that cffi can understand. If you need a custom struct you can add it
   by using the ``cdef_cffi`` attribute of the module.
 
-``instancecheck``
+``placeHolder``
+  A dummy value used to support defaults. It should be of the same type as
+  ``cType`` and be inexpensive to create. For example, if the ``cType`` is
+  ``long long``, 0 would be a fine value. The default is ``ffi.NULL`` since it
+  is assumed many mapped types will use pointers.
+
+``instanceCheck``
   Code that checks if a Python object meets the criteria to
   be converted into the given C++ types. This should return True or False.
 
 ``py2c``
   Code that converts a Python object into the intermediary C type.
-  This should return a 2-tuple. The first element of the return value is the
-  value passed to the C function. The second element is a keep-alive variable so
-  that data allocated with ``ffi.new`` in this method stays in scope.
 
 ``c2cpp``
   Code that converts the intermediary C data into the final C++
@@ -222,8 +202,8 @@ to. The code for the sip backend is specified in the ``convertFromPyObject``
 attribute. This one block of code specifies both the code to check if a Python
 object can be converted and the code to perform the conversion. For the cffi
 backend this code is split up into two attributes: ``convertFromPyObject_cffi``
-and ``instancecheck``. The former should perform the conversion and return the
-new, wrapped instance. The latter should return True if the object can be
+and ``instanceCheck_cffi``. The former should perform the conversion and return
+the new, wrapped instance. The latter should return True if the object can be
 converted to the given C++ type, and False if not.
 
 
@@ -284,6 +264,18 @@ It provides the following functions:
 ``wrapper_lib.convert_to_type(obj, cls)``
   Converts ``obj`` to an instance of ``cls`` and returns it if possible. If the
   conversion is not possible, returns ``None``.
+
+``wrapper_lib.init_wrapper(obj, ptr, is_subclass)``
+  Method to call in a custom ``__init__`` in place of calling
+  ``super().__init__`` (which would have unexpected side-effects.) ``self``
+  should be passed obj ``obj`` and the pointer created by the C++ component
+  of the constructor. ``is_subclass`` is used to indicate if the object is an
+  instance of the generate C++ subclass or of the original class. If the object
+  was created using the ``WL_CLASS_NAME`` macro, then
+  ``wrapper_lib.hassubclass(type(self))`` may be used.
+
+``wrapper_lib.hassubclass(cls)``
+  Returns True if a C++ subclass was generated for a class.
 
 .. TODO: Document adjust_refcount, get_refcounted_handle
 

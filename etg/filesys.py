@@ -56,13 +56,10 @@ def run():
         #    virtual wxFSFile* OpenFile(wxFileSystem& fs, const wxString& location);
         #    """))
         klass.addMethod(
-            'bool', 'CanOpen', '(const wxString& location)', isVirtual=True,
-            items=[etgtools.ParamDef(type='const wxString&', name='location')])
+            'bool', 'CanOpen', '(const wxString& location)', isVirtual=True)
         klass.addMethod(
             'wxFSFile*', 'OpenFile', '(wxFileSystem& fs, const wxString& location)',
-            isVirtual=True,
-            items=[etgtools.ParamDef(type='wxFileSystem&', name='fs'),
-                   etgtools.ParamDef(type='const wxString&', name='location')])
+            isVirtual=True)
 
 
     c = module.find('wxArchiveFSHandler')

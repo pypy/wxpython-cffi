@@ -95,32 +95,20 @@ class TestBindGen(object):
         module.addGlobalStr("other_global_str")
 
         c = ClassDef(name='SimpleClass')
-        c.addItem(MethodDef(
-            type='int', argsString='(double f)',
-            name='simple_method', pyName='simple_method',
-            items=[ParamDef(type='double', name='f')]))
+        c.addMethod('int', 'simple_method', '(double f)')
         module.addItem(c)
 
         module.addItem(ClassDef(name='SimpleSubclass', bases=['SimpleClass']))
 
         c = ClassDef(name='VMethClass')
-        c.addItem(MethodDef(
-            type='int', argsString='(int i)',
-            name='virtual_method', pyName='virtual_method', isVirtual=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='int', argsString='(int i)',
-            name='call_virtual', pyName='call_virtual',
-            items=[ParamDef(type='int', name='i')]))
+        c.addMethod('int', 'virtual_method', '(int i)', isVirtual=True)
+        c.addMethod('int', 'call_virtual', '(int i)')
         c.addMethod('int', 'overridden_vmeth1', '()', isVirtual=True)
         c.addMethod('int', 'call_overridden_vmeth1', '()')
         c.addMethod('VMethClass*', 'overridden_vmeth2', '()', isVirtual=True)
         c.addMethod('VMethClass*', 'call_overridden_vmeth2', '()')
-        c.addMethod('IntWrapper', 'overridden_vmeth3', '(int i)',
-                    isVirtual=True,
-                    items=[ParamDef(type='int', name='i')])
-        c.addMethod('IntWrapper', 'call_overridden_vmeth3', '(int i)',
-                    items=[ParamDef(type='int', name='i')])
+        c.addMethod('IntWrapper', 'overridden_vmeth3', '(int i)', isVirtual=True)
+        c.addMethod('IntWrapper', 'call_overridden_vmeth3', '(int i)')
         c.addItem(CppMethodDef_cffi(
             'unoverridden_cppvmeth', isVirtual=True,
             pyArgs=ArgsString('WL_Self self, char somechar'),
@@ -157,51 +145,32 @@ class TestBindGen(object):
         c = ClassDef(name='VMethSubclass', bases=['VMethClass'])
         c.addMethod('int', 'overridden_vmeth1', '()', isVirtual=True)
         c.addMethod('VMethSubclass*', 'overridden_vmeth2', '()', isVirtual=True)
-        c.addMethod('IntWrapper', 'overridden_vmeth3', '(time_t i)',
-                    isVirtual=True,
-                    items=[ParamDef(type='IntAlias', name='i')])
+        c.addMethod('IntWrapper', 'overridden_vmeth3', '(IntAlias i)',
+                    isVirtual=True)
         module.addItem(c)
 
         c = ClassDef(name='PVMethClass')
-        c.addItem(MethodDef(
-            protection='protected', type='int', argsString='(int i)',
-            name='protected_virtual_method', pyName='protected_virtual_method',
-            isVirtual=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='int', argsString='(int i)',
-            name='call_method', pyName='call_method',
-            items=[ParamDef(type='int', name='i')]))
-
+        c.addMethod('int', 'protected_virtual_method', '(int i)',
+                    protection='protected', isVirtual=True)
+        c.addMethod('int', 'call_method', '(int i)')
         module.addItem(c)
 
         c = ClassDef(name='PMethClass')
-        c.addItem(MethodDef(
-            protection='protected', type='char', argsString='(char c)',
-            name='protected_method', pyName='protected_method',
-            items=[ParamDef(type='char', name='c')]))
-        c.addMethod(
-            type='int', name='static_protected_method', argsString='()',
-            protection='protected', isStatic=True)
+        c.addMethod('char', 'protected_method', '(char c)',
+                    protection='protected')
+        c.addMethod('int', 'static_protected_method', argsString='()',
+                    protection='protected', isStatic=True)
 
         module.addItem(c)
 
         module.addItem(TypedefDef(type='CtorsClass', name='CtorsAlias'))
 
         c = ClassDef(name='CtorsClass')
-        c.addItem(MethodDef(
-            type='', argsString='()', isOverloaded=True,
-            name='CtorsClass', isCtor=True,
-            overloads=[
-                MethodDef(type='', argsString='(const CtorsClass &other)',
-                name='CtorsClass', isCtor=True,
-                items=[ParamDef(type='const CtorsClass &', name='other')]),
-                MethodDef(type='', argsString='(int i)',
-                name='CtorsClass', isCtor=True,
-                items=[ParamDef(type='int', name='i')])]))
-        c.addItem(MethodDef(
-            type='int', argsString='()',
-            name='get', pyName='get'))
+        c.addMethod('', 'CtorsClass', '()', isCtor=True)
+        c.addMethod('', 'CtorsClass', '(const CtorsClass &other)', isCtor=True)
+        c.addMethod('', 'CtorsClass', '(int i)', isCtor=True)
+
+        c.addMethod('int','get',  '()')
         m = MethodDef(
             type='double', argsString='(double f)',
             name='custom_code_meth', pyName='custom_code_meth',
@@ -217,13 +186,9 @@ class TestBindGen(object):
         module.addItem(c)
 
         c = ClassDef(name='PCtorClass')
-        c.addItem(MethodDef(
-            type='', argsString='(int i)',
-            protection='protected', name='PCtorClass', isCtor=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='int', argsString='()',
-            name='get', pyName='get'))
+        c.addMethod('', 'PCtorClass', '(int i)', protection='protected',
+                    isCtor=True)
+        c.addMethod('int', 'get', '()')
         module.addItem(c)
 
         c = ClassDef(name='PrivateCopyCtorClass')
@@ -235,86 +200,46 @@ class TestBindGen(object):
         module.addItem(c)
 
         c = ClassDef(name='ReturnWrapperClass')
-        c.addItem(MethodDef(
-            type='', argsString='(int i)',
-            name='ReturnWrapperClass', isCtor=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='int', argsString='()',
-            name='get', pyName='get'))
-        c.addItem(MethodDef(
-            type='ReturnWrapperClass', argsString='(int i)',
-            name='new_by_value', pyName='new_by_value', isStatic=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='ReturnWrapperClass *', argsString='(int i)',
-            name='new_by_ptr', pyName='new_by_ptr', isStatic=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='ReturnWrapperClass &', argsString='(int i)',
-            name='new_by_ref', pyName='new_by_ref', isStatic=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='const ReturnWrapperClass &', argsString='(int i)',
-            name='new_by_cref', pyName='new_by_cref', isStatic=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='const ReturnWrapperClass &', argsString='(int i)',
-            name='new_by_nocopy_cref', isStatic=True, noCopy=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='ReturnWrapperClass',
-            argsString='()',
-            name='self_by_value', pyName='self_by_value'))
-        c.addItem(MethodDef(
-            type='ReturnWrapperClass *',
-            argsString='()',
-            name='self_by_ptr', pyName='self_by_ptr'))
-        c.addItem(MethodDef(
-            type='ReturnWrapperClass &',
-            argsString='()',
-            name='self_by_ref', pyName='self_by_ref'))
-        c.addItem(MethodDef(
-            type='const ReturnWrapperClass &',
-            argsString='()',
-            name='self_by_cref', pyName='self_by_cref'))
-        c.addItem(MethodDef(
-            type='const ReturnWrapperClass &',
-            argsString='()', noCopy=True,
-            name='self_by_nocopy_cref', pyName='self_by_nocopy_cref'))
+        c.addMethod('', 'ReturnWrapperClass', '(int i)', isCtor=True)
+        c.addMethod('int', 'get', '()')
+        c.addMethod('ReturnWrapperClass', 'new_by_value', '(int i)',
+                    isStatic=True)
+        c.addMethod('ReturnWrapperClass *', 'new_by_ptr', '(int i)',
+                    isStatic=True)
+        c.addMethod('ReturnWrapperClass &', 'new_by_ref', '(int i)',
+                    isStatic=True)
+        c.addMethod('const ReturnWrapperClass &', 'new_by_cref', '(int i)',
+                    isStatic=True)
+        c.addMethod('const ReturnWrapperClass &', 'new_by_nocopy_cref', '(int i)',
+                    isStatic=True, noCopy=True)
+        c.addMethod('ReturnWrapperClass', 'self_by_value', '()')
+        c.addMethod('ReturnWrapperClass *', 'self_by_ptr', '()')
+        c.addMethod('ReturnWrapperClass &', 'self_by_ref', '()')
+        c.addMethod('const ReturnWrapperClass &', 'self_by_cref', '()')
+        c.addMethod('const ReturnWrapperClass &', 'self_by_nocopy_cref', '()',
+                    noCopy=True)
         module.addItem(c)
 
         c = ClassDef(name='PrivateCCtorReturnWrapperClass')
-        c.addMethod(
-            type='', argsString='(int i)',
-            name='PrivateCCtorReturnWrapperClass', isCtor=True,
-            items=ArgsString('(int i)'))
+        c.addMethod('', 'PrivateCCtorReturnWrapperClass', '(int i)',
+                    isCtor=True)
         c.addPrivateCopyCtor()
-        c.addItem(MethodDef(
-            type='const PrivateCCtorReturnWrapperClass &',
-            argsString='()',
-            name='self_by_cref', pyName='self_by_cref'))
         c.addMethod(
-            type='const PrivateCCtorReturnWrapperClass &', argsString='(int i)',
-            name='new_by_cref', pyName='new_by_cref', isStatic=True,
-            items=ArgsString('(int i)'))
+            'const PrivateCCtorReturnWrapperClass &', 'self_by_cref', '()')
         c.addMethod(
-            type='int', argsString='()',
-            name='get', pyName='get')
+            'const PrivateCCtorReturnWrapperClass &', 'new_by_cref', '(int i)',
+            isStatic=True)
+        c.addMethod('int', 'get', '()')
         module.addItem(c)
 
         c = ClassDef(name='VDtorClass')
-        c.addItem(MethodDef(
-            type='', argsString='()',
-            name='~VDtorClass', isVirtual=True, isDtor=True))
+        c.addMethod('', '~VDtorClass', '()', isVirtual=True, isDtor=True)
         c.addMethod('void', 'delete_self', '()')
 
         module.addItem(c)
 
         c = ClassDef(name='VDtorSubclass', bases=['VDtorClass'])
-        c.addItem(MethodDef(
-            type='', argsString='()',
-            name='~VDtorSubclass', isVirtual=True, isDtor=True))
+        c.addMethod('', '~VDtorSubclass', '()', isVirtual=True, isDtor=True)
         module.addItem(c)
 
         c = ClassDef(name='VDtorSubSubclass', bases=['VDtorSubclass'])
@@ -325,49 +250,31 @@ class TestBindGen(object):
         module.addItem(c)
 
         c = ClassDef(name='MemberVarClass')
-        c.addItem(MethodDef(
-            type='', argsString='(int i)',
-            name='MemberVarClass', isCtor=True,
-            items=[ParamDef(type='int', name='i')]))
-        c.addItem(MethodDef(
-            type='int', argsString='()',
-            name='Get_i', pyName='Get_i'))
-        c.addItem(MethodDef(
-            type='void', argsString='(int i)',
-            name='Set_i', pyName='Set_i',
-            items=[ParamDef(type='int', name='i')]))
+        c.addMethod('', 'MemberVarClass', '(int i)', isCtor=True)
+        c.addMethod('int', 'Get_i', '()')
+        c.addMethod('void', 'Set_i', '(int i)')
         c.addPyMethod('Get_i_pymeth', '(self)', 'return self._i')
         c.addPyMethod('Set_i_pymeth', '(self, i)', 'self._i = i')
-        c.addItem(MemberVarDef(
-            type='int', name='m_i', pyName='m_i'))
+        c.addItem(MemberVarDef(type='int', name='m_i', pyName='m_i'))
 
         c.addAutoProperties()
         module.addItem(c)
 
         c = ClassDef(name='NestedClassReturnDependant')
-        c.addItem(MethodDef(
-            type='NestedClassesOuter::NestedClassesInner', argsString='()',
-            name='get', pyName='get'))
+        c.addMethod('NestedClassesOuter::NestedClassesInner', 'get', '()')
         module.addItem(c)
 
         c = ClassDef(name='NestedClassArgDependant')
-        c.addItem(MethodDef(
-            type='int', argsString='(const NestedClassesOuter::NestedClassesInner &i)',
-            name='get', pyName='get', items=[ParamDef(
-                type='const NestedClassesOuter::NestedClassesInner &',
-                name='i')]))
+        c.addMethod(
+            'int', 'get', '(const NestedClassesOuter::NestedClassesInner &i)')
         module.addItem(c)
 
         c = ClassDef(name='NestedClassesOuter')
         ic = ClassDef(name='NestedClassesInner')
         ic2 = ClassDef(name='NestedClassesInnerVirtual')
         c.innerclasses = [ic, ic2]
-        ic.addItem(MethodDef(
-            type='int', argsString='()', name='vmeth', pyName='vmeth',
-            isVirtual=True))
-        ic.addItem(MethodDef(
-            type='int', argsString='()', name='call_vmeth',
-            pyName='call_vmeth'))
+        ic.addMethod('int', 'vmeth', '()', isVirtual=True)
+        ic.addMethod('int', 'call_vmeth', '()')
         ic.addItem(MemberVarDef(type='int', name='m_i', pyName='m_i'))
         ic.addPyMethod(
             type='int', argsString='(self)', name='Getpyi',
@@ -375,20 +282,10 @@ class TestBindGen(object):
         ic.addPyMethod(
             type='void', argsString='(self, i)', name='Setpyi',
             body='self.m_i = i')
-        ic.addItem(MethodDef(
-            type='int', argsString='()',
-            name='Get_i', pyName='Get_i'))
-        ic.addItem(MethodDef(
-            type='void', argsString='(int i)',
-            name='Set_i', pyName='Set_i',
-            items=[ParamDef(type='int', name='i')]))
-        ic.addItem(MethodDef(
-            type='void', argsString='()',
-            name='overloaded', pyName='overloaded', isOverloaded=True,
-            overloads=[MethodDef(
-                type='void', argsString='(double f)',
-                name='overloaded', pyName='overloaded',
-                items=[ParamDef(type='double', name='f')])]))
+        ic.addMethod('int', 'Get_i', '()')
+        ic.addMethod('void', 'Set_i', '(int i)')
+        ic.addMethod('void', 'overloaded', '()')
+        ic.addMethod('void', 'overloaded', '(double f)')
 
         ic.addAutoProperties()
 
@@ -401,43 +298,26 @@ class TestBindGen(object):
             EnumValueDef(name='Defaults_A'),
             EnumValueDef(name='Defaults_B')]))
         c.addMethod(
-            'int', 'defaults_enum', '(DefaultsEnum i = Defaults_A)',
-            items=ArgsString('(DefaultsEnum i = Defaults_A)'),
-        )
+            'int', 'defaults_enum', '(DefaultsEnum i = Defaults_A)')
         c.addMethod(
-            'int', 'defaults_array', '',
-            items=ArgsString('(int len=0, IntWrapper *a=NULL)')
-                  .annt(0, 'arraySize').annt(1, 'array')
-        )
+            'int', 'defaults_array',
+             ArgsString('(int len=0, IntWrapper *a=NULL)')
+            .annt(0, 'arraySize').annt(1, 'array'))
         c.addMethod(
-            'int', 'defaults_meth', '',
-            items=ArgsString('(const char * s = other_global_str, '
-                              'const IntWrapper &i = IntWrapper(4), '
-                              'const CtorsClass &c = CtorsClass(6))'))
+            'int', 'defaults_meth',
+             '(const char * s = other_global_str, const IntWrapper &i = IntWrapper(4), const CtorsClass &c = CtorsClass(6))')
         module.addItem(c)
 
         c = ClassDef(name='InheritedDefaultsClass', bases=['DefaultsClass'])
         c.addMethod(
-            'int', 'inherited_defaults_method', '(DefaultsEnum i = Defaults_A)',
-            items=ArgsString('(DefaultsEnum i = Defaults_A)'),
-        )
+            'int', 'inherited_defaults_method', '(DefaultsEnum i = Defaults_A)')
         module.addItem(c)
 
         c = ClassDef(name='OperatorsClass')
-        c.addItem(MethodDef(
-            type='', argsString='(int x, int y)',
-            name='OperatorsClass', isCtor=True, items=[
-                ParamDef(type='int', name='x'),
-                ParamDef(type='int', name='y')]))
-        c.addItem(MethodDef(
-            type='OperatorsClass &', argsString='(OperatorsClass &rhs)',
-            name='operator+=', items=[
-                ParamDef(type='OperatorsClass &', name='rhs')]))
-        c.addItem(MethodDef(
-            type='OperatorsClass &', argsString='(OperatorsClass &rhs)',
-            name='operator-=', items=[
-                ParamDef(type='OperatorsClass &', name='rhs')]))
-        c.addMethod('OperatorsClass', 'operator-', '')
+        c.addMethod('', 'OperatorsClass', '(int x, int y)', isCtor=True)
+        c.addMethod('OperatorsClass &', 'operator+=', '(OperatorsClass &rhs)')
+        c.addMethod('OperatorsClass &', 'operator-=', '(OperatorsClass &rhs)')
+        c.addMethod('OperatorsClass', 'operator-', '()')
         c.addItem(MemberVarDef(name='x', type='int'))
         c.addItem(MemberVarDef(name='y', type='int'))
         module.addItem(c)
@@ -446,209 +326,141 @@ class TestBindGen(object):
         c.addItem(EnumDef(name='BOOLEAN', items=[
             EnumValueDef(name='BOOL_TRUE'),
             EnumValueDef(name='BOOL_FALSE')]))
-        c.addItem(MethodDef(
-            type='BOOLEAN', name='flip', argsString='(BOOLEAN b)',
-            isVirtual=True, items=[ParamDef(type='BOOLEAN', name='b')]))
-        c.addMethod('', '~ClassWithEnum', '', isDtor=True, isVirtual=True)
+        c.addMethod('BOOLEAN', 'flip', '(BOOLEAN b)', isVirtual=True)
+        c.addMethod('', '~ClassWithEnum', '()', isDtor=True, isVirtual=True)
         module.addItem(c)
 
         c = ClassDef(name='PyIntClass')
-        c.addItem(MethodDef(
-            type='char', argsString='(char c)', name='noPyInt',
-            items=[ParamDef(type='char', name='c')]))
-        c.addItem(MethodDef(
-            type='char', argsString='(char c)', name='onReturn', pyInt=True,
-            items=[ParamDef(type='char', name='c')]))
-        c.addItem(MethodDef(
-            type='char', argsString='(char c)', name='onParameter',
-            items=[ParamDef(type='char', name='c', pyInt=True)]))
-        c.addItem(MethodDef(
-            type='char', argsString='(char c)', name='onBoth', pyInt=True,
-            items=[ParamDef(type='char', name='c', pyInt=True)]))
-        c.addItem(MethodDef(
-            type='char', argsString='()', name='overloaded', pyInt=True,
-            overloads=[
-                MethodDef(
-                    type='char', argsString='(char c)', name='overloaded',
-                    pyInt=True,
-                    items=[ParamDef(type='char', name='c', pyInt=True)])]))
+        c.addMethod('char', 'noPyInt', '(char c)')
+        c.addMethod('char', 'onReturn', '(char c)', pyInt=True)
+        c.addMethod('char', 'onParameter', ArgsString('(char c)')
+                                           .annt(0, 'pyInt'))
+        c.addMethod('char', 'onBoth',
+                    ArgsString('(char c)').annt(0, 'pyInt'), pyInt=True)
+        c.addMethod('char', 'overloaded', '()', pyInt=True)
+        c.addMethod('char', 'overloaded',
+                    ArgsString('(char c)').annt(0, 'pyInt'), pyInt=True)
         module.addItem(c)
 
         module.addItem(TypedefDef(type='char', name='CharTypedef'))
 
         c = ClassDef(name='CharTypesClass')
-        c.addMethod('int', 'char_scalar', '', items=ArgsString('(char i)'))
-        c.addMethod('int', 'schar_scalar', '',
-                    items=ArgsString('(signed char iii)'))
-        c.addMethod('int', 'uchar_scalar', '',
-                    items=ArgsString('(unsigned char i)'))
-        c.addMethod('int', 'char_vector', '', items=ArgsString('(char *i)'))
-        c.addMethod('int', 'schar_vector', '',
-                    items=ArgsString('(signed char *i)'))
-        c.addMethod('int', 'uchar_vector', '',
-                    items=ArgsString('(unsigned char *i)'))
-        c.addMethod('wchar_t *', 'wchar_string', '',
-                    items=ArgsString('(wchar_t *i)'))
-        c.addMethod('CharTypedef *', 'typedef_string', '',
-                    items=ArgsString('(CharTypedef *i)'))
+        c.addMethod('int', 'char_scalar', '(char i)')
+        c.addMethod('int', 'schar_scalar', '(signed char iii)')
+        c.addMethod('int', 'uchar_scalar', '(unsigned char i)')
+        c.addMethod('int', 'char_vector', '(char *i)')
+        c.addMethod('int', 'schar_vector', '(signed char *i)')
+        c.addMethod('int', 'uchar_vector', '(unsigned char *i)')
+        c.addMethod('wchar_t *', 'wchar_string', '(wchar_t *i)')
+        c.addMethod('CharTypedef *', 'typedef_string', '(CharTypedef *i)')
         module.addItem(c)
 
         c = ClassDef(name='NestedTypedefsClass')
         c.addItem(TypedefDef(type='int', name='int1'))
         c.addItem(TypedefDef(type='int1', name='int2'))
-        c.addMethod('int2', 'return_typedef', '', items=ArgsString('(int2 i)'))
+        c.addMethod('int2', 'return_typedef', '(int2 i)')
         module.addItem(c)
 
         c = ClassDef(name='UnsignedTypesClass')
-        c.addMethod('unsigned', 'u', '(unsigned i)',
-                    items=ArgsString('(unsigned i)'))
-        c.addMethod('unsigned int', 'ui', '(unsigned int i)',
-                    items=ArgsString('(unsigned int i)'))
-        c.addMethod('unsigned long long', 'ull', '(unsigned long long i)',
-                    items=ArgsString('(unsigned long long i)'))
+        c.addMethod('unsigned', 'u', '(unsigned i)')
+        c.addMethod('unsigned int', 'ui', '(unsigned int i)')
+        c.addMethod('unsigned long long', 'ull', '(unsigned long long i)')
         module.addItem(c)
 
         c = ClassDef(name='ArrayClass')
-        c.addItem(MethodDef(
-            name='ArrayClass', argsString='()', isCtor=True, overloads=[
-                MethodDef(name='ArrayClass', argsString='(int i)', isCtor=True,
-                         items=[ParamDef(type='int', name='i')])]))
-        c.addItem(MethodDef(
-            type='int', argsString='(ArrayClass *objs, int len)',
-            name='sum', isStatic=True,
-            items=[ParamDef(type='ArrayClass *', name='objs', array=True),
-                   ParamDef(type='int', name='len', arraySize=True)]))
-        c.addItem(MethodDef(
-            type='int', argsString='(ArrayClass *objs, int len)',
-            name='sum_virt', isVirtual=True,
-            items=[ParamDef(type='ArrayClass *', name='objs', array=True),
-                   ParamDef(type='int', name='len', arraySize=True)]))
-        c.addItem(MethodDef(
-            type='int', argsString='(ArrayClass *objs, int len)',
-            name='call_sum_virt',
-            items=[ParamDef(type='ArrayClass *', name='objs', array=True),
-                   ParamDef(type='int', name='len', arraySize=True)]))
-        c.addItem(MethodDef(
-            type='int', argsString='(Vector *objs, int len)',
-            name='sum_mapped_type', isStatic=True,
-            items=[ParamDef(type='Vector *', name='objs', array=True),
-                   ParamDef(type='int', name='len', arraySize=True)]))
+        c.addMethod('', 'ArrayClass', '()', isCtor=True)
+        c.addMethod('', 'ArrayClass', '(int i)', isCtor=True)
+        c.addMethod(
+            'int', 'sum', ArgsString('(ArrayClass *objs, int len)')
+                          .annt(0, 'array').annt(1, 'arraySize'),
+            isStatic=True)
+        c.addMethod(
+            'int', 'sum_virt', ArgsString('(ArrayClass *objs, int len)')
+                               .annt(0, 'array').annt(1, 'arraySize'),
+            isVirtual=True)
+        c.addMethod(
+            'int', 'call_sum_virt',  ArgsString('(ArrayClass *objs, int len)')
+                                    .annt(0, 'array').annt(1, 'arraySize'))
+        c.addMethod(
+            'int', 'sum_mapped_type', ArgsString( '(Vector *objs, int len)')
+                                      .annt(0, 'array').annt(1, 'arraySize'),
+            isStatic=True)
         c.addItem(MemberVarDef(type='int', name='m_i'))
         module.addItem(c)
 
         c = ClassDef(name='InOutClass')
         c.addMethod(
-            type='void', argsString='(int *num)', name='double_ptr',
-            isVirtual=True, items=ArgsString('(int *num)').annt(0, 'inOut'))
+            'void', 'double_ptr', ArgsString('(int *num)').annt(0, 'inOut'),
+            isVirtual=True)
         c.addMethod(
-            type='void', argsString='(CtorsClass *num)',
-            name='double_ptr', isVirtual=True,
-            items=ArgsString('(CtorsClass * num)').annt(0, 'inOut'))
+            'void', 'double_ptr', ArgsString('(CtorsClass * num)').annt(0, 'inOut'),
+            isVirtual=True)
         c.addMethod(
-            type='void', argsString='(Vector *vec)', isVirtual=True,
-            name='double_ptr',
-            items=ArgsString('(Vector * vec)').annt(0, 'inOut'))
+            'void', 'double_ptr', ArgsString('(Vector * vec)').annt(0, 'inOut'),
+            isVirtual=True)
         c.addMethod(
-            type='void', argsString='(int &num)', name='double_ref',
-            isVirtual=True,
-            items=ArgsString('(int & num)').annt(0, 'inOut'))
+            'void', 'double_ref', ArgsString('(int & num)').annt(0, 'inOut'),
+            isVirtual=True)
         c.addMethod(
-            type='void', argsString='(CtorsClass &num)', isVirtual=True,
-            name='double_ref',
-            items=ArgsString('(CtorsClass & num)').annt(0, 'inOut'))
+            'void', 'double_ref', ArgsString('(CtorsClass & num)').annt(0, 'inOut'),
+            isVirtual=True)
         c.addMethod(
-            type='void', argsString='(Vector &vec)',
-            name='double_ref', isVirtual=True,
-            items=ArgsString('(Vector & vec)').annt(0, 'inOut'))
+            'void', 'double_ref', ArgsString('(Vector & vec)').annt(0, 'inOut'),
+            isVirtual=True)
         c.addMethod(
-            type='void', argsString='(CtorsClass *&num)', isVirtual=True,
-            name='double_refptr', items=[
-                ParamDef(type='CtorsClass *&', name='num', inOut=True)])
-        c.addMethod(
-            type='void', argsString='(Vector *&vec)',
-            name='double_refptr', isVirtual=True, items=[
-                ParamDef(type='Vector *&', name='vec', inOut=True)])
-        c.addMethod(
-            type='void', argsString='(CtorsClass **num)', isVirtual=True,
-            name='double_ptrptr', items=[
-                ParamDef(type='CtorsClass **', name='num', inOut=True)])
-        c.addMethod(
-            type='void', argsString='(Vector **vec)',
-            name='double_ptrptr', isVirtual=True, items=[
-                ParamDef(type='Vector **', name='vec', inOut=True)])
+            'void', 'double_refptr',
+             ArgsString('(CtorsClass *& num)').annt(0, 'inOut'), isVirtual=True)
+        c.addMethod('void', 'double_refptr', isVirtual=True,
+                    argsString=ArgsString('(Vector *& vec)').annt(0, 'inOut'))
+        c.addMethod('void', 'double_ptrptr', isVirtual=True,
+                    argsString=ArgsString('CtorsClass ** num)').annt(0, 'inOut'))
+        c.addMethod('void', 'double_ptrptr', isVirtual=True,
+                    argsString=ArgsString('Vector ** vec)').annt(0, 'inOut'))
 
-        c.addMethod(
-            type='void', argsString='(int *num)', name='call_double_ptr',
-            items=ArgsString('(int * num)').annt(0, 'inOut'))
-        c.addMethod(
-            type='void', argsString='(CtorsClass *num)',
-            name='call_double_ptr',
-            items=ArgsString('(CtorsClass * num)').annt(0, 'inOut'))
-        c.addMethod(
-            type='void', argsString='(Vector *vec)',
-            name='call_double_ptr',
-            items=ArgsString('(Vector * vec)').annt(0, 'inOut'))
-        c.addMethod(
-            type='void', argsString='(int &num)', name='call_double_ref',
-            items=ArgsString('(int & num)').annt(0, 'inOut'))
-        c.addMethod(
-            type='void', argsString='(CtorsClass *num)',
-            name='call_double_ref',
-            items=ArgsString('(CtorsClass & num)').annt(0, 'inOut'))
-        c.addMethod(
-            type='void', argsString='(Vector &vec)',
-            name='call_double_ref',
-            items=ArgsString('(Vector & vec)').annt(0, 'inOut'))
-        c.addMethod(
-            type='void', argsString='(CtorsClass *&num)',
-            name='call_double_refptr', items=[
-                ParamDef(type='CtorsClass *&', name='num', inOut=True)])
-        c.addMethod(
-            type='void', argsString='(Vector *&vec)',
-            name='call_double_refptr', items=[
-                ParamDef(type='Vector *&', name='vec', inOut=True)])
-        c.addMethod(
-            type='void', argsString='(CtorsClass **num)',
-            name='call_double_ptrptr', items=[
-                ParamDef(type='CtorsClass **', name='num', inOut=True)])
-        c.addMethod(
-            type='void', argsString='(Vector **vec)',
-            name='call_double_ptrptr', items=[
-                ParamDef(type='Vector **', name='vec', inOut=True)])
+        c.addMethod('void', 'call_double_ptr',
+                    ArgsString('(int * num)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_ptr',
+                    ArgsString('(CtorsClass * num)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_ptr',
+                    ArgsString('(Vector * vec)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_ref',
+                    ArgsString('(int & num)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_ref',
+                    ArgsString('(CtorsClass & num)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_ref',
+                    ArgsString('(Vector & vec)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_refptr',
+                    ArgsString('CtorsClass *& num)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_refptr',
+                    ArgsString('Vector *& vec)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_ptrptr',
+                    ArgsString('CtorsClass ** num)').annt(0, 'inOut'))
+        c.addMethod('void', 'call_double_ptrptr',
+                    ArgsString('Vector ** vec)').annt(0, 'inOut'))
         module.addItem(c)
 
         c = ClassDef(name='AllowNoneClass')
-        c.addItem(MethodDef(
-            type='long', argsString='(SmartVector *v)', name="get_addr_ptr",
-            items=[ParamDef(type='SmartVector *', name='v')]))
-        c.addItem(MethodDef(
-            type='long', argsString='(SmartVector &v)', name="get_addr_ref",
-            items=[ParamDef(type='SmartVector &', name='v')]))
-        c.addItem(MethodDef(
-            type='long', argsString='(AllowNoneSmartVector *v)',
-            name="allow_none_get_addr_ptr",
-            items=[ParamDef(type='AllowNoneSmartVector *', name='v')]))
-        c.addItem(MethodDef(
-            type='long', argsString='(AllowNoneSmartVector &v)',
-            name="allow_none_get_addr_ref",
-            items=[ParamDef(type='AllowNoneSmartVector &', name='v')]))
+        c.addMethod('long', "get_addr_ptr", '(SmartVector *v)')
+        c.addMethod('long', "get_addr_ref", '(SmartVector &v)')
+        c.addMethod('long', "allow_none_get_addr_ptr",
+                    '(AllowNoneSmartVector *v)')
+        c.addMethod('long', "allow_none_get_addr_ref",
+                    '(AllowNoneSmartVector &v)')
         module.addItem(c)
 
         c = ClassDef(name='AbstractClass', abstract=True)
-        c.addMethod('AbstractClass*', 'get_instance', '', isStatic=True,
+        c.addMethod('AbstractClass*', 'get_instance', '()', isStatic=True,
                     factory=True)
-        c.addMethod('void', 'virtual_meth', '', isVirtual=True)
+        c.addMethod('void', 'virtual_meth', '()', isVirtual=True)
         module.addItem(c)
 
         module.addItem(ClassDef(name='ConcreteSubclass',
                                 bases=['AbstractClass']))
 
         c = ClassDef(name="PureVirtualClass")
-        c.addItem(MethodDef(
-            type='int', argsString='()', name='purevirtual', isVirtual=True,
-            isPureVirtual=True))
-        c.addItem(MethodDef(
-            type='int', argsString='()', name='call_purevirtual'))
+        c.addMethod('int', 'purevirtual', '()', isVirtual=True,
+                    isPureVirtual=True)
+        c.addMethod('int', 'call_purevirtual', '()')
         module.addItem(c)
 
         c = ClassDef(
@@ -660,10 +472,7 @@ class TestBindGen(object):
             import collections
             return isinstance(py_obj, collections.Sequence) and len(py_obj) == 2
             """)
-        c.addItem(MethodDef(
-            name='SmartVector', argsString='(int x_, int y_)', isCtor=True,
-            items=[ParamDef(type='int', name='x_'),
-                   ParamDef(type='int', name='y_')]))
+        c.addMethod('', 'SmartVector', '(int x_, int y_)', isCtor=True)
         c.addItem(MemberVarDef(type='int', name='x'))
         c.addItem(MemberVarDef(type='int', name='y'))
         module.addItem(c)
@@ -680,10 +489,8 @@ class TestBindGen(object):
             import collections
             return isinstance(py_obj, collections.Sequence) and len(py_obj) == 2
             """)
-        c.addItem(MethodDef(
-            name='AllowNoneSmartVector', argsString='(int x_, int y_)',
-            isCtor=True, items=[ParamDef(type='int', name='x_'),
-                                ParamDef(type='int', name='y_')]))
+        c.addMethod('', 'AllowNoneSmartVector', '(int x_, int y_)',
+                    isCtor=True)
         c.addItem(MemberVarDef(type='int', name='x'))
         c.addItem(MemberVarDef(type='int', name='y'))
         module.addItem(c)
@@ -694,16 +501,10 @@ class TestBindGen(object):
                 type='SmartVector &', name='vec')]))
 
         c = ClassDef(name='KeepReferenceClass')
-        c.addItem(MethodDef(
-            type='void', argsString='(KeepReferenceClass &i)', name='keep_ref',
-            items=[
-                ParamDef(type='KeepReferenceClass &', name='i',
-                        keepReference=True)]))
-        c.addItem(MethodDef(
-            type='void', argsString='(KeepReferenceClass &i)',
-            name='keep_ref2', items=[
-                ParamDef(type='KeepReferenceClass &', name='i',
-                        keepReference=True)]))
+        c.addMethod('void', 'keep_ref', ArgsString('(KeepReferenceClass &i)')
+                                        .annt(0, 'keepReference'))
+        c.addMethod('void', 'keep_ref2', ArgsString('(KeepReferenceClass &i)')
+                                         .annt(0, 'keepReference'))
         module.addItem(c)
 
         module.addItem(FunctionDef(
@@ -713,67 +514,36 @@ class TestBindGen(object):
                         keepReference=True)]))
 
         c = ClassDef(name='TransferClass')
-        c.addItem(MethodDef(
-            argsString='()', name='TransferClass', isCtor=True, overloads=[
-            MethodDef(
-                argsString='(int i)', name='TransferClass',
-                isCtor=True, transfer=True, items=[
-                    ParamDef(type='int', name='i')]),
-            MethodDef(
-                argsString='(TransferClass * i)', name='TransferClass',
-                isCtor=True, items=[
-                    ParamDef(type='TransferClass *', name='i',
-                             transferThis=True)])]))
-        c.addItem(MethodDef(
-            type='void', argsString='(TransferClass *obj)',
-            name="transfer_param", items=[
-                ParamDef(type='TransferClass *', name='obj', transfer=True)]))
-        c.addItem(MethodDef(
-            type='void', argsString='(TransferClass *obj)', isStatic=True,
-            name="static_transfer_param", items=[
-                ParamDef(type='TransferClass *', name='obj', transfer=True)]))
-        c.addItem(MethodDef(
-            type='TransferClass *', argsString='(TransferClass *obj)',
-            name="transfer_return", transfer=True, items=[
-                ParamDef(type='TransferClass *', name='obj')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(TransferClass *obj)',
-            name="transferback_param", items=[
-                ParamDef(type='TransferClass *', name='obj',
-                         transferBack=True)]))
-        c.addItem(MethodDef(
-            type='void', argsString='(TransferClass *obj)',
-            name="transferthis_param", items=[
-                ParamDef(type='TransferClass *', name='obj',
-                         transferThis=True)]))
-        c.addItem(MethodDef(
-            type='void', argsString='()',
-            name="transferthis_return", transferThis=True))
-        c.addItem(MethodDef(
-            type='void', argsString='(TransferClass *obj)', isStatic=True,
-            name="static_transferback_param", items=[
-                ParamDef(type='TransferClass *', name='obj',
-                         transferBack=True)]))
-        c.addItem(MethodDef(
-            type='void', argsString='(TransferClass *obj)',
-            name="transferback_return", items=[
-                ParamDef(type='TransferClass *', transferBack=True, name='obj')]))
-        c.addItem(MethodDef(
-            type='TransferClass *', argsString='(TransferClass *obj)', isStatic=True,
-            name="static_transferback_return", transferBack=True, items=[
-                ParamDef(type='TransferClass *', name='obj')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(TransferClass *objs, int count)',
-            name='transfer_array', items=[
-                ParamDef(type='TransferClass *', name='objs', array=True,
-                         transfer=True),
-                ParamDef(type='int', name='count', arraySize=True)],
-            overloads=[MethodDef(
-                type='void', argsString='(Vector *objs, int count)',
-                name='transfer_array', items=[
-                    ParamDef(type='Vector *', name='objs', array=True,
-                            transfer=True),
-                    ParamDef(type='int', name='count', arraySize=True)])]))
+        c.addMethod('', 'TransferClass', '()', isCtor=True)
+        c.addMethod('', 'TransferClass', '(int i)', isCtor=True, transfer=True)
+        c.addMethod('', 'TransferClass',
+                    ArgsString('(TransferClass * i)').annt(0, 'transferThis'),
+                    isCtor=True)
+        c.addMethod('void', "transfer_param",
+                    ArgsString('(TransferClass *obj)').annt(0, 'transfer'))
+        c.addMethod('void', "static_transfer_param",
+                    ArgsString('(TransferClass *obj)').annt(0, 'transfer'),
+                    isStatic=True)
+        c.addMethod('TransferClass *', "transfer_return",
+                    ArgsString('(TransferClass *obj)'), transfer=True)
+        c.addMethod('void', "transferback_param",
+                    ArgsString('(TransferClass *obj)').annt(0, 'transferBack'))
+        c.addMethod('void', "transferthis_param",
+                    ArgsString('(TransferClass *obj)').annt(0, 'transferThis'))
+        c.addMethod('void', "transferthis_return", '()', transferThis=True)
+        c.addMethod('void', "static_transferback_param",
+                    ArgsString('(TransferClass *obj)').annt(0, 'transferBack'),
+                    isStatic=True)
+        c.addMethod('void', "transferback_return",
+                    ArgsString('(TransferClass *obj)').annt(0, 'transferBack'))
+        c.addMethod('TransferClass *', "static_transferback_return",
+                   '(TransferClass *obj)', isStatic=True, transferBack=True,)
+        c.addMethod('void', 'transfer_array',
+                    ArgsString('(TransferClass *objs, int count)')
+                    .annt(0, ('array', 'transfer')).annt(1, 'arraySize'))
+        c.addMethod('void', 'transfer_array',
+                    ArgsString('(Vector *objs, int count)')
+                    .annt(0, ('array', 'transfer')).annt(1, 'arraySize'))
         module.addItem(c)
 
         module.addItem(FunctionDef(
@@ -791,49 +561,41 @@ class TestBindGen(object):
                 ParamDef(type='TransferClass *', name='obj')]))
 
         c = ClassDef(name='FactoryClass')
-        c.addItem(MethodDef(
-            type='FactoryClass *', argsString='()',  name='make',
-            factory=True, isVirtual=True))
-        c.addItem(MethodDef(
-            type='FactoryClass *', argsString='()',  name='call_make'))
-        c.addItem(MethodDef(
-            type='FactoryClass *', argsString='(FactoryClass *ref)',
-             name='make_keep_ref', factory=True, items=[
-                ParamDef(type='FactoryClass *', name='ref', keepReference=True)
-            ]))
-        c.addItem(MethodDef(
-            type='FactoryClass *', argsString='(FactoryClass *ref)',
-             name='make_transfer_this', factory=True, items=[
-                ParamDef(type='FactoryClass *', name='ref', transferThis=True)
-            ]))
+        c.addMethod('FactoryClass *', 'make', '()', factory=True, isVirtual=True)
+        c.addMethod('FactoryClass *', 'call_make', '()')
+        c.addMethod('FactoryClass *', 'make_keep_ref',
+                    ArgsString('(FactoryClass *ref)').annt(0, 'keepReference'),
+                    factory=True)
+        c.addMethod('FactoryClass *', 'make_transfer_this',
+                    ArgsString('(FactoryClass *ref)').annt(0, 'transferThis'),
+                    factory=True)
         module.addItem(c)
 
         c = ClassDef(name='VirtualParametersOwnershipClass')
         c.addMethod(
-            'void', 'by_value', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(CtorsClass i)'))
+            'void', 'by_value', '(CtorsClass i)',
+            isVirtual=True, isPureVirtual=True)
         c.addMethod(
-            'void', 'by_ptr', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(CtorsClass *i)'))
+            'void', 'by_ptr', '(CtorsClass *i)',
+            isVirtual=True, isPureVirtual=True)
         c.addMethod(
-            'void', 'by_ref', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(CtorsClass &i)'))
+            'void', 'by_ref', '(CtorsClass &i)',
+            isVirtual=True, isPureVirtual=True)
         c.addMethod(
-            'void', 'by_cref', '', isVirtual=True, isPureVirtual=True,
-            items=ArgsString('(const CtorsClass &i)'))
+            'void', 'by_cref', '(const CtorsClass &i)',
+            isVirtual=True, isPureVirtual=True)
         c.addMethod(
-            'void', 'by_cref_private_cctor', '', isVirtual=True,
-            items=ArgsString('(const PrivateCopyCtorClass &i)'))
-        c.addMethod('void', 'call_by_value', '', items=ArgsString('()'))
-        c.addMethod('void', 'call_by_ptr', '', items=ArgsString('()'))
-        c.addMethod('void', 'call_by_ref', '', items=ArgsString('()'))
-        c.addMethod('void', 'call_by_cref', '', items=ArgsString('()'))
-        c.addMethod('void', 'call_by_cref_private_cctor', '')
+            'void', 'by_cref_private_cctor', '(const PrivateCopyCtorClass &i)',
+            isVirtual=True)
+        c.addMethod('void', 'call_by_value', '()')
+        c.addMethod('void', 'call_by_ptr', '()')
+        c.addMethod('void', 'call_by_ref', '()')
+        c.addMethod('void', 'call_by_cref', '()')
+        c.addMethod('void', 'call_by_cref_private_cctor', '()')
         module.addItem(c)
 
         c = ClassDef(name="DeprecatedClass", deprecated=True)
-        c.addItem(MethodDef(
-            type='void', argsString='()', name='deprecated_method'))
+        c.addMethod('void', 'deprecated_method', '()')
         module.addItem(c)
 
         module.addItem(FunctionDef(
@@ -841,17 +603,16 @@ class TestBindGen(object):
             deprecated=True))
 
         c = ClassDef(name='VirtualCatcherBase')
-        c.addItem(MethodDef(
-            type='const char*', argsString='()', name='vmeth', isVirtual=True,
+        c.addMethod(
+            'const char*', 'vmeth', '()', isVirtual=True,
             virtualCatcherCode_cffi="""\
             res = self.vmeth()
             if not isinstance(res, str):
                 return ""
             else:
                 return res.upper()
-            """))
-        c.addItem(MethodDef(
-            type='const char*', argsString='()', name='call_vmeth'))
+            """)
+        c.addMethod('const char*', 'call_vmeth', '()')
         module.addItem(c)
 
         module.addItem(MappedTypeDef_cffi(
@@ -920,106 +681,60 @@ class TestBindGen(object):
                 ParamDef(name='len', type='int', arraySize=True)])]))
 
         c = ClassDef(name='IntWrapperClass')
-        c.addItem(MethodDef(
-            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
-            name='trivial_mappedtype', isVirtual=True, items=[
-                ParamDef(type='IntWrapper', name='i'),
-                ParamDef(type='IntWrapper &', name='k', out=True)]))
-        c.addItem(MethodDef(
-            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
-            name='call_trivial_mappedtype', items=[
-                ParamDef(type='IntWrapper', name='i'),
-                ParamDef(type='IntWrapper &', name='k', out=True)]))
-        c.addItem(MethodDef(
-            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
-            name='trivial_inout_mappedtype', isVirtual=True, items=[
-                ParamDef(type='IntWrapper', name='i'),
-                ParamDef(type='IntWrapper &', name='k', inOut=True)]))
-        c.addItem(MethodDef(
-            type='IntWrapper', argsString='(IntWrapper i, IntWrapper &k)',
-            name='call_trivial_inout_mappedtype', items=[
-                ParamDef(type='IntWrapper', name='i'),
-                ParamDef(type='IntWrapper &', name='k', inOut=True)]))
+        c.addMethod('IntWrapper', 'trivial_mappedtype',
+                    ArgsString('(IntWrapper i, IntWrapper & k)').annt(1, 'out'),
+                    isVirtual=True)
+        c.addMethod('IntWrapper', 'call_trivial_mappedtype',
+                    ArgsString('(IntWrapper i, IntWrapper & k)').annt(1, 'out'))
+        c.addMethod('IntWrapper', 'trivial_inout_mappedtype',
+                    ArgsString('(IntWrapper i, IntWrapper & k)').annt(1, 'inOut'),
+                    isVirtual=True)
+        c.addMethod('IntWrapper', 'call_trivial_inout_mappedtype',
+                    ArgsString('(IntWrapper i, IntWrapper & k)').annt(1, 'inOut'))
         module.addItem(c)
 
         c = ClassDef(name='OutClass')
-        c.addItem(MethodDef(
-            type='int', argsString='(int *x, int *y)', name='get_coords_ptr',
-            isVirtual=True,
-            items=[ParamDef(type='int *', name='x', out=True),
-                   ParamDef(type='int *', name='y')]))
-        c.addItem(MethodDef(
-            type='int', argsString='(int *x, int *y)', name='get_coords_ref',
-            isVirtual=True,
-            items=[ParamDef(type='int &', name='x', out=True),
-                   ParamDef(type='int &', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(string *x, string **y)',
-            name='get_mappedtype_ptr', isVirtual=True,
-            items=[ParamDef(type='string *', name='x', out=True),
-                   ParamDef(type='string **', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(string &x, string *&y)',
-            name='get_mappedtype_ref', isVirtual=True,
-            items=[ParamDef(type='string &', name='x', out=True),
-                   ParamDef(type='string *&', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(CtorsClass *x, CtorsClass **y)',
-            name='get_wrappedtype_ptr', isVirtual=True,
-            items=[ParamDef(type='CtorsClass *', name='x', out=True),
-                   ParamDef(type='CtorsClass **', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(CtorsClass &x, CtorsClass *&y)',
-            name='get_wrappedtype_ref', isVirtual=True,
-            items=[ParamDef(type='CtorsClass &', name='x', out=True),
-                   ParamDef(type='CtorsClass *&', name='y')]))
-        c.addItem(MethodDef(
-            type='int', argsString='(int *x, int *y)',
-            name='call_get_coords_ptr',
-            items=[ParamDef(type='int *', name='x', out=True),
-                   ParamDef(type='int *', name='y')]))
-        c.addItem(MethodDef(
-            type='int', argsString='(int *x, int *y)',
-            name='call_get_coords_ref',
-            items=[ParamDef(type='int &', name='x', out=True),
-                   ParamDef(type='int &', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(string *x, string **y)',
-            name='call_get_mappedtype_ptr',
-            items=[ParamDef(type='string *', name='x', out=True),
-                   ParamDef(type='string **', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(string &x, string *&y)',
-            name='call_get_mappedtype_ref',
-            items=[ParamDef(type='string &', name='x', out=True),
-                   ParamDef(type='string *&', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(CtorsClass *x, CtorsClass **y)',
-            name='call_get_wrappedtype_ptr',
-            items=[ParamDef(type='CtorsClass *', name='x', out=True),
-                   ParamDef(type='CtorsClass **', name='y')]))
-        c.addItem(MethodDef(
-            type='void', argsString='(CtorsClass &x, CtorsClass *&y)',
-            name='call_get_wrappedtype_ref',
-            items=[ParamDef(type='CtorsClass &', name='x', out=True),
-                   ParamDef(type='CtorsClass *&', name='y')]))
+        c.addMethod('int', 'get_coords_ptr',
+                    ArgsString('(int *x, int *y)').annt(0, 'out'),
+                    isVirtual=True)
+        c.addMethod('int', 'get_coords_ref',
+                    ArgsString('(int &x, int &y)').annt(0, 'out'),
+                    isVirtual=True)
+        c.addMethod('void', 'get_mappedtype_ptr',
+                    ArgsString('(string *x, string **y)').annt(0, 'out'),
+                    isVirtual=True)
+        c.addMethod('void', 'get_mappedtype_ref',
+                    ArgsString('(string &x, string *&y)').annt(0, 'out'),
+                    isVirtual=True)
+        c.addMethod('void', 'get_wrappedtype_ptr',
+                    ArgsString('(CtorsClass *x, CtorsClass **y)').annt(0, 'out'),
+                    isVirtual=True)
+        c.addMethod('void', 'get_wrappedtype_ref',
+                    ArgsString('(CtorsClass &x, CtorsClass *&y)').annt(0, 'out'),
+                    isVirtual=True)
+        c.addMethod('int', 'call_get_coords_ptr',
+                    ArgsString('(int *x, int *y)').annt(0, 'out'))
+        c.addMethod('int', 'call_get_coords_ref',
+                    ArgsString('(int &x, int &y)').annt(0, 'out'))
+        c.addMethod('void', 'call_get_mappedtype_ptr',
+                    ArgsString('(string *x, string **y)').annt(0, 'out'))
+        c.addMethod('void', 'call_get_mappedtype_ref',
+                    ArgsString('(string &x, string *&y)').annt(0, 'out'))
+        c.addMethod('void', 'call_get_wrappedtype_ptr',
+                    ArgsString('(CtorsClass *x, CtorsClass **y)').annt(0, 'out'))
+        c.addMethod('void', 'call_get_wrappedtype_ref',
+                    ArgsString('(CtorsClass &x, CtorsClass *&y)').annt(0, 'out'))
         module.addItem(c)
 
         c = ClassDef(name='MappedTypeClass')
-        c.addItem(MethodDef(
-            type='string', argsString='()', name='get_name', isVirtual=True))
-        c.addItem(MethodDef(
-            type='string', argsString='()', name='call_get_name'))
-        c.addItem(MethodDef(
-            type='string', argsString='(string *s, int len)',
-            name='concat', isVirtual=True, items=[
-                ParamDef(type='string *', name='s', array=True),
-                ParamDef(type='int', name='len', arraySize=True)]))
-        c.addItem(MethodDef(
-            type='string', argsString='(string *s, int len)',
-            name='call_concat', items=[
-                ParamDef(type='string *', name='s', array=True),
-                ParamDef(type='int', name='len', arraySize=True)]))
+        c.addMethod('string', 'get_name', '()', isVirtual=True)
+        c.addMethod('string', 'call_get_name', '()')
+        c.addMethod('string', 'concat',
+                    ArgsString('(string *s, int len)')
+                    .annt(0, 'array').annt(1, 'arraySize'), isVirtual=True)
+        c.addMethod('string', 'call_concat',
+                    ArgsString('(string *s, int len)')
+                    .annt(0, 'array').annt(1, 'arraySize'))
         c.addItem(MemberVarDef(
             type='string', name='m_name'))
         module.addItem(c)
@@ -1058,27 +773,21 @@ class TestBindGen(object):
                 ParamDef(type='bool', name='base')]))
 
         c = ClassDef(name='VoidPtrClass')
-        c.addMethod(
-            'void*', 'copy_data', '(void *data, int size)', isVirtual=True,
-            items=[ParamDef(type='void *', name='data'),
-                   ParamDef(type='int', name='size')])
-        c.addMethod(
-            'void*', 'call_copy_data', '(void *data, int size)',
-            items=[ParamDef(type='void *', name='data'),
-                   ParamDef(type='int', name='size')])
+        c.addMethod('void*', 'copy_data', '(void *data, int size)',
+                    isVirtual=True)
+        c.addMethod('void*', 'call_copy_data', '(void *data, int size)')
         module.addItem(c)
 
         c = ClassDef(name='DocstringClass', briefDoc='Doc')
         c.addMethod('void', 'docstring_meth', '()', briefDoc='Doc')
         c.addMethod('void', 'docstring_overloaded_meth', '()', briefDoc='Doc')
         c.addMethod('void', 'docstring_overloaded_meth', '(int i)',
-                    items=[ParamDef(type='int', name='i')], briefDoc='Doc')
+                    briefDoc='Doc')
         c.addPyMethod('docstring_pymeth', '(self)', 'pass', 'PyDoc')
         module.addItem(c)
 
         c = ClassDef(name='TypedefClass')
-        c.addMethod('CtorsAlias&', 'passthrough', '(CtorsAlias &obj)',
-                    items=[ParamDef(type='CtorsClass &', name='obj')])
+        c.addMethod('CtorsAlias&', 'passthrough', '(CtorsAlias &obj)')
         module.addItem(c)
 
         module.cdefs_cffi.append("typedef int(*intcallback)(int);")

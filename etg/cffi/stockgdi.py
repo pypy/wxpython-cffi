@@ -55,33 +55,19 @@ def run():
     c.addItem(e)
 
 
-    c.addMethod(
-        '', 'wxStockGDI', '()', isCtor=True)
-    c.addMethod(
-        '', '~wxStockGDI', '()', isDtor=True, isVirtual=True)
+    c.addMethod('', 'wxStockGDI', '()', isCtor=True)
+    c.addMethod('', '~wxStockGDI', '()', isDtor=True, isVirtual=True)
 
-    c.addMethod(
-        'void', 'DeleteAll', '()', isStatic=True)
+    c.addMethod('void', 'DeleteAll', '()', isStatic=True)
 
-    c.addMethod(
-        'wxStockGDI&', 'instance', '()', isStatic=True)
+    c.addMethod('wxStockGDI&', 'instance', '()', isStatic=True)
 
-    c.addMethod(
-        'const wxBrush*', 'GetBrush', '(Item item)', isStatic=True,
-        items=[ParamDef(type='Item', name='item')])
-    c.addMethod(
-        'const wxColour*', 'GetColour', '(Item item)', isStatic=True,
-        items=[ParamDef(type='Item', name='item')])
-    c.addMethod(
-        'const wxCursor*', 'GetCursor', '(Item item)', isStatic=True,
-        items=[ParamDef(type='Item', name='item')])
-    c.addMethod(
-        'const wxPen*', 'GetPen', '(Item item)', isStatic=True,
-        items=[ParamDef(type='Item', name='item')])
+    c.addMethod('const wxBrush*', 'GetBrush', '(Item item)', isStatic=True)
+    c.addMethod('const wxColour*', 'GetColour', '(Item item)', isStatic=True)
+    c.addMethod('const wxCursor*', 'GetCursor', '(Item item)', isStatic=True)
+    c.addMethod('const wxPen*', 'GetPen', '(Item item)', isStatic=True)
 
-    c.addMethod(
-        'const wxFont*', 'GetFont', '(Item item)',
-        items=[ParamDef(type='Item', name='item')])
+    c.addMethod('const wxFont*', 'GetFont', '(Item item)')
 
     c.addPrivateCopyCtor()
     c.addPrivateAssignOp()

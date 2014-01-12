@@ -400,20 +400,14 @@ def addWindowVirtuals(klass):
         {type: 'bool', name: 'AcceptsFocus', argsString: '()', isConst: True},
         {type: 'bool', name: 'AcceptsFocusRecursively', argsString: '()', isConst: True},
         {type: 'bool', name: 'AcceptsFocusFromKeyboard', argsString: '()', isConst: True},
-        {type: 'void', name: 'AddChild', argsString: '( wxWindowBase *child )',
-         items: [extractors.ParamDef(type='wxWindowBase *', name='child')]},
-        {type: 'void', name: 'RemoveChild', argsString: '( wxWindowBase *child )',
-         items: [extractors.ParamDef(type='wxWindowBase *', name='child')]},
+        {type: 'void', name: 'AddChild', argsString: '( wxWindowBase *child )'},
+        {type: 'void', name: 'RemoveChild', argsString: '( wxWindowBase *child )'},
         {type: 'void', name: 'InheritAttributes', argsString: '()'},
         {type: 'bool', name: 'ShouldInheritColours', argsString: '()', isConst: True},
         {type: 'void', name: 'OnInternalIdle', argsString: '()'},
         {type: 'wxWindow*', name: 'GetMainWindowOfCompositeControl', argsString: '()'},
-        {type: 'bool', name: 'InformFirstDirection', argsString: '(int direction, int size, int availableOtherDir)',
-         items: [extractors.ParamDef(type='int', name='direction'),
-                extractors.ParamDef(type='int', name='size'),
-                extractors.ParamDef(type='int', name='availableOtherDir')]},
-        {type: 'void', name: 'SetCanFocus', argsString: '(bool canFocus)',
-         items: [extractors.ParamDef(type='bool', name='canFocus')]},
+        {type: 'bool', name: 'InformFirstDirection', argsString: '(int direction, int size, int availableOtherDir)'},
+        {type: 'void', name: 'SetCanFocus', argsString: '(bool canFocus)'},
     ]
     
     protectedWindowVirtuals = [    
@@ -440,45 +434,19 @@ def addWindowVirtuals(klass):
         #('DoGetScreenPosition', 'void DoGetScreenPosition(int *x, int *y) const'),
         #('DoSetVirtualSize',    'void DoSetVirtualSize( int x, int y )'),
         #('DoGetVirtualSize',    'wxSize DoGetVirtualSize() const'),
-        {type: 'bool', name: 'ProcessEvent', argsString: '(wxEvent & event)',
-         items: [extractors.ParamDef(type='wxEvent &', name='event')]},
-        {type: 'void', name: 'DoEnable', argsString: '(bool enable)',
-         items: [extractors.ParamDef(type='bool', name='enable')]},
-        {type: 'void', name: 'DoGetPosition', argsString: '(int *x, int *y)', isConst: True,
-         items: [extractors.ParamDef(type='int *', name='x'),
-                extractors.ParamDef(type='int *', name='y')]},
-        {type: 'void', name: 'DoGetSize', argsString: '(int *width, int *height)', isConst: True,
-         items: [extractors.ParamDef(type='int *', name='width'),
-                extractors.ParamDef(type='int *', name='height')]},
-        {type: 'void', name: 'DoGetClientSize', argsString: '(int *width, int *height)', isConst: True,
-         items: [extractors.ParamDef(type='int *', name='width'),
-                extractors.ParamDef(type='int *', name='height')]},
+        {type: 'bool', name: 'ProcessEvent', argsString: '(wxEvent & event)'},
+        {type: 'void', name: 'DoEnable', argsString: '(bool enable)'},
+        {type: 'void', name: 'DoGetPosition', argsString: '(int *x, int *y)', isConst: True},
+        {type: 'void', name: 'DoGetSize', argsString: '(int *width, int *height)', isConst: True},
+        {type: 'void', name: 'DoGetClientSize', argsString: '(int *width, int *height)', isConst: True},
         {type: 'wxSize', name: 'DoGetBestSize', argsString: '()', isConst: True},
         {type: 'wxSize', name: 'DoGetBestClientSize', argsString: '()', isConst: True},
-        {type: 'void', name: 'DoSetSize', argsString: '(int x, int y, int width, int height, int sizeFlags)',
-         items: [extractors.ParamDef(type='int', name='x'),
-                extractors.ParamDef(type='int', name='y'),
-                extractors.ParamDef(type='int', name='width'),
-                extractors.ParamDef(type='int', name='height'),
-                extractors.ParamDef(type='int', name='sizeFlags')]},
-        {type: 'void', name: 'DoSetClientSize', argsString: '(int width, int height)',
-         items: [extractors.ParamDef(type='int', name='width'),
-                extractors.ParamDef(type='int', name='height')]},
-        {type: 'void', name: 'DoSetSizeHints', argsString: '( int minW, int minH, int maxW, int maxH, int incW, int incH )',
-         items: [extractors.ParamDef(type='int', name='minW'),
-                extractors.ParamDef(type='int', name='minH'),
-                extractors.ParamDef(type='int', name='maxW'),
-                extractors.ParamDef(type='int', name='maxH'),
-                extractors.ParamDef(type='int', name='incW'),
-                extractors.ParamDef(type='int', name='incH')]},
+        {type: 'void', name: 'DoSetSize', argsString: '(int x, int y, int width, int height, int sizeFlags)'},
+        {type: 'void', name: 'DoSetClientSize', argsString: '(int width, int height)'},
+        {type: 'void', name: 'DoSetSizeHints', argsString: '( int minW, int minH, int maxW, int maxH, int incW, int incH )'},
         {type: 'wxSize', name: 'DoGetBorderSize', argsString: '()', isConst: True},
-        {type: 'void', name: 'DoMoveWindow', argsString: '(int x, int y, int width, int height)',
-         items: [extractors.ParamDef(type='int', name='x'),
-                extractors.ParamDef(type='int', name='y'),
-                extractors.ParamDef(type='int', name='width'),
-                extractors.ParamDef(type='int', name='height')]},
-        {type: 'void', name: 'DoSetWindowVariant', argsString: '( wxWindowVariant variant)',
-         items: [extractors.ParamDef(type='wxWindowVariant', name='variant')]},
+        {type: 'void', name: 'DoMoveWindow', argsString: '(int x, int y, int width, int height)'},
+        {type: 'void', name: 'DoSetWindowVariant', argsString: '( wxWindowVariant variant)'},
         {type: 'wxBorder', name: 'GetDefaultBorder', argsString: '()', isConst: True},
         {type: 'wxBorder', name: 'GetDefaultBorderForControl', argsString: '()', isConst: True},
         {type: 'void', name: 'DoFreeze', argsString: '()'},
@@ -941,7 +909,6 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
     c.addMethod('Py_ssize_t', 'size', '()', pyName='__len__')
     c.addMethod(
         ItemClass + '*', '__getitem__', '(size_t index)',
-        items=[extractors.ParamDef(type='size_t', name='index')],
         cppCode=("""\
         if (index < self->size()) {{
             {ListClass}::compatibility_iterator node = self->Item(index);
@@ -957,7 +924,6 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
       
     c.addMethod(
         'int', '__contains__', '(const %s* obj)' % ItemClass,
-        items=[extractors.ParamDef(type='const %s *' % ItemClass, name='obj')],
         cppCode=("""\
         {ListClass}::compatibility_iterator node;
         node = self->Find(({RealItemClass}*)obj);
@@ -968,7 +934,6 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
                  'function'))
     c.addMethod(
         'int', '__getitem__', '(%s * obj)' % ItemClass,
-        items=[extractors.ParamDef(type='%s *' % ItemClass, name='obj')],
         cppCode=("""\
         int idx = self->IndexOf(({RealItemClass}*)obj);
         if (idx == wxNOT_FOUND) {{
@@ -1091,7 +1056,6 @@ def wxArrayWrapperTemplate(ArrayClass, ItemClass, module):
         cppCode=('return self->GetCount();', 'function'))
     c.addMethod(
         ItemClass + '*', '__getitem__', '(size_t index)',
-        items=[extractors.ParamDef(type='size_t', name='index')],
         cppCode=("""\
         if(index < self->GetCount())
             return &self->Item(index);
@@ -1102,19 +1066,16 @@ def wxArrayWrapperTemplate(ArrayClass, ItemClass, module):
         }""", 'function'))
     c.addMethod(
         'int', '__contains__', '(const %s& obj)' % ItemClass,
-        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
         cppCode=("""\
         return (self->Index(*obj, false) != wxNOT_FOUND);
         """, 'function'))
     c.addMethod(
         'void', 'append', '(const %s& obj)' % ItemClass,
-        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
         cppCode=("self->Add(*obj);", 'function'))
 
     # TODO:  add support for index(value, [start, [stop]])
     c.addMethod(
         'int', 'index', '(const %s& obj)' % ItemClass,
-        items=[extractors.ParamDef(type='const %s&' % ItemClass, name='obj')],
         cppCode=("""\
         int idx = self->Index(*obj, false);
         if(idx == wxNOT_FOUND)

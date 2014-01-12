@@ -97,19 +97,11 @@ def run():
     #    wxPoint operator/(int i);
     #    """))
 
-    c.addMethod(
-        'wxPoint', 'operator+', '(const wxPoint& other)',
-        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
-    c.addMethod(
-        'wxPoint', 'operator-', '(const wxPoint& other)',
-        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
+    c.addMethod('wxPoint', 'operator+', '(const wxPoint& other)')
+    c.addMethod('wxPoint', 'operator-', '(const wxPoint& other)')
     c.addMethod('wxPoint', 'operator-', '()')
-    c.addMethod(
-        'wxPoint', 'operator*', '(int i)',
-        items=[etgtools.ParamDef(type='int', name='i')])
-    c.addMethod(
-        'wxPoint', 'operator/', '(int i)',
-        items=[etgtools.ParamDef(type='int', name='i')])
+    c.addMethod('wxPoint', 'operator*', '(int i)')
+    c.addMethod('wxPoint', 'operator/', '(int i)')
     
     
     # wxPoint typemap
@@ -176,31 +168,15 @@ def run():
     #    wxRealPoint operator-(const wxRealPoint& other);
     #    """))
 
-    c.addMethod(
-        'wxSize', 'operator+', '(const wxSize& other)',
-        items=[etgtools.ParamDef(type='const wxSize&', name='other')])
-    c.addMethod(
-        'wxSize', 'operator-', '(const wxSize& other)',
-        items=[etgtools.ParamDef(type='const wxSize&', name='other')])
-    c.addMethod(
-        'wxSize', 'operator*', '(int i)',
-        items=[etgtools.ParamDef(type='int', name='i')])
-    c.addMethod(
-        'wxSize', 'operator/', '(int i)',
-        items=[etgtools.ParamDef(type='int', name='i')])
+    c.addMethod('wxSize', 'operator+', '(const wxSize& other)')
+    c.addMethod('wxSize', 'operator-', '(const wxSize& other)')
+    c.addMethod('wxSize', 'operator*', '(int i)')
+    c.addMethod('wxSize', 'operator/', '(int i)')
 
-    c.addMethod(
-        'wxPoint', 'operator+', '(const wxPoint& other)',
-        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
-    c.addMethod(
-        'wxPoint', 'operator-', '(const wxPoint& other)',
-        items=[etgtools.ParamDef(type='const wxPoint&', name='other')])
-    c.addMethod(
-        'wxRealPoint', 'operator+', '(const wxRealPoint& other)',
-        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
-    c.addMethod(
-        'wxRealPoint', 'operator-', '(const wxRealPoint& other)',
-        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
+    c.addMethod('wxPoint', 'operator+', '(const wxPoint& other)')
+    c.addMethod('wxPoint', 'operator-', '(const wxPoint& other)')
+    c.addMethod('wxRealPoint', 'operator+', '(const wxRealPoint& other)')
+    c.addMethod('wxRealPoint', 'operator-', '(const wxRealPoint& other)')
     
     
     # wxSize typemap
@@ -256,12 +232,8 @@ def run():
     #    wxRect operator*(const wxRect& other);
     #    """))
 
-    c.addMethod(
-        'wxRect', 'operator+', '(const wxRect& other)',
-        items=[etgtools.ParamDef(type='const wxRect&', name='other')])
-    c.addMethod(
-        'wxRect', 'operator*', '(const wxRect& other)',
-        items=[etgtools.ParamDef(type='const wxRect&', name='other')])
+    c.addMethod('wxRect', 'operator+', '(const wxRect& other)')
+    c.addMethod('wxRect', 'operator*', '(const wxRect& other)')
 
     
     # Because of our add-ons that make wx.Point and wx.Size act like 2-element
@@ -328,20 +300,10 @@ def run():
     #    wxRealPoint operator/(int i);
     #    """))
 
-    c.addMethod(
-        'wxRealPoint', 'operator+',
-        '(const wxRealPoint& other)',
-        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
-    c.addMethod(
-        'wxRealPoint', 'operator-',
-        '(const wxRealPoint& other)',
-        items=[etgtools.ParamDef(type='const wxRealPoint&', name='other')])
-    c.addMethod(
-        'wxRealPoint', 'operator*', '(int i)',
-        items=[etgtools.ParamDef(type='int', name='i')])
-    c.addMethod(
-        'wxRealPoint', 'operator/', '(int i)',
-        items=[etgtools.ParamDef(type='int', name='i')])
+    c.addMethod('wxRealPoint', 'operator+', '(const wxRealPoint& other)')
+    c.addMethod('wxRealPoint', 'operator-', '(const wxRealPoint& other)')
+    c.addMethod('wxRealPoint', 'operator*', '(int i)')
+    c.addMethod('wxRealPoint', 'operator/', '(int i)')
 
         
     # wxRealPoint typemap
