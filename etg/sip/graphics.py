@@ -1,3 +1,5 @@
+import etgtools.tweaker_tools as tools
+
 def run(module):
     c = module.find('wxGraphicsContext')
 

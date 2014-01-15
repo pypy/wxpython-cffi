@@ -20,4 +20,5 @@ def run(module):
 
         self->SetPrivData(PyBytes_AS_STRING(data), PyBytes_GET_SIZE(data));
         """)
-    
+
+    c.addProperty('PrivData GetPrivData SetPrivData')

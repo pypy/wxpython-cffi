@@ -144,7 +144,8 @@ def ignoreAssignmentOperators(node):
     Set the ignored flag for all class methods that are assignment operators
     """
     for item in node.allItems():
-        if isinstance(item, extractors.MethodDef) and item.name == 'operator=':
+        if (isinstance(item, extractors.MethodDef) and item.name == 'operator='
+            and item.protection != 'private'):
             item.ignore()
 
             
@@ -875,12 +876,10 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
     ItemClass_pyName = removeWxPrefix(ItemClass)
     ListClass_pyName = removeWxPrefix(ListClass)
     
-    # *** TODO: This can probably be done in a way that is not SIP-specfic.
-    # Try creating extractor objects from scratch and attach cppMethods to
-    # them as needed, etc..
-
     c = extractors.ClassDef(name='{ListClass}_iterator'.format(**locals()), abstract=True)
-    c.addMethod(ItemClass + '*', '__next__', '()')
+    c.addItem(extractors.CppMethodDef(
+        ItemClass + '*', '__next__', '()', "return self->__next__();"))
+
     c.addHeaderCode("""\
         {TypeDef}
         class {ListClass}_iterator {{
@@ -906,10 +905,11 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
 
     c = extractors.ClassDef(name=ListClass)
     c.addHeaderCode(TypeDef)
-    c.addMethod('Py_ssize_t', 'size', '()', pyName='__len__')
-    c.addMethod(
+    c.addItem(extractors.CppMethodDef(
+        'Py_ssize_t', '__len__', '()', 'return self->size();'))
+    c.addItem(extractors.CppMethodDef(
         ItemClass + '*', '__getitem__', '(size_t index)',
-        cppCode=("""\
+        """\
         if (index < self->size()) {{
             {ListClass}::compatibility_iterator node = self->Item(index);
             if (node) 
@@ -920,27 +920,26 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
         else {{
             wxPyErr_SetString(PyExc_IndexError, "sequence index out of range");
             return NULL;
-        }}""".format(**locals()), 'function')),
+        }}""".format(**locals())))
       
-    c.addMethod(
+    c.addItem(extractors.CppMethodDef(
         'int', '__contains__', '(const %s* obj)' % ItemClass,
-        cppCode=("""\
+        """\
         {ListClass}::compatibility_iterator node;
         node = self->Find(({RealItemClass}*)obj);
-        return node != NULL;""".format(**locals()), 'function'))
-    c.addMethod(
+        return node != NULL;""".format(**locals())))
+    c.addItem(extractors.CppMethodDef(
         ListClass + '_iterator*', '__iter__', '()', factory=True,
-        cppCode=('return new %s_iterator(self->GetFirst());' % ListClass,
-                 'function'))
-    c.addMethod(
+        body='return new %s_iterator(self->GetFirst());' % ListClass))
+    c.addItem(extractors.CppMethodDef(
         'int', '__getitem__', '(%s * obj)' % ItemClass,
-        cppCode=("""\
+        """\
         int idx = self->IndexOf(({RealItemClass}*)obj);
         if (idx == wxNOT_FOUND) {{
             wxPyErr_SetString(PyExc_ValueError,
                               "sequence.index(x): x not in sequence");
         }}
-        return idx;""".format(**locals()), 'function'))
+        return idx;""".format(**locals())))
     c.addItem(extractors.CppMethodDef_cffi(
         '_new', isStatic=True,
         pyArgs=extractors.ArgsString('(WL_Object elements)'),
@@ -967,7 +966,7 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
         '__repr__', '(self)',
         'return "{ListClass_pyName}: " + repr(list(self))'.format(**locals()))
 
-    c.convertToTypeCode = '''\
+    c.convertFromPyObject = '''\
 %ConvertToTypeCode
     // Code to test a PyObject for compatibility
     if (!sipIsErr) {{
@@ -1046,37 +1045,33 @@ def wxArrayWrapperTemplate(ArrayClass, ItemClass, module):
     moduleName = module.module        
     ArrayClass_pyName = removeWxPrefix(ArrayClass)
     
-    # *** TODO: This can probably be done in a way that is not SIP-specfic.
-    # Try creating extractor objects from scratch and attach cppMethods to
-    # them as needed, etc..
-
     c = extractors.ClassDef(name=ArrayClass)
-    c.addMethod(
+    c.addItem(extractors.CppMethodDef(
         'SIP_SSIZE_T', '__len__', '()',
-        cppCode=('return self->GetCount();', 'function'))
-    c.addMethod(
+        'return self->GetCount();'))
+    c.addItem(extractors.CppMethodDef(
         ItemClass + '*', '__getitem__', '(size_t index)',
-        cppCode=("""\
+        """\
         if(index < self->GetCount())
             return &self->Item(index);
         else
         {
             wxPyErr_SetString(PyExc_IndexError, "sequence index out of range");
             return NULL;
-        }""", 'function'))
-    c.addMethod(
+        }"""))
+    c.addItem(extractors.CppMethodDef(
         'int', '__contains__', '(const %s& obj)' % ItemClass,
-        cppCode=("""\
+        """\
         return (self->Index(*obj, false) != wxNOT_FOUND);
-        """, 'function'))
-    c.addMethod(
+        """))
+    c.addItem(extractors.CppMethodDef(
         'void', 'append', '(const %s& obj)' % ItemClass,
-        cppCode=("self->Add(*obj);", 'function'))
+        "self->Add(*obj);"))
 
     # TODO:  add support for index(value, [start, [stop]])
-    c.addMethod(
+    c.addItem(extractors.CppMethodDef(
         'int', 'index', '(const %s& obj)' % ItemClass,
-        cppCode=("""\
+        """\
         int idx = self->Index(*obj, false);
         if(idx == wxNOT_FOUND)
         {
@@ -1085,7 +1080,7 @@ def wxArrayWrapperTemplate(ArrayClass, ItemClass, module):
             return -1;
         }
         return idx;
-        """, 'function'))
+        """))
     c.addPyMethod(
         '__repr__', '(self)',
         body='return "%s: " + repr(list(self))' % ArrayClass_pyName)

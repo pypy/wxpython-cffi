@@ -14,6 +14,10 @@
 
 %MappedType wxFileName
 {
+    %TypeHeaderCode
+    #include <wx/filename.h>
+    %End
+
     %ConvertToTypeCode
         // Code to test a PyObject for compatibility with wxFileName
         if (!sipIsErr) {

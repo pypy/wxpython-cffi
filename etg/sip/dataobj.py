@@ -1,3 +1,5 @@
+import etgtools
+
 def addGetAllFormats(klass, pureVirtual=False):
     # Replace the GetAllFormats method with an implementation that returns
     # the formats as a Python list
@@ -148,6 +150,18 @@ def run(module):
     #------------------------------------------------------------
     c = module.find('wxDataObjectSimple')
 
+    # We need to let SIP know that the pure virtuals in the base class have
+    # impelmentations here even though they will not be used much (if at
+    # all.) Those that are overridden in this class with different signatures
+    # we'll just mark as private to help avoid confusion.
+    c.addItem(etgtools.WigCode(code="""\
+        private:
+        virtual size_t GetDataSize(const wxDataFormat& format) const;
+        virtual bool GetDataHere(const wxDataFormat& format, void* buf) const;
+        virtual bool SetData(const wxDataFormat& format, size_t len, const void* buf);
+        public:
+    """))
+
     c.addCppCtor_sip('(const wxString& formatName)', 
         body='sipCpp = new sipwxDataObjectSimple(wxDataFormat(*formatName));')
     
@@ -231,6 +245,18 @@ def run(module):
     #------------------------------------------------------------
     c = module.find('wxDataObjectComposite')
     addGetAllFormats(c)
+
+    # We need to let SIP know that the pure virtuals in the base class have
+    # impelmentations here even though they will not be used much (if at
+    # all.) Those that are overridden in this class with different signatures
+    # we'll just mark as private to help avoid confusion.
+    c.addItem(etgtools.WigCode(code="""\
+        private:
+        virtual size_t GetDataSize(const wxDataFormat& format) const;
+        virtual bool GetDataHere(const wxDataFormat& format, void* buf) const;
+        virtual bool SetData(const wxDataFormat& format, size_t len, const void* buf);
+        public:
+    """))
     
     #------------------------------------------------------------
     c = module.find('wxTextDataObject')
@@ -239,3 +265,11 @@ def run(module):
     #------------------------------------------------------------
     c = module.find('wxURLDataObject')
     addGetAllFormats(c)
+
+    c.addItem(etgtools.WigCode(code="""\
+        private:
+        virtual size_t GetDataSize(const wxDataFormat& format) const;
+        virtual bool GetDataHere(const wxDataFormat& format, void* buf) const;
+        virtual bool SetData(const wxDataFormat& format, size_t len, const void* buf);
+        public:
+    """))

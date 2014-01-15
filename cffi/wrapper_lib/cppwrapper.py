@@ -164,7 +164,7 @@ class VirtualMethodStub(VirtualMethod):
     """
     def __init__(self, vmeth, *args):
         super(VirtualMethodStub, self).__init__(*args)
-        self.func = getattr(vmeth, '__func__')
+        self.func = getattr(vmeth, '__func__', vmeth)
 
 class VirtualDispatcher(object):
     def __init__(self, index):

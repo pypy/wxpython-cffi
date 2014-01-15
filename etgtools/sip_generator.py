@@ -526,6 +526,7 @@ from .%s import *
             extractors.MethodDef        : self.generateMethod,
             extractors.EnumDef          : self.generateEnum,
             extractors.CppMethodDef     : self.generateCppMethod,
+            extractors.CppMethodDef_cffi: lambda *x : None,
             extractors.CppMethodDef_sip : self.generateCppMethod_sip,
             extractors.PyMethodDef      : self.generatePyMethod,
             extractors.PyCodeDef        : self.generatePyCode,

@@ -20,7 +20,7 @@ import xml.etree.ElementTree as et
 
 from .tweaker_tools import FixWxPrefix, magicMethods, \
                            guessTypeInt, guessTypeFloat, guessTypeStr, \
-                           textfile_open
+                           textfile_open, getGenerator
 from sphinxtools.utilities import FindDescendants
 
 #---------------------------------------------------------------------------
@@ -272,6 +272,8 @@ class FunctionDef(BaseDef, FixWxPrefix):
         self.__dict__.update(kw)
         if element is not None:
             self.extract(element)
+        elif not hasattr(self, 'isCore'):
+            self.isCore = _globalIsCore
 
 
     def extract(self, element):
@@ -1061,44 +1063,54 @@ class ClassDef(BaseDef):
 
     def addCopyCtor(self, prot='protected'):
         # add declaration of a copy constructor to this class
-        #wig = WigCode("""\
-        #{PROT}:
-        #    {CLASS}(const {CLASS}&);""".format(CLASS=self.name, PROT=prot))
-        #self.addItem(wig)
-        self.addMethod(
-            "", self.name, "(const %s & other)" % self.name,
-            isCtor=True, protection=prot
-        )
+        if getGenerator() == 'sip':
+            wig = WigCode("""\
+            {PROT}:
+                {CLASS}(const {CLASS}&);""".format(CLASS=self.name, PROT=prot))
+            self.addItem(wig)
+        else:
+            self.addMethod(
+                "", self.name, "(const %s & other)" % self.name,
+                isCtor=True, protection=prot
+            )
 
     def addPrivateCopyCtor(self):
         self.addCopyCtor('private')
 
     def addPrivateAssignOp(self):
         # add declaration of an assignment opperator to this class
-        #wig = WigCode("""\
-        #private:
-        #    {CLASS}& operator=(const {CLASS}&);""".format(CLASS=self.name))
-        #self.addItem(wig)
-        self.addMethod(
-            self.name + '&', 'operator=', '(const %s & other)' % self.name,
-            protection='private'
-        )
+        if getGenerator() == 'sip':
+            wig = WigCode("""\
+            private:
+                {CLASS}& operator=(const {CLASS}&);""".format(CLASS=self.name))
+            self.addItem(wig)
+        # TODO: Does the cffi backend actually care about private assign
+        #       operators?
+        #else:
+        #    self.addMethod(
+        #        self.name + '&', 'operator=', '(const %s & other)' % self.name,
+        #        protection='private'
+        #    )
 
     def addDtor(self, prot='protected'):
         # add declaration of a destructor to this class
-        #wig = WigCode("""\
-        #{PROT}:
-        #    ~{CLASS}();""".format(CLASS=self.name, PROT=prot))
-        #self.addItem(wig)
-        self.addMethod("", '~' + self.name, "()", isDtor=True, protection=prot)
+        if getGenerator() == 'sip':
+            wig = WigCode("""\
+            {PROT}:
+                ~{CLASS}();""".format(CLASS=self.name, PROT=prot))
+            self.addItem(wig)
+        else:
+            self.addMethod("", '~' + self.name, "()", isDtor=True, protection=prot)
 
     def addDefaultCtor(self, prot='protected'):
         # add declaration of a default constructor to this class
-        #wig = WigCode("""\
-        #{PROT}:
-        #    {CLASS}();""".format(CLASS=self.name, PROT=prot))
-        #self.addItem(wig)
-        self.addMethod("", self.name, "()", isCtor=True, protection=prot)
+        if getGenerator() == 'sip':
+            wig = WigCode("""\
+            {PROT}:
+                {CLASS}();""".format(CLASS=self.name, PROT=prot))
+            self.addItem(wig)
+        else:
+            self.addMethod("", self.name, "()", isCtor=True, protection=prot)
 
 
 #---------------------------------------------------------------------------

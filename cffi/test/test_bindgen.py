@@ -29,6 +29,9 @@ INCLUDES_DIR = os.path.join(cfg, 'cffi', 'include')
 class TestBindGen(object):
     @classmethod
     def setup_class(cls):
+        # Make sure the extractors uses the cffi backend
+        sys.argv.append('--cffi')
+
         cls.tmpdir = pytest.ensuretemp('build', dir=True)
         cls.gen = cls.create_generators()
         cls.mod = cls.build_module('_core')
@@ -153,6 +156,31 @@ class TestBindGen(object):
         c.addMethod('int', 'protected_virtual_method', '(int i)',
                     protection='protected', isVirtual=True)
         c.addMethod('int', 'call_method', '(int i)')
+        module.addItem(c)
+
+        c = ClassDef(name='OverloadedVMethClass')
+        c.addMethod('int', 'overloaded_vmeth', '()', isVirtual=True)
+        c.addMethod('int', 'overloaded_vmeth', '(int x)', isVirtual=True)
+        c.addMethod('int', 'call_overloaded_vmeth', '()')
+        c.addMethod('int', 'call_overloaded_vmeth', '(int x)')
+        module.addItem(c)
+
+        c = ClassDef(name='OverloadedVMethSubclass',
+                     bases=['OverloadedVMethClass'])
+        module.addItem(c)
+
+        c = ClassDef(name='PrivateVMethBase')
+        c.addMethod('int', 'pvmeth', '()', isVirtual=True, isPureVirtual=True)
+        c.addMethod('int', 'call_pvmeth', '()')
+        module.addItem(c)
+
+        c = ClassDef(name='PrivateVMethClass1', bases=['PrivateVMethBase'])
+        c.addMethod('int', 'pvmeth', '()', isVirtual=True, protection='private')
+        module.addItem(c)
+
+        c = ClassDef(name='PrivateVMethClass2', bases=['PrivateVMethBase'])
+        c.addMethod('int', 'pvmeth', '()', isVirtual=True, protection='private')
+        c.addMethod('int', 'pvmeth', '(int x)', isVirtual=True)
         module.addItem(c)
 
         c = ClassDef(name='PMethClass')
@@ -1060,6 +1088,35 @@ class TestBindGen(object):
         assert obj.call_overridden_vmeth2() is someobj
         assert obj.call_overridden_vmeth3(6) == 18
         assert obj.call_unoverridden_cppvmeth('a') == 'A'
+
+    def test_overloaded_virtual_method_inherting(self):
+        o = self.mod.OverloadedVMethSubclass()
+        assert o.overloaded_vmeth() == 10
+        assert o.overloaded_vmeth(8) == 7
+
+        class OverloadedVMethSubSubclass(self.mod.OverloadedVMethSubclass):
+            def overloaded_vmeth(self, x=20):
+                return x * 2
+
+        o = OverloadedVMethSubSubclass()
+        assert o.call_overloaded_vmeth() == 40
+        assert o.call_overloaded_vmeth(10) == 20
+
+    def test_pure_virtual_method_private_overriding(self):
+        with pytest.raises(TypeError):
+            self.mod.PrivateVMethBase()
+
+        o = self.mod.PrivateVMethClass1()
+        assert o.call_pvmeth() == 15
+        with pytest.raises(NotImplementedError):
+            o.pvmeth()
+
+        o = self.mod.PrivateVMethClass2()
+        assert o.pvmeth(20) == 10
+
+        assert o.call_pvmeth() == 16
+        with pytest.raises(TypeError):
+            o.pvmeth()
 
     def test_subclass_virtual_method_direct_call(self):
         c = self.mod.VMethSubclass()

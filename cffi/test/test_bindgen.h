@@ -79,6 +79,70 @@ public:
     virtual IntWrapper overridden_vmeth3(int i);
 };
 
+class OverloadedVMethClass
+{
+public:
+    virtual ~OverloadedVMethClass() { }
+
+    virtual int overloaded_vmeth()
+    {
+        return 10;
+    }
+
+    int call_overloaded_vmeth()
+    {
+        return overloaded_vmeth();
+    }
+
+    virtual int overloaded_vmeth(int x)
+    {
+        return x - 1;
+    }
+
+    int call_overloaded_vmeth(int x)
+    {
+        return overloaded_vmeth(x);
+    }
+};
+
+class OverloadedVMethSubclass : public OverloadedVMethClass
+{
+};
+
+class PrivateVMethBase
+{
+public:
+    virtual ~PrivateVMethBase() { }
+
+    virtual int pvmeth() = 0;
+    int call_pvmeth()
+    {
+        return pvmeth();
+    }
+};
+
+class PrivateVMethClass1 : public PrivateVMethBase
+{
+    virtual int pvmeth()
+    {
+        return 15;
+    }
+};
+
+class PrivateVMethClass2 : public PrivateVMethBase
+{
+    virtual int pvmeth()
+    {
+        return 16;
+    }
+
+public:
+    virtual int pvmeth(int x)
+    {
+        return x / 2;
+    }
+};
+
 class PMethClass
 {
 protected:

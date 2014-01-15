@@ -87,6 +87,8 @@ def run():
     module.addItem(etgtools.DefineDef(name='wxADJUST_MINSIZE', value='0'))
     
 
+    tools.runGeneratorSpecificScript(module)
+
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
     tools.runGenerators(module)

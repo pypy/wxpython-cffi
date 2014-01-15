@@ -1,4 +1,6 @@
 def run(module):
+    c = module.find('wxDC')
+
     # This file contains implementations of functions for quickly drawing
     # lists of items on the DC. They are called from the CppMethods defined
     # below, which in turn are called from the PyMethods below that.

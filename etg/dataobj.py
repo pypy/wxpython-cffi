@@ -85,6 +85,7 @@ def run():
                 isConst=True, isVirtual=True)
     c.addMethod('wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
                 isConst=True, isVirtual=True)
+    # Private declarations in the generator specific scripts.
     
     #------------------------------------------------------------
     c = module.find('wxCustomDataObject')
@@ -114,6 +115,7 @@ def run():
                 isConst=True, isVirtual=True)
     c.addMethod('wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
                 isConst=True, isVirtual=True)
+    # Private declarations in the generator specific scripts.
 
     
     
@@ -138,7 +140,7 @@ def run():
                 isConst=True, isVirtual=True)
     c.addMethod('wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',
                 isConst=True, isVirtual=True)
-
+    # Private declarations in the generator specific scripts.
     
 
     #------------------------------------------------------------

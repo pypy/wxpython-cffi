@@ -336,6 +336,9 @@ class InheritedVirtualMethodMixin(object):
         pass
 
     def print_cppcode(self, cppfile):
+        if self.protection == 'private':
+            return
+
         if not self.parent.uninstantiable:
             self.print_virtual_cppcode(cppfile)
 
