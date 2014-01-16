@@ -220,16 +220,21 @@ which is a list of strings.
 The ``wrapper_lib`` module is available inside hand written Python code blocks.
 It provides the following functions:
 
-``wrapper_lib.get_ptr(obj)``
-  Returns the address of a wrapped object.
+``wrapper_lib.get_ptr(obj, cls=None)``
+  Returns the address of a wrapped object. If ``cls`` is provided, the address
+  is is the address of the object aftering being cast to  the given class. If
+  the object is not an instance of ``cls``, the original pointer of the ``obj``
+  will be returned.
 
 ``wrapper_lib.obj_from_ptr(ptr, cls=CppWrapper, is_new=False)``
   Returns a wrapper object for the given pointer. If a wrapper object already
   exists for the pointer, that object is returned. If an wrapper does not
-  already exist, the type passed as the ``cls`` argument is the used t
+  already exist, the type passed as the ``cls`` argument is the used to create
+  a new wrapper object, which is return.
 
 ``wrapper_lib.take_ownership(obj)``
-  Makes the passed wrapper object owned by Python.
+  Makes the passed wrapper object owned by Python, which is to say that when
+  the wrapper is garbage collected, the underlying C++ object is deleted too.
 
 ``wrapper_lib.give_ownership(obj, parent=None, external_ref=False)``
   Makes the given wrapper object owned by C++, meaning its Dtor won't be called

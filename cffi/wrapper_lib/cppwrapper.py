@@ -88,22 +88,58 @@ class WrapperType(type):
         else:
             super(WrapperType, self).__setattr__(name, value)
 
-VDataBase = collections.namedtuple('VData', ['vtable', 'default_vflags',
-                                             'set_vflag', 'set_vflags',
-                                             'instances', 'dispatchers',
-                                             'direct_wrapper'])
-class VData(VDataBase):
-    def __new__(cls, ffi, vtable, set_flag, set_flags, direct_wrapper):
-        return super(VData, cls).__new__(
-            cls,
-            vtable,
-            ffi.new('unsigned char[]', len(vtable)),
-            set_flag,
-            set_flags,
-            weakref.WeakSet(),
-            [],
-            direct_wrapper
-        )
+class VData(object):
+    def __init__(self, ffi, vtable, set_vflag, set_vflags, direct_wrapper):
+        self.vtable = vtable
+        self.default_vflags = ffi.new('unsigned char[]', len(vtable))
+        self.set_vflag = set_vflag
+        self.set_vflags = set_vflags
+        self.instances = weakref.WeakSet()
+        self.dispatchers = []
+        self.direct_wrapper = direct_wrapper
+
+class CastData(object):
+    def get_offset_ptr(self, ptr, cls):
+        try:
+            return ptr + self.offsets[cls]
+        except KeyError:
+            # 0 offsets aren't stored, so when the lookup fails, assume the
+            # pointer the same for the conversion (ie do no error handling.)
+            return ptr
+        except AttributeError:
+            self.setup_offsets_table(ptr)
+            return self.get_offset_ptr(ptr, cls)
+
+    def get_offsets_table(self, ptr):
+        try:
+            return self.offsets
+        except AttributeError:
+            self.setup_offsets_table(ptr)
+            return self.offsets
+
+    def setup_offsets_table(self, ptr):
+        # Setup of the offsets table is delayed until we have an instance.
+        # Technically, casting with a dummy pointer is possible, but is
+        # undefined behavior. This should be slightly safer and gives us a path
+        # to potentially support virtual inhertiance at a later date.
+        self.offsets = { }
+        for base, cast_func in self.castfuncs:
+            casted_ptr = cast_func(ptr)
+
+            offset = casted_ptr - ptr
+            if offset != 0:
+                # Only store non-0 offsets. Unstored offsets are assume 0.
+                self.offsets[base] = offset
+                # Copy the offsets to each base's base, adding the offset
+                for (base_base, base_offset) in \
+                    base._castdata.get_offsets_table(ptr).iteritems():
+                    self.offsets[base_base] = base_offset + offset
+            else:
+                # Copy the offsets to each base's base
+                self.offsets.update(base._castdata.get_offsets_table(ptr))
+
+    def __init__(self, castfuncs):
+        self.castfuncs = castfuncs
 
 class VirtualMethod(object):
     """
@@ -283,11 +319,13 @@ def obj_from_ptr(ptr, klass=CppWrapper, is_new=False):
         object_map[ptr] = obj
     return obj
 
-def get_ptr(obj):
+def get_ptr(obj, cls=None):
     if obj is None:
         return ffi.NULL
+
     if isinstance(obj, CppWrapper):
-        return obj._cpp_obj
+        return obj._castdata.get_offset_ptr(obj._cpp_obj, cls)
+
     raise TypeError('obj is not a wrapper for a C++ object')
 
 def remember_ptr(obj, ptr, external_ref=False):

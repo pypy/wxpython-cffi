@@ -894,6 +894,23 @@ class TestBindGen(object):
         ))
         module.addItem(c)
 
+        c = ClassDef(name='MultipleInheritBaseA')
+        c.addMethod('', 'MultipleInheritBaseA', '(int a)', isCtor=True)
+        c.addItem(MemberVarDef(type='int', name='a'))
+        module.addItem(c)
+
+        c = ClassDef(name='MultipleInheritBaseB')
+        c.addMethod('', 'MultipleInheritBaseB', '(int b)', isCtor=True)
+        c.addItem(MemberVarDef(type='int', name='b'))
+        module.addItem(c)
+
+        c = ClassDef(name='MultipleInheritClass',
+                     bases=['MultipleInheritBaseA', 'MultipleInheritBaseB'])
+        c.addMethod('', 'MultipleInheritBaseA', '(int a, int b, int c)',
+                    isCtor=True)
+        c.addItem(MemberVarDef(type='int', name='c'))
+        module.addItem(c)
+
         module.addItem(FunctionDef(
             type='OpaqueType*', name='make_opaque_object', argsString='(int i)',
             items=[ParamDef(type='int', name='i')]))
@@ -1938,6 +1955,12 @@ class TestBindGen(object):
 
         subclassobj = self.mod.get_detectable_object(False)
         assert isinstance(subclassobj, self.mod.DetectableSubclass)
+
+    def test_multiple_inheritance(self):
+        o = self.mod.MultipleInheritClass(1, 2, 3)
+        assert o.a == 1
+        assert o.b == 2
+        assert o.c == 3
 
     def test_cppmethod_cffi(self):
         someint = [-111]

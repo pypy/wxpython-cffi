@@ -813,3 +813,29 @@ public:
         return i - 2;
     }
 };
+
+class MultipleInheritBaseA
+{
+public:
+    MultipleInheritBaseA(int a_) : a(a_) { }
+    int a;
+};
+
+class MultipleInheritBaseB
+{
+public:
+    MultipleInheritBaseB(int b_) : b(b_) { }
+    int b;
+};
+
+class MultipleInheritClass : public MultipleInheritBaseA, public MultipleInheritBaseB
+{
+public:
+    MultipleInheritClass(int a_, int b_, int c_)
+     :  MultipleInheritBaseA(a_),
+        MultipleInheritBaseB(b_),
+        c(c_)
+    { }
+
+    int c;
+};

@@ -233,8 +233,11 @@ class WrappedType(CppScope, CppType):
         typeinfo.default_placeholder = 'ffi.NULL'
 
     def print_cdef_and_verify(self, pyfile):
-        if not self.uninstantiable and len(self.virtualmethods) > 0:
+        for base in self.bases:
+            pyfile.write("void* cfficast_{0.cname}_to_{1.cname}(void*);\n"
+                         .format(self, base))
 
+        if not self.uninstantiable and len(self.virtualmethods) > 0:
             pyfile.write(nci("""\
             void(*{0.cname}_vtable[{1}])(void);
             void {0.cname}_set_flag(void *, int);
@@ -262,7 +265,6 @@ class WrappedType(CppScope, CppType):
 
         utils.print_docstring(self, pyfile, indent + 4)
 
-
         # Print class members that are picked up by the metaclass
         if not self.uninstantiable and len(self.virtualmethods) > 0:
             pyfile.write(nci("""\
@@ -282,6 +284,12 @@ class WrappedType(CppScope, CppType):
             _set_vflag = lambda x : None
             _set_vflags = lambda x : None
             """.format(len(self.virtualmethods)), indent + 4))
+
+        pyfile.write(nci(
+            "_castdata = wrapper_lib.CastData([%s])\n", indent + 4) % ', '.join(
+            "({1.unscopedpyname}, clib.cfficast_{0.cname}_to_{1.cname})"
+            .format(self, base) for base in self.bases)
+        )
 
         if self.convert_subclass_code is not None:
             pyfile.write(nci('_get_cpp_classname_ = clib.cffigetclassname_%s' %
@@ -366,6 +374,14 @@ class WrappedType(CppScope, CppType):
     def print_cppcode(self, cppfile):
         cppfile.write('\n'.join(self.included_cppcode))
 
+        for base in self.bases:
+            cppfile.write(nci("""\
+            WL_C_INTERNAL void* cfficast_{0.cname}_to_{1.cname}({0.unscopedname} *ptr)
+            {{
+                return (void*)({1.unscopedname}*)ptr;
+            }}
+            """.format(self, base)))
+
         if len(self.virtualmethods) > 0 and not self.uninstantiable:
             cppfile.write(nci("""\
             WL_C_INTERNAL void(*{0.cname}_vtable[{1}])();
@@ -402,8 +418,8 @@ class WrappedType(CppScope, CppType):
 
         if typeinfo.flags.inout:
             return conversion + (
-            "{0}{1.CFFI_PARAM_SUFFIX} = ffi.new('{1.cdef_type}', wrapper_lib.get_ptr({0}))"
-            .format(name, typeinfo))
+            "{0}{1.CFFI_PARAM_SUFFIX} = ffi.new('{1.cdef_type}', wrapper_lib.get_ptr({0}, {2}))"
+            .format(name, typeinfo, self.unscopedpyname))
 
         if typeinfo.flags.array:
             return ("{0}{1.CFFI_PARAM_SUFFIX}, {1.ARRAY_SIZE_PARAM}, {0}_keepalive = "
@@ -411,8 +427,8 @@ class WrappedType(CppScope, CppType):
                     .format(name, typeinfo, self.unscopedpyname))
 
         return conversion + (
-            "{0}{1.CFFI_PARAM_SUFFIX} = wrapper_lib.get_ptr({0})"
-            .format(name, typeinfo))
+            "{0}{1.CFFI_PARAM_SUFFIX} = wrapper_lib.get_ptr({0}, {2})"
+            .format(name, typeinfo, self.unscopedpyname))
 
     def call_cpp_param_setup(self, typeinfo, name):
         if (typeinfo.flags.out and typeinfo.ptrcount != 2 and
@@ -470,8 +486,8 @@ class WrappedType(CppScope, CppType):
 
     def virt_py_param_cleanup(self, typeinfo, name):
         if typeinfo.flags.out or typeinfo.flags.inout:
-            return ("{0}[0] = wrapper_lib.get_ptr({0}{1.PY_RETURN_SUFFIX})"
-                    .format(name, typeinfo))
+            return ("{0}[0] = wrapper_lib.get_ptr({0}{1.PY_RETURN_SUFFIX}, {2})"
+                    .format(name, typeinfo, self.unscopedpyname))
 
     def virt_py_return(self, typeinfo, name):
         # Replicate sip's (largely undocumented) handling of ownership of
@@ -479,8 +495,9 @@ class WrappedType(CppScope, CppType):
         # transfer_back:
         return ("""\
         wrapper_lib.give_ownership({0}, None, {1})
-        {0} = wrapper_lib.get_ptr({0})"""
-        .format(name, typeinfo.flags.factory or typeinfo.flags.transfer_back))
+        {0} = wrapper_lib.get_ptr({0}, {2})"""
+        .format(name, typeinfo.flags.factory or typeinfo.flags.transfer_back,
+                self.unscopedpyname))
 
     def virt_cpp_param_setup(self, typeinfo, name):
         if typeinfo.flags.array:
