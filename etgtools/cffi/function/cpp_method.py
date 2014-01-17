@@ -127,6 +127,7 @@ class MemberCppMethod_cffi(Method):
             @wrapper_lib.VirtualDispatcher({0.vtable_index})
             @ffi.callback('{0.type.cdef_virt_return_type}(*){0.cdef_virt_args}')
             def _virtual__{0.vtable_index}{0.py_virt_args}:
+                wl_cls = {0.parent.unscopedpyname}
             """.format(self), indent))
             pyfile.write(nci(self.py_code, indent + 4))
 
@@ -134,8 +135,16 @@ class MemberCppMethod_cffi(Method):
                             indent))
 
         self.print_pycode_header(pyfile, indent)
-        pyfile.write(nci("call = clib." + self.cname, indent + 4))
-        pyfile.write(nci(self.user_py_code, indent + 4))
+        if self.purevirtual:
+            pyfile.write(nci(
+                "raise NotImplementedError('%s.%s() is abstract and must be "
+                "overridden')" % (self.parent.pyname, self.pyname), indent + 4))
+        else:
+            pyfile.write(nci("""\
+                call = clib.{0.cname}
+                wl_cls = {0.parent.unscopedpyname}
+            """.format(self), indent + 4))
+            pyfile.write(nci(self.user_py_code, indent + 4))
 
 
     def print_cdef_and_verify(self, pyfile):
@@ -177,14 +186,15 @@ class MemberCppMethod_cffi(Method):
 
 class CppCtorMethod_cffi(MemberCppMethod_cffi, CtorMethod):
     def print_headercode(self, hfile):
-        hfile.write('    {0.parent.cppname}{0.cpp_args} : {0.parent.unscopedname}{0.call_original_cpp_args} {{ }}\n'.format(self))
+        if self.item.originalCppArgs is not None:
+            hfile.write('    {0.parent.cppname}{0.cpp_args} : {0.parent.unscopedname}{0.call_original_cpp_args} {{ }}\n'.format(self))
 
 class FakeTypeInfo(object):
     """
     A fake TypeInfo for CppMethod_cffi's which have a custom virtual return
     type. It fakes the necessary fields so the method prints correctly.
     """
-    def __init__(self, c_type, cpp_type):
+    def __init__(self, cpp_type, c_type):
         self.original = cpp_type
         self.cpp_type = self.original
 

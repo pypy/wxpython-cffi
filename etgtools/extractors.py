@@ -1258,7 +1258,7 @@ class CppMethodDef_cffi(MethodDef):
         name, pyArgs, pyBody,
         cReturnType=None, cArgsString=None, cBody=None,
         originalCppType=None, originalCppArgs=None,
-        virtualCReturnType=None, virtualCArgsString=None, virtualCCBody=None,
+        virtualCReturnType=None, virtualCArgsString=None, virtualCBody=None,
         virtualPyArgs=None, virtualPyBody=None,
         *args, **kwargs):
 
@@ -1303,7 +1303,7 @@ class CppMethodDef_cffi(MethodDef):
         # so only types that CFFI can understand may be used.
         self.virtualCReturnType = virtualCReturnType
         self.virtualCArgsString = virtualCArgsString
-        self.virtualCCBody = virtualCCBody
+        self.virtualCBody = virtualCBody
 
         self.virtualPyArgs = virtualPyArgs
         self.virtualPyBody = virtualPyBody
