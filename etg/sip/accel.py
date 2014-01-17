@@ -9,9 +9,6 @@ def run(module):
     # wx.AcceleratorEntry items or a 3-tuple containing the values to pass to
     # the wx.AcceleratorEntry ctor.
 
-    # Ignore the current constructor
-    c.find('wxAcceleratorTable').findOverload('entries').ignore()
-        
     # and add the code for the new constructor
     c.addCppCtor(
         briefDoc="TODO",

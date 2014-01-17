@@ -43,6 +43,9 @@ def run():
     # wxPython anyway.
     c.find('wxAcceleratorTable').findOverload('resource').ignore()
     
+    # Ignore the current constructor
+    # This constructor is replace in generator specific scripts
+    c.find('wxAcceleratorTable').findOverload('entries').ignore()
     
     module.addPyFunction('GetAccelFromString', '(label)',
         deprecated=True,

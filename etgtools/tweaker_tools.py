@@ -966,65 +966,65 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
         '__repr__', '(self)',
         'return "{ListClass_pyName}: " + repr(list(self))'.format(**locals()))
 
-    c.convertFromPyObject = '''\
-%ConvertToTypeCode
-    // Code to test a PyObject for compatibility
-    if (!sipIsErr) {{
-        int success = TRUE;
-        // is it already a {ListClass}?
-        if (sipCanConvertToType(sipPy, sipType_{ListClass}, SIP_NO_CONVERTORS))
-            return success;
-        // otherwise ensure that it is a sequence
-        if (! PySequence_Check(sipPy)) 
-            success = FALSE;
-        // ensure it is not a string or unicode object (they are sequences too)
-        else if (PyBytes_Check(sipPy) || PyUnicode_Check(sipPy))
-            success = FALSE;
-        // ensure each item can be converted to {ItemClass}
-        else {{
-            Py_ssize_t i, len = PySequence_Length(sipPy);
-            for (i=0; i<len; i++) {{
-                PyObject* item = PySequence_ITEM(sipPy, i);
-                if (!sipCanConvertToType(item, sipType_{ItemClass}, SIP_NOT_NONE)) {{
+    if includeConvertToType:
+        c.convertFromPyObject = '''\
+        // Code to test a PyObject for compatibility
+        if (!sipIsErr) {{
+            int success = TRUE;
+            // is it already a {ListClass}?
+            if (sipCanConvertToType(sipPy, sipType_{ListClass}, SIP_NO_CONVERTORS))
+                return success;
+            // otherwise ensure that it is a sequence
+            if (! PySequence_Check(sipPy)) 
+                success = FALSE;
+            // ensure it is not a string or unicode object (they are sequences too)
+            else if (PyBytes_Check(sipPy) || PyUnicode_Check(sipPy))
+                success = FALSE;
+            // ensure each item can be converted to {ItemClass}
+            else {{
+                Py_ssize_t i, len = PySequence_Length(sipPy);
+                for (i=0; i<len; i++) {{
+                    PyObject* item = PySequence_ITEM(sipPy, i);
+                    if (!sipCanConvertToType(item, sipType_{ItemClass}, SIP_NOT_NONE)) {{
+                        Py_DECREF(item);
+                        success = FALSE;
+                        break;
+                    }}
                     Py_DECREF(item);
-                    success = FALSE;
-                    break;
-                }}
-                Py_DECREF(item);
-            }}    
+                }}    
+            }}
+            if (!success)            
+                PyErr_SetString(PyExc_TypeError, "Sequence of {ItemClass} compatible objects expected.");
+            return success;
         }}
-        if (!success)            
-            PyErr_SetString(PyExc_TypeError, "Sequence of {ItemClass} compatible objects expected.");
-        return success;
-    }}
 
-    // Is it already a {ListClass}? Return the exiting instance if so
-    if (sipCanConvertToType(sipPy, sipType_{ListClass}, SIP_NO_CONVERTORS)) {{
-        *sipCppPtr = reinterpret_cast<{ListClass}*>(
-                     sipConvertToType(sipPy, sipType_{ListClass}, NULL, 
-                                      SIP_NO_CONVERTORS, 0, sipIsErr));
-        return 0;
-    }}
-    
-    // Create a new {ListClass} and convert compatible PyObjects from the sequence
-    {ListClass} *list = new {ListClass};
-    list->DeleteContents(true); // tell the list to take ownership of the items
-    Py_ssize_t i, len = PySequence_Length(sipPy);
-    for (i=0; i<len; i++) {{
-        int state;
-        PyObject* pyItem = PySequence_ITEM(sipPy, i);
-        {ItemClass}* cItem = reinterpret_cast<{ItemClass}*>(
-                             sipConvertToType(pyItem, sipType_{ItemClass}, 
-                             NULL, 0, &state, sipIsErr));
-        if (!state)  // a temporary was not created for us, make one now
-            cItem = new {ItemClass}(*cItem);
-        list->Append(cItem);
-        Py_DECREF(pyItem);
-    }}
-    *sipCppPtr = list;
-    return SIP_TEMPORARY;
-%End
-'''
+        // Is it already a {ListClass}? Return the exiting instance if so
+        if (sipCanConvertToType(sipPy, sipType_{ListClass}, SIP_NO_CONVERTORS)) {{
+            *sipCppPtr = reinterpret_cast<{ListClass}*>(
+                        sipConvertToType(sipPy, sipType_{ListClass}, NULL, 
+                                        SIP_NO_CONVERTORS, 0, sipIsErr));
+            return 0;
+        }}
+        
+        // Create a new {ListClass} and convert compatible PyObjects from the sequence
+        {ListClass} *list = new {ListClass};
+        list->DeleteContents(true); // tell the list to take ownership of the items
+        Py_ssize_t i, len = PySequence_Length(sipPy);
+        for (i=0; i<len; i++) {{
+            int state;
+            PyObject* pyItem = PySequence_ITEM(sipPy, i);
+            {ItemClass}* cItem = reinterpret_cast<{ItemClass}*>(
+                                sipConvertToType(pyItem, sipType_{ItemClass}, 
+                                NULL, 0, &state, sipIsErr));
+            if (!state)  // a temporary was not created for us, make one now
+                cItem = new {ItemClass}(*cItem);
+            list->Append(cItem);
+            Py_DECREF(pyItem);
+        }}
+        *sipCppPtr = list;
+        return SIP_TEMPORARY;
+        '''.format(**locals())
+
     c.instanceCheck_cffi = """\
     if (not isinstance(py_obj, collections.Sequence) or
         isinstance(py_obj, (str, unicode))):

@@ -3,8 +3,8 @@ import etgtools
 def run(module):
     c = module.find('wxConfigBase')
 
-    # The sip backend replaces these methods with custom ones that return a
-    # manually constructed 3-tuple. Instead, we'll attempt to just set the
+    # TODO: The sip backend replaces these methods with custom ones that return
+    # a manually constructed 3-tuple. Instead, we'll attempt to just set the
     # approporiate parameters as out/inOut, which should have the same effect.
 
     c.find('GetFirstGroup.str').out = True

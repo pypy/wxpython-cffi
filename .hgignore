@@ -14,3 +14,4 @@ cffi/wx/*
 sip/cpp/*
 sip/gen/*
 build/wxbld/*
+build/waf/*
