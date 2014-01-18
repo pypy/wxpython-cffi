@@ -50,7 +50,7 @@ class Enum(CppType):
         ret = self.type.call_cpp_param_inline(typeinfo, name)
 
         # int -> enum conversions aren't implicit in C++, so we need a cast
-        return "(%s)" % self.unscopedname + ret
+        return "(%s%s)" % (self.unscopedname, '*' * typeinfo.ptrcount) + ret
 
     def call_cpp_param_cleanup(self, typeinfo, name):
         return self.type.call_cpp_param_cleanup(typeinfo, name)

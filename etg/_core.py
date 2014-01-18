@@ -198,9 +198,9 @@ INCLUDES = [  # base and core stuff
               #'textdlg',
 
               # misc
-              #'power',
-              #'utils',
-              #'process',
+              'power',
+              'utils',
+              'process',
               #'uiaction',
               #'snglinst',
               #'help',
