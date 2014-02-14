@@ -6,6 +6,9 @@ from cppwrapper import (
 from multimethod import (
     Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta,
     check_args_types)
+from multimethod import (
+    MMTypeCheckMeta, MMTypeError, MMInternalError, check_arg_type,
+    raise_mm_arg_failure)
 from lazy_defaults import LD, eval_func_defaults
 from annotations import create_array_type, allocate_cstring, allocate_cunicode
 from deprecated import deprecated
