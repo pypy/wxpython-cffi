@@ -1,6 +1,14 @@
-from .method import utils, nci, VoidType, Method, SelfParam
+from .method import utils, nci, VoidType, Method, SelfParam, OverloadManager
+
+class StaticMethodOverloadManager(OverloadManager):
+    @utils.call_once
+    def print_pycode(self, pyfile, indent):
+        pyfile.write(nci("@staticmethod", indent))
+
+        super(StaticMethodOverloadManager, self).print_pycode(pyfile, indent)
 
 class StaticMethod(Method):
+    OVERLOAD_MANAGER = StaticMethodOverloadManager
     def __init__(self, meth, parent):
         super(StaticMethod, self).__init__(meth, parent)
 
@@ -42,9 +50,3 @@ class StaticMethod(Method):
         hfile.write("{0.parent.unscopedname}::{0.name}{0.call_original_cpp_args};\n"
                     .format(self))
         hfile.write('    }\n')
-
-    def print_pycode(self, pyfile, indent):
-        if not self.overload_manager.is_overloaded():
-            pyfile.write(nci("@staticmethod", indent))
-
-        super(StaticMethod, self).print_pycode(pyfile, indent)

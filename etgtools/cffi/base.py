@@ -74,6 +74,7 @@ class TypeInfo(object):
         if name in ('WL_Object', 'WL_Self'):
             # WL_Object is a special case. This type is used only for Python
             # arguments lists.
+            self.py_type = 'object'
             return
 
         type = getbasictype(name, self)

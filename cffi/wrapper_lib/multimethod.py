@@ -1,7 +1,6 @@
 import inspect
 import functools
 
-from .deprecated import deprecated
 from .lazy_defaults import eval_func_defaults
 from .defaults import DefaultArgIndicator
 

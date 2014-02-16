@@ -1132,7 +1132,7 @@ class TestBindGen(object):
         assert o.pvmeth(20) == 10
 
         assert o.call_pvmeth() == 16
-        with pytest.raises(TypeError):
+        with pytest.raises(NotImplementedError):
             o.pvmeth()
 
     def test_subclass_virtual_method_direct_call(self):

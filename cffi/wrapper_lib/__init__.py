@@ -11,7 +11,7 @@ from multimethod import (
     raise_mm_arg_failure)
 from lazy_defaults import LD, eval_func_defaults
 from annotations import create_array_type, allocate_cstring, allocate_cunicode
-from deprecated import deprecated
+from deprecated import deprecated_msg
 from exceptions import register_exception, check_exception
 from refcounting import adjust_refcount, get_refcounted_handle
 from abstract import (

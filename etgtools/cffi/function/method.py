@@ -3,31 +3,20 @@ from .base import (
     TypeInfo, OverloadManager)
 from .operators import get_operator
 
-# Originally copied from tweaker_tools:
-CPP_OPERATORS = {
-    'operator!='    : ('__ne__', '%s != %s'),
-    'operator=='    : ('__eq__', '%s == %s'),
-    'operator<'     : ('__lt__', '%s < %s'),
-    'operator<='    : ('__le__', '%s <= %s'),
-    'operator>'     : ('__gt__', '%s > %s'),
-    'operator>='    : ('__ge__', '%s >= %s'),
-    'operator+'     : ('__add__', '%s + %s'),
-    'operator-'     : ('__sub__', '%s - %s'),
-    'operator*'     : ('__mul__', '%s * %s'),
-    'operator/'     : ('__div__', '%s / %s'),
-    'operator+='    : ('__iadd__', '%s += %s'),
-    'operator-='    : ('__isub__', '%s -= %s'),
-    'operator*='    : ('__imul__', '%s *= %s'),
-    'operator/='    : ('__idiv__', '%s /= %s'),
-    # TODO: Add support for operator bool. It won't have a return type...
-    #'operator bool' : '__int__',  # Why not __nonzero__?
-    # TODO: Add support for operator(). Probably needs special handling?
-    #'operator()'   : '__call__',
-}
 
+class MethodOverloadManager(OverloadManager):
+    @utils.call_once
+    def print_pycode(self, pyfile, indent):
+        indices = [str(f.vtable_index) for f in self.functions if f.virtual]
+        if len(indices) > 0:
+            pyfile.write(nci("@wrapper_lib.VirtualMethod(%s)" %
+                             ', '.join(indices), indent))
+
+        super(MethodOverloadManager, self).print_pycode(pyfile, indent)
 
 class Method(FunctionBase):
     PREFIX = 'wrappedmeth_'
+    OVERLOAD_MANAGER = MethodOverloadManager
 
     def __init__(self, meth, parent):
         super(Method, self).__init__(meth, parent)
@@ -114,6 +103,10 @@ class Method(FunctionBase):
             # Cast to the generated subclass for protected methods
             code += '(({0.parent.cppname}*)self)->unprotected_'.format(self)
         return code + '{0.name}{0.call_cpp_args};\n'.format(self)
+
+    @property
+    def deprecated_msg(self):
+        return "%s.%s() is deprecated" % (self.parent.name, self.name)
 
     def print_cppcode(self, cppfile):
         if self.protection == 'private':
@@ -212,15 +205,20 @@ class Method(FunctionBase):
             pyfile.write(nci("wrapper_lib.give_ownership(self)", indent + 4))
 
     def print_pycode(self, pyfile, indent):
-        if self.protection == 'private':
-            return
-
-        if self.virtual:
-            self.print_virtual_pycode(pyfile, indent)
-            pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" % self.vtable_index,
-                            indent))
-        if not self.purevirtual:
+        if self.protection != 'private':
             super(Method, self).print_pycode(pyfile, indent)
+
+        if self.virtual and self.protection != 'private':
+            self.print_virtual_pycode(pyfile, indent)
+
+    def print_actual_pycode(self, pyfile, indent):
+        if self.protection == 'private':
+            super(Method, self).print_pycode_header(pyfile, indent)
+            pyfile.write(nci(
+                "raise NotImplementedError('%s.%s() is a private method')"
+                % (self.parent.pyname, self.pyname), indent + 4))
+        elif not self.purevirtual:
+            super(Method, self).print_actual_pycode(pyfile, indent)
         else:
             super(Method, self).print_pycode_header(pyfile, indent)
             pyfile.write(nci(
@@ -304,7 +302,7 @@ class InheritedVirtualMethodMixin(object):
     def __init__(self, original_method, new_class):
         self.__dict__.update(original_method.__dict__)
         self.parent = new_class
-        self.overload_manager = OverloadManager(self)
+        self.overload_manager = MethodOverloadManager(self)
         self.original = original_method
 
         if self.protection == 'protected':
