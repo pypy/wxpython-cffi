@@ -4,12 +4,8 @@ from cppwrapper import (
     forget_ptr, take_ownership, give_ownership, keep_reference, MappedBase,
     instancecheck, convert_to_type, init_wrapper, hassubclass, CastData)
 from multimethod import (
-    Multimethod, StaticMultimethod, ClassMultimethod, MMTypeCheckMeta,
-    check_args_types)
-from multimethod import (
     MMTypeCheckMeta, MMTypeError, MMInternalError, check_arg_type,
-    raise_mm_arg_failure)
-from lazy_defaults import LD, eval_func_defaults
+    check_args_types, raise_mm_arg_failure)
 from annotations import create_array_type, allocate_cstring, allocate_cunicode
 from deprecated import deprecated_msg
 from exceptions import register_exception, check_exception
@@ -18,12 +14,6 @@ from abstract import (
     abstract_class, concrete_subclass, purevirtual_abstract_class)
 from voidptr import VoidPtrABC
 from defaults import default_arg_indicator
-
-def eval_class_attrs(cls):
-    for attr in cls.__dict__.itervalues():
-        eval_func_defaults(attr)
-        if isinstance(attr, (Multimethod, VirtualMethod)):
-            attr.finalize()
 
 classname_registry = {}
 
