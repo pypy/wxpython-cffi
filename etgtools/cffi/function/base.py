@@ -394,20 +394,32 @@ class FunctionBase(CppObject):
 
     def print_actual_pycode(self, pyfile, indent=0):
         self.print_pycode_header(pyfile, indent)
-        self.print_pycode_setup(pyfile, indent)
-        self.print_pycode_call(pyfile, indent)
-        self.print_pycode_cleanup(pyfile, indent)
-        self.print_pycode_ownership_transfer(pyfile, indent)
+
+        pyfile.write(nci("try:", indent + 4))
+
+        self.print_pycode_setup(pyfile, indent + 4)
+        self.print_pycode_call(pyfile, indent + 4)
+        self.print_pycode_cleanup(pyfile, indent + 4)
+        self.print_pycode_ownership_transfer(pyfile, indent + 4)
 
         if self.flags.deprecated:
             pyfile.write(nci("wrapper_lib.deprecated_msg('%s')" %
-                             self.deprecated_msg, indent + 4))
+                             self.deprecated_msg, indent + 8))
 
         # XXX Is this the correct place to check for exceptions? Should it
         #     happen sooner?
-        pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 4))
+        pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 8))
 
-        self.print_pycode_return(pyfile, indent)
+        self.print_pycode_return(pyfile, indent + 4)
+
+        # Wrap any exceptions that occur within the method body so that
+        # errors within this block will be visible instead of looking like an
+        # overloaded resolution failure.
+        pyfile.write(nci("""\
+        except Exception as e:
+            raise wrapper_lib.MMInternalError(e)
+        """, indent + 4))
+
 
     def print_pycode(self, pyfile, indent=0):
         # The overload manager will call print_actual_pycode for each overload.

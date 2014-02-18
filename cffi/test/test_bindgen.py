@@ -699,6 +699,19 @@ class TestBindGen(object):
             return isinstance(py_obj, numbers.Number)""",
             placeHolder='0'))
 
+        module.addItem(MappedTypeDef_cffi(
+            name='BrokenMappedType', cType='int',
+            py2c="raise TypeError('Message')",
+            c2py="",
+            c2cpp="return new BrokenMappedType();",
+            cpp2c="return 0;",
+            instanceCheck="return True",
+            placeHolder='0'))
+
+        module.addItem(FunctionDef(
+            type='void', name='take_broken_mapped_type',
+            items=ArgsString('(BrokenMappedType b)')))
+
         module.addItem(FunctionDef(
             type='int', argsString='(string *str)', name='std_string_len',
             items=[ParamDef(name='str', type='string *')],
@@ -2041,3 +2054,12 @@ class TestBindGen(object):
 
     def test_typedefs(self):
         obj = self.mod.CtorsAlias(10)
+
+    def test_conversion_failure(self):
+        try:
+            self.mod.take_broken_mapped_type(object())
+        except TypeError as e:
+            assert e.message == 'Message'
+        else:
+            # No exception raised
+            assert False
