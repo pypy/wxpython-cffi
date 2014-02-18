@@ -251,13 +251,6 @@ It provides the following functions:
   the implementation.  If ``owner`` is ``None`` the reference is leaked and
   ``obj`` will never be deleted.
 
-``wrapper_lib.LD(expression)``
-  LD stands for "lazy default." This can be used in the default values for
-  function parameters to delay the evaluation of an expression until the whole
-  module has been initialized. This must be used for any default value that
-  references a wrapped variable or type. For example:
-  ``def some_func(param=wrapper_lib.LD('Size(10, 10)'):``
-
 ``wrapper_lib.check_exception()``
   Checks for an exception set in C++ code. This should follow most calls to C++
   code, though potentially following cleanup code for the call.

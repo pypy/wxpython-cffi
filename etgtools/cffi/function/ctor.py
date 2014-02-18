@@ -75,6 +75,10 @@ class CtorMethod(Method):
                 code = param.type.user_cpp_param_inline(code)
             yield code
 
+    @property
+    def deprecated_msg(self):
+        return "%s constructor is deprecated" % self.parent.name
+
     def iscopyctor(self):
         # Note that self.params[0] is always a SelfParam
         required_params = [p for p in self.params if not p.default]

@@ -74,6 +74,13 @@ class Param(object):
             pyfile.write(nci(
                 conversion, indent + 4 + 4 * int(bool(self.default))))
 
+    def print_type_check(self, pyfile, indent):
+        if self.flags.arraysize or self.flags.out:
+            return
+        pyfile.write(nci(
+            "wrapper_lib.check_arg_type('{0.name}', {0.type.py_type}, {0.name})"
+            .format(self), indent))
+
     def __eq__(self, other):
         return self.type == other.type
 
@@ -96,6 +103,9 @@ class SelfParam(Param):
         conversion = self.type.call_cdef_param_setup(self.name)
         if conversion is not None:
             pyfile.write(nci(conversion, indent + 4))
+
+    def print_type_check(self, pyfile, indent):
+        pass
 
     def __eq__(self, other):
         return isinstance(other, SelfParam)
@@ -129,7 +139,7 @@ class OverloadManager(object):
         except KeyError:
             pass
 
-        newobj = super(cls, cls).__new__(cls)
+        newobj = super(OverloadManager, cls).__new__(cls)
         cls._cache[key] = newobj
         newobj.functions = []
         return newobj
@@ -140,28 +150,36 @@ class OverloadManager(object):
 
     @utils.call_once
     def print_pycode(self, pyfile, indent):
-        if len(self.functions) > 1:
-            if (len(self.functions[0].params) > 0 and
-                isinstance(self.functions[0].params[0], SelfParam)):
-                mmtype = 'Multimethod'
-            else:
-                mmtype = 'StaticMultimethod'
+        pyname = self.functions[0].pyname
+        pyfile.write(nci("def %s(*args, **kwargs):" % pyname, indent))
 
+        # Print the docstring of every overload joined together
+        docs = [nci(func.docstring) for func in self.functions]
+        self.docstring = ''.join(docs)
+        utils.print_docstring(self, pyfile, indent + 4)
+
+        pyfile.write(nci("error_list = []", indent + 4))
+
+        for func in self.functions:
+            func.print_actual_pycode(pyfile, indent + 4)
             pyfile.write(nci("""\
-            @wrapper_lib.{0}
-            def {1.functions[0].pyname}():"""
-            .format(mmtype, self), indent))
+            try:
+                return %s(*args, **kwargs)
+            except (TypeError, wrapper_lib.MMTypeError) as e:
+                error_list.append(e)
+            except wrapper_lib.MMInternalError as e:
+                raise e.exception
+            """ % pyname, indent + 4))
 
-            # Print the docstring of every overload joined together
-            docs = [nci(func.docstring) for func in self.functions]
-            self.docstring = ''.join(docs)
-            utils.print_docstring(self, pyfile, indent + 4)
+        pyfile.write(nci("wrapper_lib.raise_mm_arg_failure(error_list)",
+                        indent + 4))
 
     def is_overloaded(self):
         return len(self.functions) > 1
 
 class FunctionBase(CppObject):
     WRAPPER_NAME = 'WrappedUserCppCode::exec'
+    OVERLOAD_MANAGER = OverloadManager
     def __init__(self, func, parent):
         super(FunctionBase, self).__init__(func, parent)
         self.func = func
@@ -193,7 +211,7 @@ class FunctionBase(CppObject):
     def setup(self):
         self.type = TypeInfo(self.parent, self.item.type, self.flags)
 
-        self.overload_manager = OverloadManager(self)
+        self.overload_manager = self.OVERLOAD_MANAGER(self)
 
         for param in self.params:
             param.setup()
@@ -243,6 +261,10 @@ class FunctionBase(CppObject):
             call = self.type.user_cpp_return(call)
         return call
 
+    @property
+    def deprecated_msg(self):
+        return "%s() is deprecated" % self.name
+
     @args_string
     def wrapper_args(self):
         for param in self.params:
@@ -285,20 +307,6 @@ class FunctionBase(CppObject):
                 continue
             yield param.name
 
-    @args_string
-    def py_types_args(self):
-        for param in self.params:
-            if (isinstance(param, SelfParam) or param.flags.arraysize or
-                param.flags.out):
-                continue
-            # There are to possible formats: one for the decorator and one for
-            # the function call. The decorator is used for overloaded
-            # functions. The funtion is used for non-overloaded functions.
-            if self.overload_manager.is_overloaded():
-                yield "%s='%s'" % (param.name, param.type.py_type)
-            else:
-                yield '("{0.name}", {0.type.py_type}, {0.name})'.format(param)
-
     @property
     def call_cpp_code(self):
         pass
@@ -312,21 +320,10 @@ class FunctionBase(CppObject):
 
 
     def print_pycode_header(self, pyfile, indent):
-        self.overload_manager.print_pycode(pyfile, indent)
-
-        if self.overload_manager.is_overloaded():
-            deprecated = 'deprecated_' if self.flags.deprecated else ''
-            pyfile.write(nci("@{0.pyname}.{1}overload{0.py_types_args}"
-                            .format(self, deprecated), indent))
-        elif self.flags.deprecated:
-            pyfile.write(nci("@wrapper_lib.deprecated", indent))
-
         pyfile.write(nci("def {0.pyname}{0.py_args}:".format(self), indent))
-        utils.print_docstring(self, pyfile, indent + 4)
 
-        if not self.overload_manager.is_overloaded():
-            pyfile.write(nci('wrapper_lib.check_args_types%s'
-                             % self.py_types_args, indent + 4))
+        for param in self.params:
+            param.print_type_check(pyfile, indent + 4)
 
     def print_pycode_setup(self, pyfile, indent):
         if self.has_default_args():
@@ -395,18 +392,39 @@ class FunctionBase(CppObject):
         if len(outvars) > 0:
             pyfile.write(nci('return (%s)' % ','.join(outvars), indent + 4))
 
-    def print_pycode(self, pyfile, indent=0):
+    def print_actual_pycode(self, pyfile, indent=0):
         self.print_pycode_header(pyfile, indent)
-        self.print_pycode_setup(pyfile, indent)
-        self.print_pycode_call(pyfile, indent)
-        self.print_pycode_cleanup(pyfile, indent)
-        self.print_pycode_ownership_transfer(pyfile, indent)
+
+        pyfile.write(nci("try:", indent + 4))
+
+        self.print_pycode_setup(pyfile, indent + 4)
+        self.print_pycode_call(pyfile, indent + 4)
+        self.print_pycode_cleanup(pyfile, indent + 4)
+        self.print_pycode_ownership_transfer(pyfile, indent + 4)
+
+        if self.flags.deprecated:
+            pyfile.write(nci("wrapper_lib.deprecated_msg('%s')" %
+                             self.deprecated_msg, indent + 8))
 
         # XXX Is this the correct place to check for exceptions? Should it
         #     happen sooner?
-        pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 4))
+        pyfile.write(nci("wrapper_lib.check_exception(clib)", indent + 8))
 
-        self.print_pycode_return(pyfile, indent)
+        self.print_pycode_return(pyfile, indent + 4)
+
+        # Wrap any exceptions that occur within the method body so that
+        # errors within this block will be visible instead of looking like an
+        # overloaded resolution failure.
+        pyfile.write(nci("""\
+        except Exception as e:
+            raise wrapper_lib.MMInternalError(e)
+        """, indent + 4))
+
+
+    def print_pycode(self, pyfile, indent=0):
+        # The overload manager will call print_actual_pycode for each overload.
+        # It also will not be printed more than once.
+        self.overload_manager.print_pycode(pyfile, indent)
 
 
     def print_cppcode(self, cppfile):

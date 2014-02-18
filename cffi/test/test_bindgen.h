@@ -50,6 +50,12 @@ struct IntWrapper
     int i;
 };
 
+struct BrokenMappedType
+{
+};
+
+void take_broken_mapped_type(BrokenMappedType b);
+
 class VMethClass
 {
 public:

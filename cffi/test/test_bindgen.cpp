@@ -705,3 +705,7 @@ int take_opaque_object(OpaqueType *obj)
 {
     return obj->i;
 }
+
+void take_broken_mapped_type(BrokenMappedType b)
+{
+}

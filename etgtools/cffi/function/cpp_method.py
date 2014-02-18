@@ -62,20 +62,6 @@ class MemberCppMethod_cffi(Method):
             else:
                 yield p.name
 
-    @args_string
-    def py_types_args(self):
-        for p in self.py_params:
-            if p.type.original == 'WL_Self':
-                # This should be treated like a SelfParam, which is to say,
-                # it does not need to be typechecked.
-                continue
-            type = p.type.py_type if p.type.original != 'WL_Object' else 'object'
-
-            if self.overload_manager.is_overloaded():
-                yield "%s='%s'" % (p.name, type)
-            else:
-                yield '("{0}", {1}, {0})'.format(p.name, type)
-
     def __init__(self, meth, parent):
         self.user_py_args_list = meth.pyArgs
         self.user_py_code = meth.pyBody
@@ -118,9 +104,7 @@ class MemberCppMethod_cffi(Method):
 
 
     def print_pycode(self, pyfile, indent=0):
-        if not self.user_py_code:
-            super(MemberCppMethod_cffi, self).print_pycode(pyfile, indent)
-            return
+        self.overload_manager.print_pycode(pyfile, indent)
 
         if self.virtual:
             pyfile.write(nci("""\
@@ -131,8 +115,10 @@ class MemberCppMethod_cffi(Method):
             """.format(self), indent))
             pyfile.write(nci(self.py_code, indent + 4))
 
-            pyfile.write(nci("@wrapper_lib.VirtualMethod(%d)" % self.vtable_index,
-                            indent))
+    def print_actual_pycode(self, pyfile, indent=0):
+        if not self.user_py_code:
+            super(MemberCppMethod_cffi, self).print_actual_pycode(pyfile, indent)
+            return
 
         self.print_pycode_header(pyfile, indent)
         if self.purevirtual:
@@ -146,6 +132,11 @@ class MemberCppMethod_cffi(Method):
             """.format(self), indent + 4))
             pyfile.write(nci(self.user_py_code, indent + 4))
 
+    def print_pycode_header(self, pyfile, indent):
+        pyfile.write(nci("def {0.pyname}{0.py_args}:".format(self), indent))
+
+        for param in self.py_params:
+            param.print_type_check(pyfile, indent + 4)
 
     def print_cdef_and_verify(self, pyfile):
         if self.user_c_code is None:

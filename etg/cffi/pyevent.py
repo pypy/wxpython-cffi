@@ -6,8 +6,10 @@ from etgtools.extractors import ClassDef, CppMethodDef_cffi, ParamDef
 def setupPyEvent(cls):
     cls.addItem(CppMethodDef_cffi(
         cls.name, isCtor=True,
-        pyArgs=etgtools.ArgsString('(WL_Self self, int id=0, int eventType=wrapper_lib.LD("wxEVT_NULL"))'),
+        pyArgs=etgtools.ArgsString('(WL_Self self, int id=0, int eventType=wrapper_lib.default_arg_indicator)'),
         pyBody="""\
+        if eventType is wrapper_lib.default_arg_indicator:
+            eventType = wxEVT_NULL
         d = dict()
         with wrapper_lib.get_refcounted_handle(d) as handle:
             ptr = call(int(id), int(eventType), handle)

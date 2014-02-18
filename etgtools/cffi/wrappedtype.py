@@ -331,8 +331,6 @@ class WrappedType(CppScope, CppType):
             pyfile.write(nci(self.extra_pycode, indent + 4))
 
     def print_finalize_pycode(self, pyfile):
-        pyfile.write("wrapper_lib.eval_class_attrs(%s)\n" % self.unscopedpyname)
-
         # XXX Should this be a decorator or maybe part of the metaclass?
         #     Should the unscopedname be used? Maybe this should be user
         #     configurable?

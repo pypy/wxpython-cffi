@@ -45,8 +45,10 @@ def run(module):
 
     c.addItem(etgtools.CppMethodDef_cffi(
         'Disconnect',
-        pyArgs=etgtools.ArgsString('(WL_Self self, int id, int lastId=-1, int eventType=wrapper_lib.LD("wxEVT_NULL"), WL_Object func=None)'),
+        pyArgs=etgtools.ArgsString('(WL_Self self, int id, int lastId=-1, int eventType=wrapper_lib.default_arg_indicator, WL_Object func=None)'),
         pyBody="""\
+            if eventType is wrapper_lib.default_arg_indicator:
+                eventType = wxEVT_NULL
             if func is None:
                 return bool(call(wrapper_lib.get_ptr(self), int(id),
                                  int(lastId), int(eventType), ffi.NULL))
