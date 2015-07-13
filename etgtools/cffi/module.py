@@ -30,6 +30,7 @@ class Module(CppScope):
         self.scopeprefix = ''
         self.cscopeprefix = ''
         self.pyscopeprefix = self.name + '.'
+        self._cffi_name = '_cffi' + self.name
 
         self.pyitems = []
 
@@ -90,7 +91,8 @@ class Module(CppScope):
             hfile.write('#include "%s.h"\n' % mod)
 
         self.print_nested_headercode(hfile)
-        hfile.write("#endif")
+        hfile.write("#endif  /* INCLUDE_GUARD */")
+        hfile.flush()
 
         cppfile.write(nci("""\
         #include <cstring>
@@ -118,12 +120,12 @@ class Module(CppScope):
         cppfile.write('}\n')
 
         self.print_nested_cppcode(cppfile)
+        cppfile.flush()
 
         # Write Python preamble
         pyfile.write(nci("""\
         import __builtin__
         import sys
-        import cffi
         import types
         import numbers
         import collections
@@ -134,34 +136,44 @@ class Module(CppScope):
         for module in self.item.imports:
             pyfile.write("import %s\n" % module)
 
-        # Write cdefs
-        pyfile.write(nci("""\
+        import cffi
+
         ffi = cffi.FFI()
         ffi.cdef('''
         void* malloc(size_t);
-        void free(void*);"""))
-
-        self.print_nested_cdef(pyfile)
-
-        pyfile.write(nci("""\
+        void free(void*);
         ''')
-        cdefs = ('''
+
+        import io
+
+        cdefs = io.BytesIO()
+        self.print_nested_cdef(cdefs)
+        ffi.cdef(cdefs.getvalue())
+
+        cdefs = io.BytesIO()
+        cdefs.write('''
         extern void (*WL_ADJUST_REFCOUNT)(void *, int);
         extern char **WL_EXCEPTION_NAME;
         extern char **WL_EXCEPTION_STRING;
 
-        void %s(void);""" % initfunc))
-        pyfile.write('\n'.join(self.item.cdefs_cffi))
-        self.print_nested_cdef_and_verify(pyfile)
+        void %s(void);''' % initfunc)
+
+        cdefs.write('\n'.join(self.item.cdefs_cffi))
+        self.print_nested_cdef_and_verify(cdefs)
+
+        ffi.cdef(cdefs.getvalue())
+        ffi.set_source(
+            self._cffi_name,
+            '#include <stdlib.h>\n' + cdefs.getvalue(),
+            **verify_args)
+
+        ffi.compile('cffi')
 
         pyfile.write(nci("""\
-        ''')
-        ffi.cdef(cdefs)
-        clib = ffi.verify('#include <stdlib.h>\\n' + cdefs, %s)
-        del cdefs
-
+        from %s import ffi, lib as clib
         wrapper_lib.populate_clib_ptrs(clib)
-        clib.%s()""" % (self.build_verify_args(verify_args), initfunc)))
+        clib.%s()
+        """ % (self._cffi_name, initfunc)))
 
         for obj in self.print_order:
             obj.print_pycode(pyfile)
