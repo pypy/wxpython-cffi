@@ -30,6 +30,10 @@ ITEMS  = [ 'wxDataFormat',
            ]
 
    
+OTHERDEPS = [ 'etg/sip/dataobj.py',
+              'etg/cffi/dataobj.py',
+            ]
+
 #---------------------------------------------------------------------------
 
 def run():
@@ -128,14 +132,6 @@ def run():
     # denominator approach here to be able to work on all platforms.
     c.bases = ['wxDataObject']
     
-    #c.addItem(etgtools.WigCode(code="""\
-    #    virtual size_t GetFormatCount(Direction dir = Get) const;
-    #    virtual wxDataFormat GetPreferredFormat(Direction dir = Get) const;
-    #    private:
-    #    virtual size_t GetDataSize(const wxDataFormat& format) const;
-    #    virtual bool GetDataHere(const wxDataFormat& format, void* buf) const;
-    #    virtual bool SetData(const wxDataFormat& format, size_t len, const void* buf);
-    #    """))
     c.addMethod('size_t', 'GetFormatCount', '(Direction dir = Get)',
                 isConst=True, isVirtual=True)
     c.addMethod('wxDataFormat', 'GetPreferredFormat', '(Direction dir = Get)',

@@ -23,7 +23,7 @@ ITEMS  = [ 'utils_8h.xml',
            'wxVersionInfo',
            ]
 
-OTHERDEPS = [ 'etg/sip/utils.py',
+OTHERDEPS = [ # 'etg/sip/utils.py',
               'etg/cffi/utils.py',
             ]
 #---------------------------------------------------------------------------

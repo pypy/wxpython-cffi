@@ -157,7 +157,7 @@ class Module(CppScope):
         pyfile.write(nci("""\
         ''')
         ffi.cdef(cdefs)
-        clib = ffi.verify(cdefs, %s)
+        clib = ffi.verify('#include <stdlib.h>\\n' + cdefs, %s)
         del cdefs
 
         wrapper_lib.populate_clib_ptrs(clib)

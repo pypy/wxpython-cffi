@@ -15,7 +15,7 @@ To get started:
     wxPython mailing lists if this does not work for you.
 
 3.  Make sure you have the wxWidgets code built in build/wxbld by running 
-    ``./builld.py build_wx``. 
+    ``./build.py build_wx``. 
     
 4.  Run the etg scripts: ``./build.py etg --generator=cffi --nodoc``
     (``--nodoc`` may not be necessary for you, but I never got the sphinx
