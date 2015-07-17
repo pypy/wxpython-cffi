@@ -25,7 +25,11 @@ def print_docstring(obj, file, indent):
     file.write(nci('"""', indent))
 
     if obj.docstring:
-        file.write(nci(obj.docstring, indent))
+        if isinstance(obj.docstring, unicode):
+            docstring = obj.docstring.encode('ascii', 'replace')
+        else:
+            docstring = obj.docstring
+        file.write(nci(docstring, indent))
 
     file.write(nci('"""', indent))
 
