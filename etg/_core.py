@@ -128,7 +128,7 @@ INCLUDES = [  # base and core stuff
 
               # controls
               'control',
-              #'ctrlsub',
+              'ctrlsub',
               'statbmp',
               'stattext',
               'statbox',
@@ -146,7 +146,7 @@ INCLUDES = [  # base and core stuff
               'textcompleter',
               'textentry',
               'textctrl',
-              #'combobox',
+              'combobox',
               #'checkbox',
               #'listbox',
               #'checklst',
@@ -168,7 +168,7 @@ INCLUDES = [  # base and core stuff
               #'treectrl',
               #'pickers',
               #'filectrl',
-              #'combo',
+              'combo',
               #'choicebk',
               #'listbook',
               #'toolbook',
