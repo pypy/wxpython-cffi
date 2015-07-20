@@ -56,6 +56,7 @@ def run():
     orig.find('from').name = 'from_'
     orig.find('to').name = 'to_'
     m = etgtools.CppMethodDef.FromMethod(orig)
+    m.items = []
     m.overloads = []
     m.name = 'SetTextSelection'
     m.argsString = '(long from_, long to_)'
