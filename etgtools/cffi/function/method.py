@@ -97,7 +97,11 @@ class Method(FunctionBase):
 
         if self.protection != 'protected':
             code += 'self->'
-            if self.virtual and not self.purevirtual:
+            is_virtual = any(f.virtual
+                             for f in self.overload_manager.functions)
+            is_purevirtual = all(f.purevirtual
+                                 for f in self.overload_manager.functions)
+            if is_virtual and not is_purevirtual:
                 code +=  self.parent.unscopedname + '::'
         else:
             # Cast to the generated subclass for protected methods
