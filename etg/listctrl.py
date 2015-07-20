@@ -59,6 +59,7 @@ def run():
         c.find(name).isVirtual = True
     
     
+    # TODO(amauryfa): Add SortItems
     c.find('SortItems').ignore()  # So far
     
     # Change the semantics of GetColumn to return the item as the return
@@ -131,6 +132,7 @@ def run():
     c.find('HitTest.flags').out = True
     c.find('HitTest.ptrSubItem').ignore()
 
+    # TODO(amauryfa): Add HitTestSubItem
 
         
     # Some deprecated aliases for Classic renames

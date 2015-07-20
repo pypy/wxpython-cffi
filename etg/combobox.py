@@ -34,7 +34,7 @@ def run():
     c = module.find('wxComboBox')
     assert isinstance(c, etgtools.ClassDef)
     tools.fixWindowClass(c)
-
+    
     c.find('wxComboBox').findOverload('wxString choices').ignore()
     c.find('wxComboBox').findOverload('wxArrayString').find('choices').default = 'wxArrayString()'
     c.find('wxComboBox').findOverload('wxArrayString').find('value').default = 'wxEmptyString'
@@ -56,7 +56,7 @@ def run():
     orig.find('from').name = 'from_'
     orig.find('to').name = 'to_'
     m = etgtools.CppMethodDef.FromMethod(orig)
-    m.items = []  # XXX WHY?
+    m.overloads = []
     m.name = 'SetTextSelection'
     m.argsString = '(long from_, long to_)'
     m.body = "self->SetSelection(from_, to_);"
