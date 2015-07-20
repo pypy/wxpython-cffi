@@ -323,12 +323,19 @@ def remember_ptr(obj, ptr, external_ref=False):
         # stops being referenced by Python.
         cpp_owned_objects.add(obj)
     object_map[ptr] = obj
+    for basecls, offset in obj._castdata.get_offsets_table(ptr).items():
+        if getattr(basecls, '_vdata', None):
+            object_map[ptr + offset] = obj
 
 def forget_ptr(ptr):
     if ptr in object_map:
         obj = object_map[ptr]
         cpp_owned_objects.discard(obj)
         del object_map[ptr]
+
+        for basecls, offset in obj._castdata.get_offsets_table(ptr).items():
+            if getattr(basecls, '_vdata', None):
+                del object_map[ptr + offset]
 
         _detach_children(obj)
         # TODO: does obj need to detach from its parent too?
