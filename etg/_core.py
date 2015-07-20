@@ -147,7 +147,7 @@ INCLUDES = [  # base and core stuff
               'textentry',
               'textctrl',
               'combobox',
-              #'checkbox',
+              'checkbox',
               #'listbox',
               #'checklst',
               #'gauge',
