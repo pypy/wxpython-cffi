@@ -158,7 +158,7 @@ INCLUDES = [  # base and core stuff
               #'radiobut',
               #'slider',
               #'spinbutt',
-              #'spinctrl',
+              'spinctrl',
               #'tglbtn',
               #'scrolbar',
               'toolbar',
