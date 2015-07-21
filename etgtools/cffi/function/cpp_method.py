@@ -175,6 +175,9 @@ class MemberCppMethod_cffi(Method):
     def copy_onto_subclass(self, cls):
         InheritedVirtualCppMethod_cffi(self, cls)
 
+class StaticMemberCppMethod_cffi(MemberCppMethod_cffi, StaticMethod):
+    pass
+
 class CppCtorMethod_cffi(MemberCppMethod_cffi, CtorMethod):
     def print_headercode(self, hfile):
         if self.item.originalCppArgs is not None:

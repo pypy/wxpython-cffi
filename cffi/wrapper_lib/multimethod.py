@@ -23,7 +23,7 @@ class MMInternalError(Exception):
 
 def check_args_types(*args):
     for a in args:
-        arg_name, arg_type, arg_value = a
+        arg_type, arg_value, arg_name = a
 
         if not isinstance(arg_value, (arg_type, DefaultArgIndicator)):
             raise TypeError("argument '%s' has unexpected type '%s'" %

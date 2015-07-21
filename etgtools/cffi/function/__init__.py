@@ -38,6 +38,8 @@ def create_cppmethod_cffi(meth, parent):
     if isinstance(parent, WrappedType):
         if meth.isCtor:
             return CppCtorMethod_cffi(meth, parent)
+        elif meth.isStatic:
+            return StaticMemberCppMethod_cffi(meth, parent)
         return MemberCppMethod_cffi(meth, parent)
     else:
         return GlobalCppMethod_cffi(meth, parent)

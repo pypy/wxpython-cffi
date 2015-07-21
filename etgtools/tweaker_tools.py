@@ -948,18 +948,28 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
             ({0}._pyobject_mapping_, elements, "elements"))
 
         keepalive = []
-        array = ffi.new('void *[]', len(elements))
+        ptrs = []
         for item in elements:
             if not isinstance(item, {1}):
-                item = {0}._pyobject_mapping_.convert(item)
+                item = {1}._pyobject_mapping_.convert(item)
                 keepalive.append(item)
-            array[i] = wrapper_lib.get_ptr(item)
+            ptrs.append(wrapper_lib.get_ptr(item))
 
-        call(len(elemnts, array))
+        ptr = call(len(ptrs), ffi.new('void*[]', ptrs))
+        return wrapper_lib.obj_from_ptr(ptr, {0}, True)
         """.format(ListClass_pyName, ItemClass_pyName),
         cReturnType='void *',
         cArgsString='(size_t count, void **elements)',
-        cBody='return new %s(count, (%s **)elements);' % (ListClass, ItemClass),
+        # Don't send data to the constructor! This calls virtual methods,
+        # which are not yet defined in the base C++ class... wx is broken.
+        cBody='''
+        {ListClass} *list = new {ListClass}; 
+        list->DeleteContents(true); // tell the list to take ownership of the items
+        for (Py_ssize_t i = 0; i < count; i++) {{
+            list->Append(new {ItemClass}(*({ItemClass}*)elements[i]));
+        }}
+        return list;
+        '''.format(**locals()),
     ))
     # TODO:  add support for index(value, [start, [stop]])
     c.addPyMethod(
@@ -1034,9 +1044,9 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
         type = ({0}, {0}._pyobject_mapping_)
     else:
         type = {0}
-    return all(isinstance(item, type) for i in py_obj)
+    return all(isinstance(i, type) for i in py_obj)
     """.format(ItemClass_pyName)
-    c.convertFromPyObject_cffi = "return %s._new(py_obj)" % ItemClass_pyName
+    c.convertFromPyObject_cffi = "return %s._new(py_obj)" % ListClass_pyName
     module.addItem(c)
 
 
