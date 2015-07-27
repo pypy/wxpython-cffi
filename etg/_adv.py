@@ -33,14 +33,14 @@ INCLUDES = [
              #'calctrl',
              #'hyperlink',
              #'tipdlg',
-             #'taskbar',
+             'taskbar',
              #'sound',
              #'joystick',
              #'animate',
              #'bannerwindow',
              #'editlbox',
              #'notifmsg',
-             #'splash',
+             'splash',
              #'sashwin',
              #'laywin',
              #'odcombo',
@@ -57,7 +57,8 @@ INCLUDES = [
 # sources and/or additional dependencies when building this extension module.
 ETGFILES = ['etg/%s.py' % NAME] + tools.getEtgFiles(INCLUDES)
 DEPENDS = tools.getNonEtgFiles(INCLUDES)
-OTHERDEPS = [  ]
+OTHERDEPS = [ 'etg/cffi/_adv.py',
+            ]
 
 
 #---------------------------------------------------------------------------

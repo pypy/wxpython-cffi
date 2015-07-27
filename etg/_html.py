@@ -25,22 +25,22 @@ ITEMS  = [ ]
 # included as part of this module. These should all be items that are put in
 # the wxWidgets "html" library in a multi-lib build.
 INCLUDES = [  
-             'htmldefs',
-             'htmlcell',
-             'htmlfilt',
-             'htmltag',
-             'htmlpars',
-             'htmlwin',
-             'htmlprint',
-             'htmlwinpars',
+             #'htmldefs',
+             #'htmlcell',
+             #'htmlfilt',
+             #'htmltag',
+             #'htmlpars',
+             #'htmlwin',
+             #'htmlprint',
+             #'htmlwinpars',
              
-             'helpdata',
-             'helpfrm',
-             'helpdlg',
-             'helpwnd',
-             'helpctrl',
+             #'helpdata',
+             #'helpfrm',
+             #'helpdlg',
+             #'helpwnd',
+             #'helpctrl',
              
-             'htmllbox',
+             #'htmllbox',
              ]
 
 
@@ -64,7 +64,8 @@ def run():
     # Tweak the parsed meta objects in the module object as needed for
     # customizing the generated code and docstrings.
     
-    module.addHeaderCode('#include <wxpy_api.h>')
+    # XXX(amauryfa): only for SIP?
+    # module.addHeaderCode('#include <wxpy_api.h>')
     module.addImport('_core')
     module.addPyCode("import wx", order=10)
     module.addInclude(INCLUDES)
