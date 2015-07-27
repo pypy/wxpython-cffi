@@ -97,6 +97,7 @@ def run():
     
     # Add a typemap for 2 element sequences
     c.convertFromPyObject = tools.convertTwoIntegersTemplate('wxGridCellCoords')
+    tools.convertTwoIntegersTemplate_cffi(c)
 
     # TODO(amauryfa): move to etg/cffi
     c.addItem(etgtools.CppMethodDef_cffi(
