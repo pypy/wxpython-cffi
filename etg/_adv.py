@@ -25,30 +25,30 @@ ITEMS  = [ ]
 # included as part of this module. These should all be items that are put in
 # the wxWidgets "adv" library in a multi-lib build.
 INCLUDES = [  
-             'aboutdlg',
-             'helpext',
-             'commandlinkbutton',
-             'dateevt',
-             'datectrl',
-             'calctrl',
-             'hyperlink',
-             'tipdlg',
-             'taskbar',
-             'sound',
-             'joystick',
-             'animate',
-             'bannerwindow',
-             'editlbox',
-             'notifmsg',
-             'splash',
-             'sashwin',
-             'laywin',
-             'odcombo',
-             'bmpcbox',
-             'richtooltip',
-             'timectrl',
-             'treelist',
-             'wizard',
+             #'aboutdlg',
+             #'helpext',
+             #'commandlinkbutton',
+             #'dateevt',
+             #'datectrl',
+             #'calctrl',
+             #'hyperlink',
+             #'tipdlg',
+             #'taskbar',
+             #'sound',
+             #'joystick',
+             #'animate',
+             #'bannerwindow',
+             #'editlbox',
+             #'notifmsg',
+             #'splash',
+             #'sashwin',
+             #'laywin',
+             #'odcombo',
+             #'bmpcbox',
+             #'richtooltip',
+             #'timectrl',
+             #'treelist',
+             #'wizard',
              ]
 
 
@@ -72,7 +72,8 @@ def run():
     # Tweak the parsed meta objects in the module object as needed for
     # customizing the generated code and docstrings.
     
-    module.addHeaderCode('#include <wxpy_api.h>')
+    # XXX(amauryfa): only for SIP?
+    # module.addHeaderCode('#include <wxpy_api.h>')
     module.addImport('_core')
     module.addPyCode("import wx", order=10)
     module.addInclude(INCLUDES)
