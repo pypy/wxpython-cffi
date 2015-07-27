@@ -134,15 +134,15 @@ def run():
         tools.addAutoProperties(klass)
         
         methods = [
-            ('Clone',       "virtual wxGridCellRenderer* Clone() const;"),
-            ('Draw',        "virtual void Draw(wxGrid& grid, wxGridCellAttr& attr, wxDC& dc, "
-                            "    const wxRect& rect, int row, int col, bool isSelected);"),
-            ('GetBestSize', "virtual wxSize GetBestSize(wxGrid& grid, wxGridCellAttr& attr, "
-                            "    wxDC& dc, int row, int col);"),
+            ('wxGridCellRenderer*', 'Clone', '()'),
+            ('void', 'Draw',
+             '(wxGrid& grid, wxGridCellAttr& attr, wxDC& dc, const wxRect& rect, int row, int col, bool isSelected);'),
+            ('wxSize', 'GetBestSize',
+             '(wxGrid& grid, wxGridCellAttr& attr, wxDC& dc, int row, int col);'),
             ]
-        for method, code in methods:
+        for ret, method, args in methods:
             if not klass.findItem(method):
-                klass.addItem(etgtools.WigCode(code))
+                klass.addMethod(ret, method, args, isVirtual=True)
                 
          
     c = module.find('wxGridCellRenderer')
