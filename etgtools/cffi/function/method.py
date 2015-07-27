@@ -331,7 +331,7 @@ class InheritedVirtualMethodMixin(object):
             """.format(self, indices), indent))
 
         pyfile.write(nci("""\
-        _virtual__{0.vtable_index} = wrapper_lib.VirtualDispatcher({0.vtable_index})({0.original.parent.pyname}._vdata.vtable[{0.original.vtable_index}])
+        _virtual__{0.vtable_index} = wrapper_lib.VirtualDispatcher({0.vtable_index})({0.original.parent.unscopedpyname}._vdata.vtable[{0.original.vtable_index}])
         """.format(self), indent))
 
     def print_cdef_and_verify(self, pyfile):

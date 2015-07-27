@@ -1,3 +1,4 @@
+import io
 import sys
 import warnings
 
@@ -46,6 +47,16 @@ class Module(CppScope):
 
         self.setup_types()
         self.setup_objects()
+
+        import cffi
+
+        self.ffi = cffi.FFI()
+        for module in self.imported_modules:
+            self.ffi.include(module.ffi)
+        cdefs = io.BytesIO()
+        self.print_nested_cdef(cdefs)
+        self.ffi.cdef(cdefs.getvalue())
+        self.ffi.cdef('\n'.join(self.item.cdefs_cffi))
 
     def gettype(self, name):
         type = super(Module, self).gettype(name)
@@ -136,19 +147,10 @@ class Module(CppScope):
         for module in self.item.imports:
             pyfile.write("import %s\n" % module)
 
-        import cffi
-
-        ffi = cffi.FFI()
-        ffi.cdef('''
+        self.ffi.cdef('''
         void* malloc(size_t);
         void free(void*);
         ''')
-
-        import io
-
-        cdefs = io.BytesIO()
-        self.print_nested_cdef(cdefs)
-        ffi.cdef(cdefs.getvalue())
 
         cdefs = io.BytesIO()
         cdefs.write('''
@@ -158,16 +160,21 @@ class Module(CppScope):
 
         void %s(void);''' % initfunc)
 
-        cdefs.write('\n'.join(self.item.cdefs_cffi))
         self.print_nested_cdef_and_verify(cdefs)
 
-        ffi.cdef(cdefs.getvalue())
-        ffi.set_source(
+        self.ffi.cdef(cdefs.getvalue())
+
+        source = ['#include <stdlib.h>']
+        source.extend(self.item.cdefs_cffi)
+        for module in self.imported_modules:
+            source.extend(module.item.cdefs_cffi)
+        source.append(cdefs.getvalue())
+        self.ffi.set_source(
             self._cffi_name,
-            '#include <stdlib.h>\n' + cdefs.getvalue(),
+            '\n'.join(source),
             **verify_args)
 
-        ffi.compile('cffi')
+        self.ffi.compile('cffi')
 
         pyfile.write(nci("""\
         from %s import ffi, lib as clib

@@ -995,7 +995,6 @@ class TestBindGen(object):
 
         verify_args = {}
         verify_args['include_dirs'] = [test_dir, INCLUDES_DIR]
-        verify_args['tmpdir'] = str(cls.tmpdir)
         verify_args['sources'] = [str(cpp_path),
                                   os.path.join(test_dir, 'test_bindgen.cpp')
                                  ]

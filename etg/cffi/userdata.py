@@ -12,9 +12,11 @@ DOCSTRING = ""
 def run():
     module = etgtools.ModuleDef(PACKAGE, MODULE, NAME, DOCSTRING)
 
-    module.addCppCode("""
+    module.addHeaderCode("""
     typedef WL_RefCountedPyObjBase<wxObject> wxPyUserData;
+    """)
 
+    module.addCppCode("""
     extern "C" void* new_wxPyUserData(void *ptr)
     {
         return new wxPyUserData(ptr);

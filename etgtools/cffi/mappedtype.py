@@ -88,8 +88,8 @@ class MappedType(CppType):
         """, indent + 4))
         pyfile.write(nci(self.convert_to_c_code, indent + 8))
 
-    def print_cppcode(self, cppfile):
-        cppfile.write(nci("""\
+    def print_headercode(self, hfile):
+        hfile.write(nci("""\
         template<>
         {0.ctype} WL_mappedtype<{0.name}, {0.ctype}>::
             to_c({0.name} *cpp_obj)

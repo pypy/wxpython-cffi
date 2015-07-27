@@ -36,7 +36,8 @@ INCLUDES = [ 'grid',
 # of additional dependencies when building this extension module
 ETGFILES = ['etg/%s.py' % NAME] + tools.getEtgFiles(INCLUDES)
 DEPENDS = tools.getNonEtgFiles(INCLUDES)
-OTHERDEPS = []
+OTHERDEPS = [ 'etg/cffi/_grid.py',
+            ]
 
 
 #---------------------------------------------------------------------------
@@ -50,13 +51,15 @@ def run():
     # Tweak the parsed meta objects in the module object as needed for
     # customizing the generated code and docstrings.
     
-    module.addHeaderCode('#include <wxpy_api.h>')
+    # XXX(amauryfa): only for SIP?
+    # module.addHeaderCode('#include <wxpy_api.h>')
     module.addImport('_core')
     module.addPyCode("import wx", order=10)
     
     module.addInclude(INCLUDES)
     
-    
+    tools.runGeneratorSpecificScript(module)
+
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
     tools.runGenerators(module)

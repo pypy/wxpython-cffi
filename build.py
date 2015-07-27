@@ -963,8 +963,16 @@ def cmd_cffi_gen(options, args):
 
     gen = BindingGenerator(def_path_pattern)
 
-    for mod_path in glob.iglob(def_glob):
+    # get the files to run, moving _core the to the front of the list
+    def_files = glob.glob(def_glob)
+    core_file = def_path_pattern % '_core'
+    if core_file in def_files:
+        def_files.remove(core_file)
+        def_files.insert(0, core_file)
+
+    for mod_path in def_files:
         mod_name = os.path.basename(mod_path)[:-4]
+        print("Generate %s" % mod_name)
         gen.generate(mod_name)
 
         cppfilepath = opj(CFFI_DIR, 'cpp_gen', mod_name + '.cpp')
@@ -974,6 +982,7 @@ def cmd_cffi_gen(options, args):
         pyfile = open(opj(CFFI_DIR, 'wx', mod_name + '.py'), 'w')
         userpyfile = open(opj(CFFI_DIR, 'wx', mod_name.strip('_') + '.py'), 'w')
         verify_args = dict(sources=[cppfilepath], **globalVerifyArgs)
+        print("Compile %s" % mod_name)
         gen.write_files(mod_name, pyfile, userpyfile, cppfile, hfile,
                         verify_args)
 

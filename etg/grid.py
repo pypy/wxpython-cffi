@@ -9,6 +9,7 @@
 
 import etgtools
 import etgtools.tweaker_tools as tools
+from etgtools import CppMethodDef_cffi, ArgsString
 
 PACKAGE   = "wx"   
 MODULE    = "_grid"
@@ -96,12 +97,12 @@ def run():
     
     # Add a typemap for 2 element sequences
     c.convertFromPyObject = tools.convertTwoIntegersTemplate('wxGridCellCoords')
-        
-    c.addCppMethod('PyObject*', 'Get', '()', """\
-        return sipBuildResult(0, "(ii)", self->GetRow(), self->GetCol());
-        """, 
-        pyArgsString="() -> (row,col)",
-        briefDoc="Return the row and col properties as a tuple.")
+
+    # TODO(amauryfa): move to etg/cffi
+    c.addItem(etgtools.CppMethodDef_cffi(
+        'Get',
+        pyArgs=etgtools.ArgsString('(WL_Self self)'),
+        pyBody="return (self.GetRow(), self.GetCol())"))
     
     # Add sequence protocol methods and other goodies
     c.addPyMethod('__str__', '(self)',             'return str(self.Get())')
@@ -118,9 +119,8 @@ def run():
                   """) 
     c.addPyCode('GridCellCoords.__safe_for_unpickling__ = True')
     
-    module.addItem(
-        tools.wxArrayWrapperTemplate('wxGridCellCoordsArray', 'wxGridCellCoords', module))
     
+    tools.wxArrayWrapperTemplate('wxGridCellCoordsArray', 'wxGridCellCoords', module)
 
     #-----------------------------------------------------------------
     c = module.find('wxGridSizesInfo')
@@ -181,59 +181,36 @@ def run():
         if klass.findItem('EndEdit'):
             klass.find('EndEdit').ignore()
             pureVirtual = True
-            
-        klass.addCppMethod('PyObject*', 'EndEdit', '(int row, int col, const wxGrid* grid, const wxString& oldval)',
-            cppSignature='bool (int row, int col, const wxGrid* grid, const wxString& oldval, wxString* newval)',
-            pyArgsString='(row, col, grid, oldval)',
-            isVirtual=True, 
-            isPureVirtual=pureVirtual,
-            doc="""\
-                End editing the cell.
-                
-                This function must check if the current value of the editing cell
-                is valid and different from the original value in its string
-                form. If not then simply return None.  If it has changed then 
-                this method should save the new value so that ApplyEdit can
-                apply it later and the string representation of the new value 
-                should be returned.
-                
-                Notice that this method shoiuld not modify the grid as the 
-                change could still be vetoed.                
-                """,
-            
-            # Code for Python --> C++ calls.  Make it return newval or None.
-            body="""\
+
+        # TODO(amauryfa): Move to etg/cffi/ directory.
+        cBody = """\
                 bool rv;
                 wxString newval;
-                rv = self->EndEdit(row, col, grid, *oldval, &newval);
-                if (rv) {
-                    return wx2PyString(newval);
-                }
-                else {
-                    Py_INCREF(Py_None);
-                    return Py_None;
-                }
-                """,
-    
-            # Code for C++ --> Python calls. This is used when a C++ method
-            # call needs to be reflected to a call to the overridden Python
-            # method, so we need to translate between the real C++ siganture
-            # and the Python signature.
-            virtualCatcherCode="""\
-                // VirtualCatcherCode for wx.grid.GridCellEditor.EndEdit
-                PyObject *result;
-                result = sipCallMethod(0, sipMethod, "iiDN", row, col,
-                                       const_cast<wxGrid *>(grid),sipType_wxGrid,NULL);
-                if (result == Py_None) {
-                    sipRes = false;
-                } 
-                else {
-                    sipRes = true;
-                    *newval = Py2wxString(result);
-                }
-                Py_DECREF(result);
-                """  if pureVirtual else "",  # only used with the base class
-            )
+                rv = {this}->EndEdit(row, col, (wxGrid*)grid, oldval, &newval);
+                if (rv) {{
+                    return NULL; //WL_mappedtype<wxString, const wchar_t *>::to_c(newval);
+                }}
+                else {{
+                    return NULL;
+                }}
+            """
+        klass.addItem(CppMethodDef_cffi(
+            'EndEdit',
+            pyArgs=etgtools.ArgsString('(WL_Self self, int row, int col, const wxGrid* grid, const wxString& oldval)'),
+            pyBody="""return _core.wxString.to_py(call(self, row, col, wxString.to_c(oldval)))""",
+            cReturnType='const wchar_t*',
+            cArgsString='(void* self, int row, int col, const void* grid, const char* oldval)',
+            cBody=cBody.format(this='((%s*)self)' % klass.name),
+            originalCppType='bool',
+            originalCppArgs=etgtools.ArgsString('(int row, int col, const wxGrid* grid, const wxString& oldval, wxString* newval)'),
+            virtualPyArgs='(self, row, col, oldval)',
+            virtualCReturnType='const wchar_t*',  # Same as cReturnType?
+            virtualCArgsString='(void* self, int row, int col, const void* grid, const char* oldval)',  # Same as cArgsString?
+            virtualPyBody="call() ",
+            virtualCBody=cBody.format(this='this'),
+            isVirtual=True, 
+            isPureVirtual=pureVirtual,
+            ))
         
         
     c = module.find('wxGridCellEditor')
@@ -333,7 +310,7 @@ def run():
     
     c.find('SetDefaultEditor.editor').transfer = True
     c.find('SetDefaultRenderer.renderer').transfer = True
-    
+
     for n in ['GetColGridLinePen', 'GetDefaultGridLinePen', 'GetRowGridLinePen']:
         c.find(n).isVirtual = True
 
@@ -344,7 +321,6 @@ def run():
     # context manager methods
     c.addPyMethod('__enter__', '(self)', 'return self')
     c.addPyMethod('__exit__', '(self, exc_type, exc_val, exc_tb)', 'return False')
-    
     
     #-----------------------------------------------------------------
 

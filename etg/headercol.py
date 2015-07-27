@@ -59,6 +59,8 @@ def run():
     # in the base class, but we can't make properties without them being in
     # the current class, so we'll monkey-patch in the properties from Python
     # code instead.
+    # XXX(amauryfa): FIXME
+    '''
     c.addPyProperty('Title', 'HeaderColumn.GetTitle', 'SetTitle')
     c.addPyProperty('Bitmap', 'HeaderColumn.GetBitmap', 'SetBitmap')
     c.addPyProperty('Width', 'HeaderColumn.GetWidth', 'SetWidth')
@@ -70,7 +72,7 @@ def run():
     c.addPyProperty('Sortable', 'HeaderColumn.IsSortable', 'SetSortable')
     c.addPyProperty('Reorderable', 'HeaderColumn.IsReorderable', 'SetReorderable')
     c.addPyProperty('Hidden', 'HeaderColumn.IsHidden', 'SetHidden')
-    
+    '''
 
     c = module.find('wxHeaderColumnSimple')
     c.addAutoProperties()

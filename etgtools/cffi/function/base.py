@@ -17,6 +17,9 @@ class Param(object):
 
     def __init__(self, param, func):
         self.name = param.name
+        if not param.name:
+            # Invent a name for parameters not named in the interface.
+            self.name = '_x%d' % func.item.items.index(param)
         self.item = param
         self.default = param.default
         self.flags = ItemFlags(param)

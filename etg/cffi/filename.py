@@ -11,9 +11,11 @@ DOCSTRING = ""
 
 def run():
     module = etgtools.ModuleDef(PACKAGE, MODULE, NAME, DOCSTRING)
+    module.addHeaderCode('#include <wx/filename.h>')
 
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxFileName', cType='const wchar_t *',
+        includes=['wx/filename.h'],
         py2c="""\
         cdata = clib.malloc(ffi.sizeof('wchar_t') * (len(py_obj) + 1))
         cdata = ffi.cast('wchar_t*', cdata)

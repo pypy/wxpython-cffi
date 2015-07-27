@@ -54,7 +54,7 @@ def run():
     scrolled.find('GetVirtualSize.y').out = True
 
         
-    if True:
+    if False:
         # Now that SIP has the ability to support template classes where the
         # base class is the template parameter, then we can use this instead
         # of the trickery in the other branch below.
@@ -139,8 +139,9 @@ def run():
 
             # Add back some virtuals that were removed in fixWindowClass
             node.find('OnDraw').isVirtual = True
-            node.find('GetSizeAvailableForScrollTarget').isVirtual = True
-            node.find('GetSizeAvailableForScrollTarget').ignore(False)
+            # TODO(amauryfa): See how it works in SIP mode
+            #node.find('GetSizeAvailableForScrollTarget').isVirtual = True
+            #node.find('GetSizeAvailableForScrollTarget').ignore(False)
             node.find('SendAutoScrollEvents').isVirtual = True
             
             module.insertItemAfter(scrolled, node)

@@ -41,7 +41,7 @@ INCLUDES = [  # base and core stuff
               'filename',
               'arrays',
               'clntdata',
-              #'clntdatactnr',
+              'clntdatactnr',
               'userdata',
               'wxpybuffer',
 
@@ -123,7 +123,7 @@ INCLUDES = [  # base and core stuff
               'panel',
               'menuitem',
               'menu',
-              #'scrolwin',
+              'scrolwin',
               #'vscroll',
 
               # controls
@@ -151,8 +151,8 @@ INCLUDES = [  # base and core stuff
               #'listbox',
               #'checklst',
               #'gauge',
-              #'headercol',
-              #'headerctrl',
+              'headercol',
+              'headerctrl',
               'srchctrl',
               #'radiobox',
               #'radiobut',
