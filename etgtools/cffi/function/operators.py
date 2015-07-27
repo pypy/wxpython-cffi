@@ -1,6 +1,7 @@
 import re
 
 check_operator = re.compile(r'^\s*operator(?P<opname>[^A-Za-z0-9_]+)\s*$')
+const_ref = re.compile(r'^\s*const\s+(?P<name>[A-Za-z0-9_]+)\s*&\s*$')
 
 def get_operator(meth):
     match = check_operator.match(meth.name)
@@ -20,6 +21,33 @@ def get_operator(meth):
         return cls(opname)
 
     raise Exception("Unknown operator %s" % meth.name)
+    return None
+
+def get_standalone_operator(func):
+    # Operators defined outside of the class.
+    match = check_operator.match(func.name)
+    if match is None:
+        return None
+
+    opname = match.groups()[0].strip()
+
+    if len(func.params) < 1:
+        return None
+    match = const_ref.match(func.params[0].item.type)
+    if match is None:
+        return None
+    class_name = match.group(1)
+
+    if len(func.params) == 1:
+        cls = UnaryCppOperator
+    elif len(func.params) == 2:
+        cls = BinaryCppOperator
+    else:
+        raise NotImplementedError
+
+    if opname in cls.OPERATORS:
+        return class_name, cls(opname)
+
     return None
 
 class CppOperator(object):

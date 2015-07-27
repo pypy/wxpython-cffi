@@ -344,5 +344,6 @@ class InheritedVirtualMethodMixin(object):
         if not self.parent.uninstantiable:
             self.print_virtual_cppcode(cppfile)
 
+
 class InheritedVirtualMethod(InheritedVirtualMethodMixin, Method):
     pass
