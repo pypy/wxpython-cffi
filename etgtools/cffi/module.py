@@ -77,7 +77,7 @@ class Module(CppScope):
         # XXX This is another place where manipulation of the input data is
         #     happening. Maybe creating a OpaqueType class is needed? That
         #     would probably duplicate functionality from WrappedType though...
-        c = extractors.ClassDef(name=name)
+        c = extractors.ClassDef(name=name, opaqueType=True)
         # XXX Is it a good idea to always place an opaque type in the global
         #     scope? What's the alternative, making tons of opaque types with
         #     the same name in different scopes?
@@ -174,8 +174,6 @@ class Module(CppScope):
             '\n'.join(source),
             **verify_args)
 
-        self.ffi.compile('cffi')
-
         pyfile.write(nci("""\
         from %s import ffi, lib as clib
         wrapper_lib.populate_clib_ptrs(clib)
@@ -197,6 +195,8 @@ class Module(CppScope):
 
         for type in self.types:
             type.print_finalize_pycode(pyfile)
+
+        self.ffi.compile('cffi')
 
     def build_verify_args(self, verify_args):
         args = []

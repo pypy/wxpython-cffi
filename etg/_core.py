@@ -55,7 +55,7 @@ INCLUDES = [  # base and core stuff
               'vidmode',
               #'display',
               'intl',
-              #'translation',
+              'translation',
 
               'cmndata',
               'gdicmn',

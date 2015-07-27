@@ -49,6 +49,8 @@ class WrappedType(CppScope, CppType):
         for m in self.objects:
             if isinstance(m, CtorMethod) and m.iscopyctor():
                 return m.protection
+        if getattr(self.item, 'opaqueType', False):
+            return 'private'
         # Every class should have a copy ctor.
         raise Exception()
 
@@ -96,7 +98,8 @@ class WrappedType(CppScope, CppType):
         # Add a dtor if the class doesn't already have one
         from .function import DtorMethod
         if not any(isinstance(m, DtorMethod) for m in self.objects):
-            DtorMethod.new_std_dtor(self)
+            if not getattr(self.item, 'opaqueType', False):
+                DtorMethod.new_std_dtor(self)
 
         super(WrappedType, self).setup_types()
 
@@ -104,6 +107,8 @@ class WrappedType(CppScope, CppType):
 
     def setup_ctors(self):
         """Add a copy Ctor and a default Ctor, if possible."""
+        if getattr(self.item, 'opaqueType', False):
+            return
         hasanyctor = False
         hascopyctor = False
         from .function import CtorMethod
