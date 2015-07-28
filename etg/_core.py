@@ -205,7 +205,7 @@ INCLUDES = [  # base and core stuff
               #'snglinst',
               #'help',
               #'cshelp',
-              #'settings',
+              'settings',
               'sysopt',
               #'artprov',
               'dragimag',
