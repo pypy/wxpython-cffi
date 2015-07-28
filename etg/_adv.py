@@ -79,6 +79,7 @@ def run():
     module.addPyCode("import wx", order=10)
     module.addInclude(INCLUDES)
        
+    tools.runGeneratorSpecificScript(module)
     
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)

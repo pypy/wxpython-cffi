@@ -930,7 +930,9 @@ def cmd_cffi_gen(options, args):
             else:
                 WX_CONFIG = 'wx-config' # hope it is on the PATH
 
-        libs = runcmd(WX_CONFIG + ' --libs', True, False)
+        # TODO(amauryfa): have different libs for each module
+        libnames = 'core,base,net,adv,stc'
+        libs = runcmd(WX_CONFIG + ' --libs %s' % libnames, True, False)
         cxxflags = runcmd(WX_CONFIG + ' --cxxflags', True, False)
         if '-D__WXGTK__' in cxxflags:
             cxxflags += ' ' + runcmd('pkg-config --cflags gtk+-2.0', True, False)
