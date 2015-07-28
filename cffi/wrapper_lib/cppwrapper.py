@@ -340,6 +340,9 @@ def forget_ptr(ptr):
         _detach_children(obj)
         # TODO: does obj need to detach from its parent too?
 
+def is_alive(obj):
+    return bool(obj._cpp_obj)
+
 def take_ownership(obj):
     if obj is None:
         return
