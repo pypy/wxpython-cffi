@@ -2,6 +2,7 @@ from cppwrapper import (
     CppWrapper, WrapperType, VirtualMethod, VirtualMethodStub,
     VirtualDispatcher, register_cpp_classname, obj_from_ptr, get_ptr,
     forget_ptr, take_ownership, give_ownership, keep_reference, MappedBase,
+    is_alive,
     instancecheck, convert_to_type, init_wrapper, hassubclass, CastData)
 from multimethod import (
     MMTypeCheckMeta, MMTypeError, MMInternalError, check_arg_type,

@@ -940,37 +940,6 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
                               "sequence.index(x): x not in sequence");
         }}
         return idx;""".format(**locals())))
-    c.addItem(extractors.CppMethodDef_cffi(
-        '_new', isStatic=True,
-        pyArgs=extractors.ArgsString('(WL_Object elements)'),
-        pyBody="""\
-        wrapper_lib.check_args_types(
-            ({0}._pyobject_mapping_, elements, "elements"))
-
-        keepalive = []
-        ptrs = []
-        for item in elements:
-            if not isinstance(item, {1}):
-                item = {1}._pyobject_mapping_.convert(item)
-                keepalive.append(item)
-            ptrs.append(wrapper_lib.get_ptr(item))
-
-        ptr = call(len(ptrs), ffi.new('void*[]', ptrs))
-        return wrapper_lib.obj_from_ptr(ptr, {0}, True)
-        """.format(ListClass_pyName, ItemClass_pyName),
-        cReturnType='void *',
-        cArgsString='(size_t count, void **elements)',
-        # Don't send data to the constructor! This calls virtual methods,
-        # which are not yet defined in the base C++ class... wx is broken.
-        cBody='''
-        {ListClass} *list = new {ListClass}; 
-        list->DeleteContents(true); // tell the list to take ownership of the items
-        for (Py_ssize_t i = 0; i < count; i++) {{
-            list->Append(new {ItemClass}(*({ItemClass}*)elements[i]));
-        }}
-        return list;
-        '''.format(**locals()),
-    ))
     # TODO:  add support for index(value, [start, [stop]])
     c.addPyMethod(
         '__repr__', '(self)',
@@ -1034,6 +1003,37 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
         *sipCppPtr = list;
         return SIP_TEMPORARY;
         '''.format(**locals())
+        c.addItem(extractors.CppMethodDef_cffi(
+            '_new', isStatic=True,
+            pyArgs=extractors.ArgsString('(WL_Object elements)'),
+            pyBody="""\
+            wrapper_lib.check_args_types(
+                ({0}._pyobject_mapping_, elements, "elements"))
+
+            keepalive = []
+            ptrs = []
+            for item in elements:
+                if not isinstance(item, {1}):
+                    item = {1}._pyobject_mapping_.convert(item)
+                    keepalive.append(item)
+                ptrs.append(wrapper_lib.get_ptr(item))
+
+            ptr = call(len(ptrs), ffi.new('void*[]', ptrs))
+            return wrapper_lib.obj_from_ptr(ptr, {0}, True)
+            """.format(ListClass_pyName, ItemClass_pyName),
+            cReturnType='void *',
+            cArgsString='(size_t count, void **elements)',
+            # Don't send data to the constructor! This calls virtual methods,
+            # which are not yet defined in the base C++ class... wx is broken.
+            cBody='''
+            {ListClass} *list = new {ListClass}; 
+            list->DeleteContents(true); // tell the list to take ownership of the items
+            for (Py_ssize_t i = 0; i < count; i++) {{
+                list->Append(new {ItemClass}(*({ItemClass}*)elements[i]));
+            }}
+            return list;
+            '''.format(**locals()),
+        ))
 
     c.instanceCheck_cffi = """\
     if (not isinstance(py_obj, collections.Sequence) or
