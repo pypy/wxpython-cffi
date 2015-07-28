@@ -34,7 +34,8 @@ INCLUDES = [ ]
 # sources and/or additional dependencies when building this extension module.
 ETGFILES = ['etg/%s.py' % NAME] + tools.getEtgFiles(INCLUDES)
 DEPENDS = tools.getNonEtgFiles(INCLUDES)
-OTHERDEPS = [  ]
+OTHERDEPS = [ 'etg/cffi/_stc.py',
+            ]
 
 
 #---------------------------------------------------------------------------
@@ -49,7 +50,8 @@ def run():
     # Tweak the parsed meta objects in the module object as needed for
     # customizing the generated code and docstrings.
     
-    module.addHeaderCode('#include <wxpy_api.h>')
+    # XXX(amauryfa): only for SIP?
+    # module.addHeaderCode('#include <wxpy_api.h>')
     module.addImport('_core')
     module.addPyCode('import wx', order=10)
     module.addInclude(INCLUDES)
@@ -90,34 +92,9 @@ def run():
     ht2.find('row').out = True
     ht2.find('col').out = True
 
-    
-    # Replace the *Pointer methods with ones that return a memoryview object instead.
-    c.find('GetCharacterPointer').ignore()
-    c.addCppMethod('PyObject*', 'GetCharacterPointer', '()',
-        doc="""\
-            Compact the document buffer and return a read-only memoryview 
-            object of the characters in the document.""",
-        body="""
-            const char* ptr = self->GetCharacterPointer();
-            Py_ssize_t len = self->GetLength();
-            PyObject* rv;
-            wxPyBLOCK_THREADS( rv = wxPyMakeBuffer((void*)ptr, len, true) );
-            return rv;
-            """)
-    
-    c.find('GetRangePointer').ignore()
-    c.addCppMethod('PyObject*', 'GetRangePointer', '(int position, int rangeLength)',
-        doc="""\
-            Return a read-only pointer to a range of characters in the 
-            document. May move the gap so that the range is contiguous, 
-            but will only move up to rangeLength bytes.""",
-        body="""
-            const char* ptr = self->GetRangePointer(position, rangeLength);
-            Py_ssize_t len = rangeLength;
-            PyObject* rv;
-            wxPyBLOCK_THREADS( rv = wxPyMakeBuffer((void*)ptr, len, true) );
-            return rv;
-            """)
+
+    # TODO(amauryfa): GetCharacterPointer
+    # TODO(amauryfa): GetRangePointer
 
     # TODO:  Add the UTF8 PyMethods from classic (see _stc_utf8_methods.py)
     

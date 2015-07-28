@@ -16,7 +16,7 @@ def run():
     typedef struct wxPyBuffer
     {
         size_t m_len;
-        char *m_ptr;
+        char *m_ptr;  // owned, allocated with malloc()
     } wxPyBuffer;
     """)
     module.addHeaderCode(tools.textfile_open('src/cffi/wxpybuffer.h').read())
@@ -53,12 +53,10 @@ def run():
             return False
         """))
 
-    # TODO: Uncomment these when re-adding _stc or stream
-    '''
     module.addItem(etgtools.MappedTypeDef_cffi(
         name='wxMemoryBuffer', cType='wxPyBuffer *',
 
-        py2c="""
+        py2c="""\
         memview = memoryview(py_obj)
         chardata = ffi.new('char[]', memview.itemsize)
         for i in range(memview.itemsize):
@@ -70,12 +68,18 @@ def run():
         return (cdata, (cdata, chardata))
         """,
 
-        c2cpp="return new wxCharBuffer(cdata);",
+        c2cpp="""\
+        wxMemoryBuffer* buffer = new wxMemoryBuffer(cdata->m_len);
+        memcpy(buffer->GetData(), cdata->m_ptr, buffer->GetDataLen());
+        return buffer;
+        """,
 
         cpp2c="""\
-        char *cdata = (char*)malloc(cpp_obj->length() + 1);
-        memcpy(cdata, (char*)cpp_obj->GetData(), cpp_obj->GetDataLen());
-        return cdata;
+        wxPyBuffer* buffer = (wxPyBuffer*)malloc(sizeof(wxPyBuffer));
+        buffer->m_len = cpp_obj->GetDataLen();
+        buffer->m_ptr = (char*)malloc(buffer->m_len);
+        memcpy(buffer->m_ptr, cpp_obj->GetData(), cpp_obj->GetDataLen());
+        return buffer;
         """,
         c2py="""
         ret = bytearr
@@ -107,7 +111,6 @@ def run():
         return ret
         """,
         instanceCheck="return isinstance(py_obj, str)"))
-    '''
 
     #-----------------------------------------------------------------
     tools.doCommonTweaks(module)
