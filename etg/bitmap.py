@@ -23,7 +23,8 @@ ITEMS  = [ 'wxBitmap',
            'wxMask' ]    
     
 OTHERDEPS = [ 'src/bitmap_ex.h',
-              'src/bitmap_ex.cpp', ]
+              'src/bitmap_ex.cpp',
+              'etg/cffi/bitmap.py' ]
 
 
 #---------------------------------------------------------------------------
