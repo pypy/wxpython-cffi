@@ -221,7 +221,7 @@ class Method(FunctionBase):
             pyfile.write(nci(
                 "raise NotImplementedError('%s.%s() is a private method')"
                 % (self.parent.pyname, self.pyname), indent + 4))
-        elif not self.purevirtual:
+        elif 1 or not self.purevirtual:
             super(Method, self).print_actual_pycode(pyfile, indent)
         else:
             super(Method, self).print_pycode_header(pyfile, indent)

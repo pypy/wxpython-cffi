@@ -90,7 +90,7 @@ INCLUDES = [  # base and core stuff
               'graphics',
               'imaglist',
               #'overlay',
-              #'renderer',
+              'renderer',
               #'rawbmp',
 
               # more core

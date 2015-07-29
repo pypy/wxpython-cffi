@@ -86,7 +86,7 @@ def run():
     ))
 
     module.addItem(etgtools.MappedTypeDef_cffi(
-        name='wxArrayInt', cType='wxPyArrayHelper',
+        name='wxArrayInt', cType='wxPyArrayHelper*',
         py2c="""\
         array = clib.malloc(ffi.sizeof('int') * len(py_obj))
         array = ffi.cast('int*', array)
@@ -100,13 +100,13 @@ def run():
         return cdata
         """,
         c2cpp="""\
-        int *carray = (int*)cdata.array;
+        int *carray = (int*)cdata->array;
 
         wxArrayInt *array = new wxArrayInt;
-        for(int i = 0; i < cdata.length; i++)
+        for(int i = 0; i < cdata->length; i++)
             array->Add(carray[i]);
 
-        free(cdata.array);
+        free(cdata->array);
         return array;
         """,
 
@@ -116,9 +116,9 @@ def run():
         for(int i = 0; i < cpp_obj->size(); i++)
             array[i] = cpp_obj->Item(i);
 
-        wxPyArrayHelper ret;
-        ret.array = array;
-        ret.length = cpp_obj->size();
+        wxPyArrayHelper* ret = (wxPyArrayHelper*)malloc(sizeof(wxPyArrayHelper));
+        ret->array = array;
+        ret->length = cpp_obj->size();
 
         return ret;
         """,
@@ -129,6 +129,7 @@ def run():
             ret.append(array[i])
 
         clib.free(cdata.array)
+        clib.free(cdata)
         return ret
         """,
 
