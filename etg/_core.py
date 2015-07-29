@@ -190,7 +190,7 @@ INCLUDES = [  # base and core stuff
               #'tipwin',
               #'colordlg',
               #'choicdlg',
-              #'fdrepdlg',
+              'fdrepdlg',
               'mdi',
               #'fontdlg',
               #'rearrangectrl',
