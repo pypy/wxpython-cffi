@@ -85,6 +85,12 @@ def run():
         *sipCppPtr = new wxPyInputStream(sipPy);
         return sipGetState(sipTransferObj);
         """
+    c.convertFromPyObject_cffi = """\
+    return PyInputStream(py_obj)
+    """
+    c.instanceCheck_cffi = """\
+    return hasattr(py_obj, 'read')
+    """
 
 
 
