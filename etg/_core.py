@@ -150,7 +150,7 @@ INCLUDES = [  # base and core stuff
               'checkbox',
               #'listbox',
               #'checklst',
-              #'gauge',
+              'gauge',
               'headercol',
               'headerctrl',
               'srchctrl',

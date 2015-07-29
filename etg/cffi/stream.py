@@ -53,7 +53,8 @@ def run(module):
     @ffi.callback('size_t(*)(void*, size_t, int)')
     def _PyInputStream_SeekI(handle, pos, whence):
         file = ffi.from_handle(handle)
-        return file.seek(pos, whence)
+        file.seek(pos, whence)
+        return file.tell()
     clib.PyInputStream_SeekI = _PyInputStream_SeekI
     """
 
