@@ -191,7 +191,7 @@ INCLUDES = [  # base and core stuff
               #'colordlg',
               #'choicdlg',
               #'fdrepdlg',
-              #'mdi',
+              'mdi',
               #'fontdlg',
               #'rearrangectrl',
               'minifram',
