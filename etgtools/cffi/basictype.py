@@ -329,12 +329,23 @@ class VoidPtrType(CppType):
         typeinfo.wrapper_type = const + 'void*'
 
     def call_cdef_param_setup(self, typeinfo, name):
+        if typeinfo.flags.out:
+            return ("{0}{1.CFFI_PARAM_SUFFIX} = ffi.new('void**')"
+                    .format(name, typeinfo))
+
+        if typeinfo.flags.inout:
+            return """\
+            {0}{1.CFFI_PARAM_SUFFIX} = ffi.new('void**', {0})
+            """.format(name, typeinfo)
+
         return name + typeinfo.CFFI_PARAM_SUFFIX + ' = ' + name
 
     def convert_variable_cpp_to_c(self, typeinfo, name):
         return name
 
     def convert_variable_c_to_py(self, typeinfo, name):
+        if typeinfo.flags.out or typeinfo.flags.inout:
+            return '%s%s[0]' % (name, typeinfo.CFFI_PARAM_SUFFIX)
         return name
 
     def user_cpp_param_inline(self, typeinfo, name):
