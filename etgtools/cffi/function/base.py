@@ -364,8 +364,11 @@ class FunctionBase(CppObject):
 
             if param.flags.transfer and not param.flags.array:
                 # Note that transfer + array has a very different meaning
-                pyfile.write(nci("wrapper_lib.give_ownership(%s, %s)" %
-                                 (param.name, self.ownership_transfer_name),
+                code = "wrapper_lib.give_ownership({0}, {1})"
+                if param.default:
+                    code = "if {0} is not wrapper_lib.default_arg_indicator: " + code
+                pyfile.write(nci(code.format(param.name,
+                                             self.ownership_transfer_name),
                                  indent + 4))
             if param.flags.transfer_back:
                 pyfile.write(nci("wrapper_lib.take_ownership(%s)" %

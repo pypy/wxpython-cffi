@@ -23,6 +23,8 @@ ITEMS  = [ "wxTreeItemId",
            "wxTreeEvent",           
            ]    
 
+OTHERDEPS = [ 'etg/cffi/treectrl.py' ]
+
 #---------------------------------------------------------------------------
 
 def run():
@@ -152,6 +154,7 @@ def run():
         """)
     
     #-----------------------------------------------------------------
+    tools.runGeneratorSpecificScript(module)
     tools.doCommonTweaks(module)
     tools.runGenerators(module)
     
