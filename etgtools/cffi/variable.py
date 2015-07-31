@@ -34,12 +34,12 @@ class VariableBase(CppObject):
 class GlobalVariable(VariableBase):
     PREFIX = 'cffigvar'
 
-# Defines are identical to global variables except they're always ``long long``
+# Defines are identical to global variables except they're always ``int``
 class Define(GlobalVariable):
     PREFIX = 'cffidefine'
     def __init__(self, define, parent):
         super(Define, self).__init__(define, parent)
-        self.type = 'const long long'
+        self.type = 'const int'
 
     def setup(self):
         self.type = TypeInfo(self.parent, self.type, self.flags)
