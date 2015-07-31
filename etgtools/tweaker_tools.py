@@ -878,7 +878,7 @@ def wxListWrapperTemplate(ListClass, ItemClass, module, RealItemClass=None,
     
     c = extractors.ClassDef(name='{ListClass}_iterator'.format(**locals()), abstract=True)
     c.addItem(extractors.CppMethodDef(
-        ItemClass + '*', '__next__', '()', "return self->__next__();"))
+        ItemClass + '*', 'next', '()', "return self->__next__();"))
 
     c.addHeaderCode("""\
         {TypeDef}
