@@ -931,7 +931,7 @@ def cmd_cffi_gen(options, args):
                 WX_CONFIG = 'wx-config' # hope it is on the PATH
 
         # TODO(amauryfa): have different libs for each module
-        libnames = 'core,base,net,adv,stc'
+        libnames = 'core,base,net,adv,html,stc'
         libs = runcmd(WX_CONFIG + ' --libs %s' % libnames, True, False)
         cxxflags = runcmd(WX_CONFIG + ' --cxxflags', True, False)
         if '-D__WXGTK__' in cxxflags:

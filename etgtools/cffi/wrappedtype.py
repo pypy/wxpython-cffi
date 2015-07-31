@@ -565,7 +565,11 @@ class WrappedType(CppScope, CppType):
             # If returning a const object (and nocopy isn't set) make a copy of
             # the object (that Python will own) so it can be modified safely
             deref = '*' if typeinfo.ptrcount else ''
-            return "new %s(%s%s)" % (self.cppname, deref, name)
+            if self.purevirtualabstract:
+                new_name = self.cppname
+            else:
+                new_name = self.unscopedname
+            return "new %s(%s%s)" % (new_name, deref, name)
         else:
             ref = '&' if not typeinfo.ptrcount else ''
             return ref + name

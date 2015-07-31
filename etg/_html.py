@@ -30,7 +30,7 @@ INCLUDES = [
              #'htmlfilt',
              #'htmltag',
              #'htmlpars',
-             #'htmlwin',
+             'htmlwin',
              #'htmlprint',
              #'htmlwinpars',
              
@@ -80,6 +80,7 @@ def run():
         """)
     
     #-----------------------------------------------------------------
+    tools.runGeneratorSpecificScript(module)
     tools.doCommonTweaks(module)
     tools.runGenerators(module)
     
