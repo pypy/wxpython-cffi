@@ -60,7 +60,9 @@ class Param(object):
     def print_call_cdef_setup(self, pyfile, indent):
         conversion = self.type.call_cdef_param_setup(self.name)
 
-        if self.default:
+        can_be_default = self.default and not self.flags.out
+
+        if can_be_default:
             name = self.name
             if self.flags.arraysize:
                 name = self.array_param_name
@@ -70,12 +72,12 @@ class Param(object):
                 {0.name}{2.CFFI_PARAM_SUFFIX} = {0.type.default_placeholder}
             """.format(self, name, TypeInfo), indent + 4))
 
-        if conversion is not None and self.default:
+        if conversion is not None and can_be_default:
             pyfile.write(nci('else:', indent + 4))
 
         if conversion is not None:
             pyfile.write(nci(
-                conversion, indent + 4 + 4 * int(bool(self.default))))
+                conversion, indent + 4 + 4 * int(bool(can_be_default))))
 
     def print_type_check(self, pyfile, indent):
         if self.flags.arraysize or self.flags.out:
