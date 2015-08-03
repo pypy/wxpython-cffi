@@ -28,7 +28,7 @@ def run():
         name='wxClientData', cType='void*',
         py2c="""\
             with wrapper_lib.get_refcounted_handle(py_obj) as handle:
-                return (clib.new_wxPyClientData(handle), None)
+                return clib.new_wxPyClientData(handle)
         """,
         c2cpp="return (wxPyClientData*)cdata;",
         cpp2c="return ((wxPyClientData*)cpp_obj)->get_handle();",

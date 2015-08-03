@@ -125,7 +125,7 @@ def run():
         c2py="""\
         ret = []
         array = ffi.cast('int*', cdata.array)
-        for i in range(cdata):
+        for i in range(cdata.length):
             ret.append(array[i])
 
         clib.free(cdata.array)
