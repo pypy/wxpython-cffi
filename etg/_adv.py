@@ -27,7 +27,7 @@ ITEMS  = [ ]
 INCLUDES = [  
              #'aboutdlg',
              #'helpext',
-             #'commandlinkbutton',
+             'commandlinkbutton',
              #'dateevt',
              #'datectrl',
              #'calctrl',

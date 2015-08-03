@@ -133,7 +133,7 @@ INCLUDES = [  # base and core stuff
               'stattext',
               'statbox',
               'statusbar',
-              #'choice',
+              'choice',
               'anybutton',
               'button',
               'bmpbuttn',
