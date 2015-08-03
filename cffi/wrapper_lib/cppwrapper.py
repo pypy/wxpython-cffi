@@ -130,9 +130,9 @@ class CastData(object):
                 # Only store non-0 offsets. Unstored offsets are assume 0.
                 self.offsets[base] = offset
                 # Copy the offsets to each base's base, adding the offset
-                for (base_base, base_offset) in \
-                    base._castdata.get_offsets_table(ptr).iteritems():
-                    self.offsets[base_base] = base_offset + offset
+                for (base_base, base_cast_func) in base._castdata.castfuncs:
+                    casted_ptr = base_cast_func(ptr)
+                    self.offsets[base_base] = (casted_ptr - ptr) + offset
             else:
                 # Copy the offsets to each base's base
                 self.offsets.update(base._castdata.get_offsets_table(ptr))

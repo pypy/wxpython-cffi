@@ -37,7 +37,7 @@ INCLUDES = [
              #'sound',
              #'joystick',
              #'animate',
-             #'bannerwindow',
+             'bannerwindow',
              #'editlbox',
              #'notifmsg',
              'splash',

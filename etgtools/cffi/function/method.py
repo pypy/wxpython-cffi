@@ -295,7 +295,8 @@ class Method(FunctionBase):
         return all(p == other.params[i] for i, p in enumerate(self.params))
 
     def copy_onto_subclass(self, cls):
-        InheritedVirtualMethod(self, cls)
+        if self.virtual:  # XXX(amauryfa): Why this check???
+            InheritedVirtualMethod(self, cls)
 
 class InheritedVirtualMethodMixin(object):
     @args_string
