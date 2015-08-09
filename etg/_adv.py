@@ -36,7 +36,7 @@ INCLUDES = [
              'taskbar',
              #'sound',
              #'joystick',
-             #'animate',
+             'animate',
              'bannerwindow',
              #'editlbox',
              #'notifmsg',
