@@ -212,7 +212,7 @@ INCLUDES = [  # base and core stuff
               #'printfw',
               #'printdlg',
               #'mimetype',
-              #'busyinfo',
+              'busyinfo',
               'caret',
               #'fontenum',
               #'fontmap',

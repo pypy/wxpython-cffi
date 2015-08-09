@@ -37,7 +37,7 @@ def run():
             array[i] = array_item
 
             array_item[0:len(obj)] = unicode(obj)
-            array_item[len(obj)] = u'\0'
+            array_item[len(obj)] = u'\\0'
 
         return array
         """,
