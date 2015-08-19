@@ -27,7 +27,9 @@ ITEMS  = [ 'wxFontMetrics',
            'wxDCFontChanger',
            ]    
     
-OTHERDEPS = [ 'src/dc_ex.cpp', ]
+OTHERDEPS = [ 'src/dc_ex.cpp', 
+              'etg/sip/dc.py',
+              'etg/cffi/dc.py',]
     
 #---------------------------------------------------------------------------
 
@@ -174,6 +176,28 @@ def run():
     c.addPyCode('DC.GetGdkDrawable = wx.deprecated(DC.GetGdkDrawable, "Use GetHandle instead.")')
     
     
+
+    
+    c.addPyMethod('DrawPointList', '(self, points, pens=None)',
+        doc="""\
+            Draw a list of points as quickly as possible.
+    
+            :param points: A sequence of 2-element sequences representing 
+                           each point to draw, (x,y).
+            :param pens:   If None, then the current pen is used.  If a single 
+                           pen then it will be used for all points.  If a list of 
+                           pens then there should be one for each point in points.
+            """,
+        body="""\
+            if pens is None:
+                pens = []
+            elif isinstance(pens, wx.Pen):
+                pens = [pens]
+            elif len(pens) != len(points):
+                raise ValueError('points and pens must have same length')
+            return self._DrawPointList(points, pens, [])
+            """)
+
     c.addPyMethod('DrawLineList', '(self, lines, pens=None)',
         doc="""\
             Draw a list of lines as quickly as possible.
