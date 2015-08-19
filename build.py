@@ -954,6 +954,8 @@ def cmd_cffi_gen(options, args):
     cxxflags.append('-I' + opj(CFFI_DIR, 'include'))
     cxxflags.append('-I' + opj(CFFI_DIR, 'cpp_gen'))
     cxxflags.append('-I' + opj(cfg.ROOT_DIR, 'src'))
+    cxxflags.append('-O0')
+    cxxflags.append('-g')
 
     globalVerifyArgs = {'extra_compile_args': cxxflags,
                         'extra_link_args': libs,

@@ -82,7 +82,7 @@ INCLUDES = [  # base and core stuff
               'dcmemory',
               'dcbuffer',
               #'dcscreen',
-              #'dcgraph',
+              'dcgraph',
               #'dcmirror',
               'dcprint',
               #'dcps',
