@@ -36,9 +36,9 @@ def run():
     c.addPrivateCopyCtor()
        
     # There is already a wxMenuList class so we have to name this one something else.
-    module.addItem(
-        tools.wxListWrapperTemplate('wxList', 'wxMenu', module, 
-                                    fakeListClassName='wxFileHistoryMenuList'))    
+    tools.wxListWrapperTemplate('wxList', 'wxMenu', module, 
+                                fakeListClassName='wxFileHistoryMenuList')
+   
     c.find('GetMenus').type = 'const wxFileHistoryMenuList&'
     c.find('GetMenus').noCopy = True
     
