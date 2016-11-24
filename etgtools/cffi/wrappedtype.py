@@ -493,14 +493,21 @@ class WrappedType(CppScope, CppType):
                     .format(name, typeinfo, self.unscopedpyname))
 
     def virt_py_return(self, typeinfo, name):
+        if typeinfo.convert_pyobj_code is not None:
+            convert = ("""\
+        {0} = {1}._pyobject_mapping_.convert({0})\n"""
+                             .format(name, self.pyname))
+        else:
+            convert = ""
         # Replicate sip's (largely undocumented) handling of ownership of
         # objects returned by virtual methods annotated with factory or
         # transfer_back:
-        return ("""\
+        give_ownership = ("""\
         wrapper_lib.give_ownership({0}, None, {1})
         {0} = wrapper_lib.get_ptr({0}, {2})"""
         .format(name, typeinfo.flags.factory or typeinfo.flags.transfer_back,
                 self.unscopedpyname))
+        return convert + give_ownership
 
     def virt_cpp_param_setup(self, typeinfo, name):
         if typeinfo.flags.array:

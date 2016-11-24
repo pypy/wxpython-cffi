@@ -45,7 +45,7 @@ INCLUDES = [
              'laywin',
              #'odcombo',
              #'bmpcbox',
-             #'richtooltip',
+             'richtooltip',
              #'timectrl',
              #'treelist',
              #'wizard',
