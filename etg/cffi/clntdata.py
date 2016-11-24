@@ -31,7 +31,7 @@ def run():
                 return clib.new_wxPyClientData(handle)
         """,
         c2cpp="return (wxPyClientData*)cdata;",
-        cpp2c="return ((wxPyClientData*)cpp_obj)->get_handle();",
+        cpp2c="return cpp_obj?((wxPyClientData*)cpp_obj)->get_handle():NULL;",
         c2py="return None if cdata == ffi.NULL else ffi.from_handle(cdata)",
         instanceCheck='return True'))
 
